@@ -1,0 +1,171 @@
+import type { Theme, InputMode, AppUser } from '@/types';
+import { supabase } from './supabase';
+
+const KEYS = {
+  theme: 'disposisi-theme',
+  inputMode: 'disposisi-input-mode',
+  sidebar: 'disposisi-sidebar-open',
+};
+
+export function getTheme(): Theme {
+  const t = localStorage.getItem(KEYS.theme);
+  if (t === 'dark' || t === 'light') return t;
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+export function setTheme(theme: Theme): void {
+  localStorage.setItem(KEYS.theme, theme);
+  applyTheme(theme);
+}
+
+export function applyTheme(theme: Theme): void {
+  if (theme === 'dark') {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+}
+
+export function getInputMode(): InputMode {
+  return localStorage.getItem(KEYS.inputMode) === 'banyak' ? 'banyak' : 'solo';
+}
+
+export function setInputMode(mode: InputMode): void {
+  localStorage.setItem(KEYS.inputMode, mode);
+}
+
+export function getSidebarOpen(): boolean {
+  return localStorage.getItem(KEYS.sidebar) !== 'false';
+}
+
+export function setSidebarOpen(open: boolean): void {
+  localStorage.setItem(KEYS.sidebar, open ? 'true' : 'false');
+}
+
+// --- Auth (Supabase multi-user email/password + profiles) ---
+
+async function fetchProfile(userId: string): Promise<{ username: string; email: string } | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('username, email')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) return null;
+  if (!data) return null;
+  return { username: (data as { username: string }).username, email: (data as { email: string }).email };
+}
+
+export async function getCurrentUser(): Promise<AppUser | null> {
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) return null;
+  const profile = await fetchProfile(data.user.id);
+  return {
+    id: data.user.id,
+    email: data.user.email ?? profile?.email ?? '',
+    username: profile?.username ?? '',
+  };
+}
+
+export async function registerUser(username: string, email: string, password: string): Promise<void> {
+  const trimmedUsername = username.trim();
+  const trimmedEmail = email.trim();
+  if (!trimmedUsername) throw new Error('Username wajib diisi.');
+  if (!trimmedEmail) throw new Error('Email wajib diisi.');
+  if (password.length < 6) throw new Error('Password minimal 6 karakter.');
+
+  // Check username uniqueness before signing up (profiles is readable by anon)
+  const { data: existing } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('username', trimmedUsername)
+    .maybeSingle();
+  if (existing) throw new Error('Username sudah digunakan. Pilih username lain.');
+
+  // Pass username in user metadata — the database trigger (handle_new_user)
+  // reads it and auto-inserts the profile row server-side.
+  const { data, error } = await supabase.auth.signUp({
+    email: trimmedEmail,
+    password,
+    options: { data: { username: trimmedUsername } },
+  });
+  if (error) throw new Error(translateAuthError(error.message));
+  if (!data.user) throw new Error('Pendaftaran gagal.');
+
+  // Sign out immediately — user must log in explicitly
+  await supabase.auth.signOut();
+}
+
+export async function updateUsername(newUsername: string): Promise<void> {
+  const trimmed = newUsername.trim();
+  if (!trimmed) throw new Error('Username wajib diisi.');
+  if (trimmed.length < 2) throw new Error('Username minimal 2 karakter.');
+
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) throw new Error('Sesi tidak valid. Silakan login kembali.');
+
+  // Check uniqueness (exclude our own row)
+  const { data: existing } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('username', trimmed)
+    .neq('id', userData.user.id)
+    .maybeSingle();
+  if (existing) throw new Error('Username sudah digunakan.');
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ username: trimmed })
+    .eq('id', userData.user.id);
+  if (error) throw new Error('Gagal mengubah username.');
+}
+
+export async function loginUser(identifier: string, password: string): Promise<AppUser> {
+  const trimmed = identifier.trim();
+  if (!trimmed) throw new Error('Email atau username wajib diisi.');
+  if (!password) throw new Error('Password wajib diisi.');
+
+  // If the identifier looks like an email, use it directly.
+  // Otherwise, look up the email from the profiles table by username.
+  let email = trimmed;
+  if (!trimmed.includes('@')) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('username', trimmed)
+      .maybeSingle();
+    if (error) throw new Error('Terjadi kesalahan saat login.');
+    if (!data) throw new Error('Username tidak ditemukan.');
+    email = (data as { email: string }).email;
+  }
+
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw new Error(translateAuthError(error.message));
+  if (!data.user) throw new Error('Login gagal.');
+
+  const profile = await fetchProfile(data.user.id);
+  return {
+    id: data.user.id,
+    email: data.user.email ?? profile?.email ?? '',
+    username: profile?.username ?? '',
+  };
+}
+
+export async function logout(): Promise<void> {
+  await supabase.auth.signOut();
+}
+
+export async function changePassword(newPassword: string): Promise<void> {
+  if (newPassword.length < 6) throw new Error('Password baru minimal 6 karakter.');
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw new Error(translateAuthError(error.message));
+}
+
+function translateAuthError(msg: string): string {
+  const m = msg.toLowerCase();
+  if (m.includes('invalid login credentials')) return 'Email/username atau password salah.';
+  if (m.includes('user already registered')) return 'Email sudah terdaftar. Silakan login.';
+  if (m.includes('email not confirmed')) return 'Email belum dikonfirmasi.';
+  if (m.includes('password should be at least')) return 'Password minimal 6 karakter.';
+  if (m.includes('rate limit')) return 'Terlalu banyak percobaan. Coba lagi nanti.';
+  return msg;
+}
