@@ -41,7 +41,7 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
       });
     } else {
       (async () => {
-        const next = await getNextNomorUrut('surat_masuk');
+        const next = await getNextNomorUrut('agenda_pimpinan');
         setNomorUrut(next);
         setForm((prev) => ({ ...prev, tanggalKegiatan: todayISO() }));
       })();
