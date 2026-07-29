@@ -104,9 +104,8 @@ export function AgendaPimpinanPage({ rows, onRefresh }: Props) {
       await resequenceAgendaPimpinan();
       toast('Agenda berhasil dihapus.', 'success');
       onRefresh();
-    } catch {
-      toast('Gagal menghapus agenda.', 'error');
-    }
+    } catch (err) {
+toast(getErrorMessage(err, 'Gagal menghapus agenda.'), 'error');
   }
 
   if (view === 'form') {
