@@ -55,6 +55,7 @@ export interface AgendaPimpinan {
   id: string;
   nomorUrut: number;
   tanggalKegiatan: string | null; // ISO yyyy-mm-dd
+  waktuKegiatan: string; // HH:MM 24 jam
   namaKegiatan: string;
   tempatKegiatan: string;
   keterangan: string;

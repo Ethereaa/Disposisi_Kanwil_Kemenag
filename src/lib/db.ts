@@ -33,6 +33,7 @@ interface AgendaRow {
   id: string;
   nomor_urut: number;
   tanggal_kegiatan: string | null;
+  waktu_kegiatan: string | null;
   nama_kegiatan: string;
   tempat_kegiatan: string;
   keterangan: string;
@@ -83,6 +84,7 @@ function mapAgenda(r: AgendaRow): AgendaPimpinan {
     id: r.id,
     nomorUrut: r.nomor_urut,
     tanggalKegiatan: r.tanggal_kegiatan,
+    waktuKegiatan: r.waktu_kegiatan ?? '',
     namaKegiatan: r.nama_kegiatan ?? '',
     tempatKegiatan: r.tempat_kegiatan ?? '',
     keterangan: r.keterangan ?? '',
@@ -222,6 +224,7 @@ export async function insertAgendaPimpinan(record: Omit<AgendaPimpinan, 'id' | '
     .insert({
       nomor_urut: record.nomorUrut,
       tanggal_kegiatan: record.tanggalKegiatan,
+      waktu_kegiatan: record.waktuKegiatan,
       nama_kegiatan: record.namaKegiatan,
       tempat_kegiatan: record.tempatKegiatan,
       keterangan: record.keterangan,
@@ -239,6 +242,7 @@ export async function updateAgendaPimpinan(id: string, record: Omit<AgendaPimpin
     .from('agenda_pimpinan')
     .update({
       tanggal_kegiatan: record.tanggalKegiatan,
+      waktu_kegiatan: record.waktuKegiatan,
       nama_kegiatan: record.namaKegiatan,
       tempat_kegiatan: record.tempatKegiatan,
       keterangan: record.keterangan,
@@ -321,6 +325,7 @@ export async function bulkInsertAgendaPimpinan(items: AgendaPimpinan[]): Promise
   const rows = items.map((r) => ({
     nomor_urut: r.nomorUrut,
     tanggal_kegiatan: r.tanggalKegiatan,
+    waktu_kegiatan: r.waktuKegiatan,
     nama_kegiatan: r.namaKegiatan,
     tempat_kegiatan: r.tempatKegiatan,
     keterangan: r.keterangan,

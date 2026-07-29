@@ -1,0 +1,100 @@
+import { ArrowLeft, Copy, Share2 } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { isoToDisplay } from '@/lib/date';
+import type { AgendaPimpinan } from '@/types';
+
+interface Props {
+  agenda: AgendaPimpinan | null;
+  onClose: () => void;
+}
+
+export function AgendaPimpinanPreview({ agenda, onClose }: Props) {
+  if (!agenda) {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_35%),linear-gradient(135deg,#f7fcf8,#eef6f2)] p-4 text-center dark:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_35%),linear-gradient(135deg,#020617,#0f172a)]">
+        <div className="w-full max-w-md rounded-[28px] border border-emerald-100/80 bg-white/80 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/80">
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Agenda tidak ditemukan</p>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Tautan preview ini sudah tidak aktif atau agenda telah dihapus.</p>
+          <Button className="mt-5" onClick={onClose}>Kembali</Button>
+        </div>
+      </div>
+    );
+  }
+
+  const shareUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}${window.location.pathname}#/agenda-preview/${agenda.id}`
+    : '';
+
+  async function handleShare() {
+    if (!shareUrl) return;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Agenda Pimpinan', text: agenda.namaKegiatan, url: shareUrl });
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        window.alert('Link preview berhasil disalin.');
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return (
+    <div className="min-h-dvh bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_35%),linear-gradient(135deg,#f7fcf8,#eef6f2)] p-3 text-slate-800 dark:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_35%),linear-gradient(135deg,#020617,#0f172a)] dark:text-slate-100 sm:p-6">
+      <div className="mx-auto flex max-w-2xl flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <Button variant="secondary" size="sm" onClick={onClose}>
+            <ArrowLeft size={16} /> Kembali
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleShare}>
+            {navigator.share ? <Share2 size={16} /> : <Copy size={16} />} {navigator.share ? 'Bagikan' : 'Salin link'}
+          </Button>
+        </div>
+
+        <div className="overflow-hidden rounded-[32px] border border-emerald-100/80 bg-white/85 shadow-[0_26px_80px_rgba(15,23,42,0.12)] backdrop-blur-xl dark:border-slate-700 dark:bg-slate-800/85">
+          <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 px-5 py-6 text-white sm:px-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-100">Preview Agenda Pimpinan</p>
+            <h1 className="mt-2 text-2xl font-semibold leading-snug sm:text-3xl">{agenda.namaKegiatan || 'Agenda Pimpinan'}</h1>
+            <p className="mt-2 text-sm text-emerald-50/90">Tampilan ringkas untuk dibuka di ponsel atau dibagikan ke rekan kerja.</p>
+          </div>
+
+          <div className="space-y-4 p-5 sm:p-8">
+            <div className="rounded-2xl border border-emerald-100/70 bg-emerald-50/70 p-4 dark:border-slate-700 dark:bg-emerald-950/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-700 dark:text-emerald-300">Nomor Urut</p>
+                  <p className="text-xl font-semibold text-slate-800 dark:text-slate-100">{agenda.nomorUrut}</p>
+                </div>
+                <div className="rounded-2xl bg-white/80 px-3 py-2 text-right shadow-sm dark:bg-slate-900/60">
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Tanggal</p>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{isoToDisplay(agenda.tanggalKegiatan) || '-'}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-900/40">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Waktu</p>
+                <p className="mt-1 text-lg font-semibold text-slate-800 dark:text-slate-100">{agenda.waktuKegiatan || '-'}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-900/40">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Tempat</p>
+                <p className="mt-1 text-lg font-semibold text-slate-800 dark:text-slate-100">{agenda.tempatKegiatan || '-'}</p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-900/40">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Keterangan</p>
+              <p className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-200">{agenda.keterangan || '-'}</p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-900/40">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Disposisi Pegawai</p>
+              <p className="mt-2 text-base font-semibold text-slate-800 dark:text-slate-100">{agenda.disposisiPegawai || '-'}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

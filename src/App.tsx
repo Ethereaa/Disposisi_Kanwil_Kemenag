@@ -7,6 +7,7 @@ import { Dashboard } from '@/pages/Dashboard';
 import { SuratMasukPage } from '@/pages/SuratMasukPage';
 import { SuratKeluarPage } from '@/pages/SuratKeluarPage';
 import { AgendaPimpinanPage } from '@/pages/AgendaPimpinanPage';
+import { AgendaPimpinanPreview } from '@/pages/AgendaPimpinanPreview';
 import { ExportPage } from '@/pages/ExportPage';
 import { BackupPage } from '@/pages/BackupPage';
 import { SettingsPage } from '@/pages/SettingsPage';
@@ -48,6 +49,7 @@ function Root() {
   const [suratKeluar, setSuratKeluar] = useState<SuratKeluar[]>([]);
   const [agendaPimpinan, setAgendaPimpinan] = useState<AgendaPimpinan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [previewAgendaId, setPreviewAgendaId] = useState<string | null>(null);
   const [migrationInfo, setMigrationInfo] = useState<{ masuk: number; keluar: number } | null>(null);
   const [migrating, setMigrating] = useState(false);
   const [migrationDismissed, setMigrationDismissed] = useState(false);
@@ -59,12 +61,20 @@ function Root() {
     setTheme(t);
     applyTheme(t);
     initLogo();
+    const syncPreviewFromHash = () => {
+      const hash = window.location.hash;
+      const match = hash.match(/^#\/agenda-preview\/(.+)$/);
+      setPreviewAgendaId(match ? match[1] : null);
+    };
+    syncPreviewFromHash();
+    window.addEventListener('hashchange', syncPreviewFromHash);
     (async () => {
       const u = await getCurrentUser();
       setUser(u);
       if (u) setAuthed(true);
       setBootChecked(true);
     })();
+    return () => window.removeEventListener('hashchange', syncPreviewFromHash);
   }, []);
 
   // Listen for auth state changes (login / logout / token refresh)
@@ -190,10 +200,15 @@ function Root() {
 
   const meta = pageMeta[page];
   const showMigration = migrationInfo && !migrationDismissed;
+  const previewAgenda = previewAgendaId ? agendaPimpinan.find((item) => item.id === previewAgendaId) ?? null : null;
+
+  if (previewAgendaId) {
+    return <AgendaPimpinanPreview agenda={previewAgenda} onClose={() => { window.history.replaceState(null, '', window.location.pathname); setPreviewAgendaId(null); }} />;
+  }
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.12),_transparent_35%),linear-gradient(135deg,_#f7fcf8,_#f2f7f3_55%,_#eef5fb)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.14),_transparent_35%),linear-gradient(135deg,_#020617,_#0f172a_55%,_#111827)]">
-      <div className="flex min-h-screen">
+      <div className="flex min-h-screen flex-col lg:flex-row">
       <Sidebar
         active={page}
         onNavigate={handleNavigate}
@@ -212,7 +227,7 @@ function Root() {
           subtitle={meta.subtitle}
           onMenuClick={() => setSidebarOpen(true)}
         />
-        <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
+        <main className="flex-1 w-full max-w-7xl mx-auto p-3 sm:p-6">
           {showMigration && (
             <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 rounded-xl p-4 animate-slide-up">
               <div className="h-10 w-10 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
@@ -251,7 +266,7 @@ function Root() {
             </div>
           )}
         </main>
-        <footer className="px-4 sm:px-6 py-3 text-center text-[11px] text-office-subtext dark:text-slate-500 border-t border-office-border dark:border-slate-700">
+        <footer className="border-t border-office-border px-4 py-3 text-center text-[11px] text-office-subtext dark:border-slate-700 dark:text-slate-500 sm:px-6">
           {APP_TITLE}
         </footer>
       </div>

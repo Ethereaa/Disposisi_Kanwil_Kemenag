@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, Eye, Pencil, Trash2, ArrowLeft } from 'lucide-react';
+import { Plus, Eye, Pencil, Trash2, ArrowLeft, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { DataTable, type Column } from '@/components/ui/DataTable';
@@ -34,10 +34,17 @@ export function AgendaPimpinanPage({ rows, onRefresh }: Props) {
     },
     {
       key: 'tanggalKegiatan',
-      header: 'Tanggal Kegiatan',
+      header: 'Tanggal',
       sortable: true,
       sortValue: (r) => r.tanggalKegiatan ?? '',
       render: (r) => <span className="font-medium">{isoToDisplay(r.tanggalKegiatan) || '-'}</span>,
+    },
+    {
+      key: 'waktuKegiatan',
+      header: 'Waktu',
+      sortable: true,
+      sortValue: (r) => r.waktuKegiatan,
+      render: (r) => <span className="font-medium">{r.waktuKegiatan || '-'}</span>,
     },
     {
       key: 'namaKegiatan',
@@ -73,6 +80,9 @@ export function AgendaPimpinanPage({ rows, onRefresh }: Props) {
       width: '110px',
       render: (r) => (
         <div className="flex items-center gap-1">
+          <button onClick={(e) => { e.stopPropagation(); window.location.hash = `#/agenda-preview/${r.id}`; }} className="rounded-md p-1.5 text-slate-500 hover:bg-emerald-100 hover:text-emerald-600 dark:text-slate-400 dark:hover:bg-emerald-900/40" title="Buka Preview">
+            <ExternalLink size={16} />
+          </button>
           <button onClick={(e) => { e.stopPropagation(); setDetail(r); }} className="rounded-md p-1.5 text-slate-500 hover:bg-emerald-100 hover:text-emerald-600 dark:text-slate-400 dark:hover:bg-emerald-900/40" title="Lihat">
             <Eye size={16} />
           </button>
@@ -173,6 +183,7 @@ function DetailContent({ agenda }: { agenda: AgendaPimpinan }) {
   const items = [
     { label: 'Nomor Urut', value: String(agenda.nomorUrut) },
     { label: 'Tanggal Kegiatan', value: isoToDisplay(agenda.tanggalKegiatan) || '-' },
+    { label: 'Waktu Kegiatan', value: agenda.waktuKegiatan || '-' },
     { label: 'Nama Kegiatan', value: agenda.namaKegiatan || '-' },
     { label: 'Tempat Kegiatan', value: agenda.tempatKegiatan || '-' },
     { label: 'Keterangan', value: agenda.keterangan || '-' },

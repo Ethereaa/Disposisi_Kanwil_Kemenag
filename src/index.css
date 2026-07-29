@@ -9,10 +9,14 @@
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scroll-behavior: smooth;
   }
   body {
     font-family: 'Inter', system-ui, sans-serif;
     @apply min-h-screen bg-office-bg text-office-text;
+    touch-action: manipulation;
   }
   .dark body {
     @apply bg-slate-900 text-slate-100;

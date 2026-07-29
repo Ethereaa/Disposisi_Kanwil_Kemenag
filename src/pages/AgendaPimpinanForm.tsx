@@ -15,6 +15,7 @@ interface Props {
 
 const emptyForm = {
   tanggalKegiatan: '',
+  waktuKegiatan: '',
   namaKegiatan: '',
   tempatKegiatan: '',
   keterangan: '',
@@ -32,6 +33,7 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
       setNomorUrut(editing.nomorUrut);
       setForm({
         tanggalKegiatan: editing.tanggalKegiatan ?? '',
+        waktuKegiatan: editing.waktuKegiatan ?? '',
         namaKegiatan: editing.namaKegiatan,
         tempatKegiatan: editing.tempatKegiatan,
         keterangan: editing.keterangan,
@@ -53,7 +55,7 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
 
-    if (!form.tanggalKegiatan || !form.namaKegiatan.trim() || !form.tempatKegiatan.trim() || !form.keterangan || !form.disposisiPegawai) {
+    if (!form.tanggalKegiatan || !form.waktuKegiatan || !form.namaKegiatan.trim() || !form.tempatKegiatan.trim() || !form.keterangan || !form.disposisiPegawai) {
       toast('Lengkapi semua kolom wajib.', 'error');
       return;
     }
@@ -63,6 +65,7 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
       const payload = {
         nomorUrut,
         tanggalKegiatan: form.tanggalKegiatan,
+        waktuKegiatan: form.waktuKegiatan,
         namaKegiatan: form.namaKegiatan.trim(),
         tempatKegiatan: form.tempatKegiatan.trim(),
         keterangan: form.keterangan,
@@ -99,6 +102,9 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Tanggal Kegiatan" required>
           <Input type="date" value={form.tanggalKegiatan} onChange={(e) => update('tanggalKegiatan', e.target.value)} />
+        </Field>
+        <Field label="Waktu Kegiatan" required hint="Format 24 jam, contoh 14:30">
+          <Input type="time" value={form.waktuKegiatan} onChange={(e) => update('waktuKegiatan', e.target.value)} />
         </Field>
         <Field label="Nama Kegiatan" required>
           <Input value={form.namaKegiatan} onChange={(e) => update('namaKegiatan', e.target.value)} placeholder="Nama kegiatan" />
