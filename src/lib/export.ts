@@ -4,7 +4,7 @@ import { Packer, Document, Paragraph, Table, TableRow, TableCell, TextRun, Headi
 import { isoToDisplay, isWithinRange } from './date';
 import type { AgendaPimpinan, SuratMasuk, SuratKeluar, BackupData } from '@/types';
 
-type ExportScope = 'all' | 'masuk' | 'keluar' | 'range';
+type ExportScope = 'all' | 'masuk' | 'keluar' | 'agenda' | 'range';
 type ExportFormat = 'xlsx' | 'docx';
 
 interface ExportParams {
@@ -20,6 +20,11 @@ interface ExportParams {
 function filterByRange<T extends { tanggalSurat: string | null }>(items: T[], start?: string, end?: string): T[] {
   if (!start && !end) return items;
   return items.filter((i) => isWithinRange(i.tanggalSurat, start || '', end || ''));
+}
+
+function filterAgendaByRange(items: AgendaPimpinan[], start?: string, end?: string): AgendaPimpinan[] {
+  if (!start && !end) return items;
+  return items.filter((i) => isWithinRange(i.tanggalKegiatan, start || '', end || ''));
 }
 
 function masukRows(items: SuratMasuk[]) {
@@ -63,6 +68,7 @@ function agendaRows(items: AgendaPimpinan[]) {
     .map((item) => ({
       'No. Urut': item.nomorUrut,
       'Tanggal Kegiatan': isoToDisplay(item.tanggalKegiatan),
+      'Waktu Kegiatan': item.waktuKegiatan || '-',
       'Nama Kegiatan': item.namaKegiatan,
       'Tempat Kegiatan': item.tempatKegiatan,
       'Keterangan': item.keterangan,
@@ -130,6 +136,7 @@ export async function exportData(params: ExportParams): Promise<void> {
   if (scope === 'range') {
     masuk = filterByRange(masuk, params.startDate, params.endDate);
     keluar = filterByRange(keluar, params.startDate, params.endDate);
+    agenda = filterAgendaByRange(agenda, params.startDate, params.endDate);
   }
   if (scope === 'masuk') {
     keluar = [];
@@ -138,6 +145,10 @@ export async function exportData(params: ExportParams): Promise<void> {
   if (scope === 'keluar') {
     masuk = [];
     agenda = [];
+  }
+  if (scope === 'agenda') {
+    masuk = [];
+    keluar = [];
   }
 
   const stampStr = stamp();
@@ -167,11 +178,11 @@ async function exportXlsx(masuk: SuratMasuk[], keluar: SuratKeluar[], agenda: Ag
   if (keluar.length > 0 || scope === 'all' || scope === 'keluar') {
     addSheet('Surat Keluar', keluarRows(keluar));
   }
-  if (agenda.length > 0 || scope === 'all') {
+  if (agenda.length > 0 || scope === 'all' || scope === 'agenda') {
     addSheet('Agenda Pimpinan', agendaRows(agenda));
   }
 
-  const scopeLabel = scope === 'all' ? 'Semua' : scope === 'masuk' ? 'SuratMasuk' : scope === 'keluar' ? 'SuratKeluar' : 'Rentang';
+  const scopeLabel = scope === 'all' ? 'Semua' : scope === 'masuk' ? 'SuratMasuk' : scope === 'keluar' ? 'SuratKeluar' : scope === 'agenda' ? 'AgendaPimpinan' : 'Rentang';
   const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
   saveAs(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `Disposisi_${scopeLabel}_${stampStr}.xlsx`);
 }
@@ -191,7 +202,7 @@ async function exportDocx(masuk: SuratMasuk[], keluar: SuratKeluar[], agenda: Ag
   paragraphs.push(new Paragraph({ children: [new TextRun({ text: title, bold: true, size: 30, color: '2F855A' })], alignment: 'center', spacing: { after: 120 } }));
   paragraphs.push(new Paragraph({ children: [new TextRun({ text: `Diekspor: ${new Date().toLocaleString('id-ID')}`, italics: true, color: '4B5563', size: 20 })], alignment: 'center', spacing: { after: 240 } }));
 
-  if (scope === 'all' || scope === 'masuk') {
+  if (masuk.length > 0 || scope === 'all' || scope === 'masuk') {
     const rows = masukRows(masuk);
     paragraphs.push(new Paragraph({ children: [new TextRun({ text: 'Surat Masuk', bold: true, color: '1F2937', size: 24 })], spacing: { before: 240, after: 120 } }));
     if (rows.length === 0) {
@@ -200,7 +211,7 @@ async function exportDocx(masuk: SuratMasuk[], keluar: SuratKeluar[], agenda: Ag
       paragraphs.push(new Paragraph({ children: [createTable(Object.keys(rows[0]), rows.map((r) => Object.values(r)))] }));
     }
   }
-  if (scope === 'all' || scope === 'keluar') {
+  if (keluar.length > 0 || scope === 'all' || scope === 'keluar') {
     const rows = keluarRows(keluar);
     paragraphs.push(new Paragraph({ children: [new TextRun({ text: 'Surat Keluar', bold: true, color: '1F2937', size: 24 })], spacing: { before: 240, after: 120 } }));
     if (rows.length === 0) {
@@ -209,7 +220,7 @@ async function exportDocx(masuk: SuratMasuk[], keluar: SuratKeluar[], agenda: Ag
       paragraphs.push(new Paragraph({ children: [createTable(Object.keys(rows[0]), rows.map((r) => Object.values(r)))] }));
     }
   }
-  if (scope === 'all') {
+  if (agenda.length > 0 || scope === 'all' || scope === 'agenda') {
     const rows = agendaRows(agenda);
     paragraphs.push(new Paragraph({ children: [new TextRun({ text: 'Agenda Pimpinan', bold: true, color: '1F2937', size: 24 })], spacing: { before: 240, after: 120 } }));
     if (rows.length === 0) {
@@ -221,7 +232,7 @@ async function exportDocx(masuk: SuratMasuk[], keluar: SuratKeluar[], agenda: Ag
 
   const doc = new Document({ sections: [{ properties: {}, children: paragraphs }] });
   const blob = await Packer.toBlob(doc);
-  const scopeLabel = scope === 'all' ? 'Semua' : scope === 'masuk' ? 'SuratMasuk' : scope === 'keluar' ? 'SuratKeluar' : 'Rentang';
+  const scopeLabel = scope === 'all' ? 'Semua' : scope === 'masuk' ? 'SuratMasuk' : scope === 'keluar' ? 'SuratKeluar' : scope === 'agenda' ? 'AgendaPimpinan' : 'Rentang';
   saveAs(blob, `Disposisi_${scopeLabel}_${stampStr}.docx`);
 }
 
