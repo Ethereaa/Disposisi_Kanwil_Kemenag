@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { exportBackup, parseBackup } from '@/lib/export';
-import { getErrorMessage } from '@/lib/errors';
+import { getErrorMessage } from '@/lib/error';
 import { clearTable, bulkInsertMasuk, bulkInsertKeluar } from '@/lib/db';
 import { getCurrentUser } from '@/lib/storage';
 import { formatDateTime } from '@/lib/date';
