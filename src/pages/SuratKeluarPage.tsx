@@ -111,8 +111,8 @@ export function SuratKeluarPage({ rows, onRefresh }: Props) {
       await resequenceNomorUrut('surat_keluar');
       toast('Data berhasil dihapus.', 'success');
       onRefresh();
-    } catch {
-      toast('Gagal menghapus data.', 'error');
+    } catch (err) {
+toast(getErrorMessage(err, 'Gagal menghapus data.'), 'error');
     }
   }
 
