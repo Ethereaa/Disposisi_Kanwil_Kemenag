@@ -138,7 +138,7 @@ export function SuratKeluarPage({ rows, onRefresh }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-[24px] border border-emerald-100/80 bg-white/70 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur sm:flex-row sm:items-center sm:justify-between dark:border-slate-700 dark:bg-slate-800/70">
         <div>
           <h2 className="text-lg font-semibold text-office-text dark:text-slate-100">Daftar Surat Keluar</h2>
           <p className="text-sm text-office-subtext dark:text-slate-400">{filteredRows.length} surat tercatat</p>

@@ -42,6 +42,19 @@ export function Dashboard({ suratMasuk, suratKeluar, onNavigate }: DashboardProp
 
   return (
     <div className="space-y-6">
+      <div className="rounded-[28px] border border-emerald-100/80 bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-700 p-5 text-white shadow-[0_20px_45px_rgba(16,185,129,0.18)] sm:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-emerald-100">Ringkasan kerja</p>
+            <h2 className="mt-1 text-2xl font-semibold">Disposisi surat dalam satu tampilan</h2>
+            <p className="mt-2 max-w-2xl text-sm text-emerald-50/90">Pantau surat masuk, surat keluar, dan status penandatanganan dengan desain yang lebih segar dan nyaman dipandang.</p>
+          </div>
+          <div className="rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-sm backdrop-blur">
+            Total data: <span className="font-semibold">{stats.total}</span>
+          </div>
+        </div>
+      </div>
+
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {cards.map((c) => {

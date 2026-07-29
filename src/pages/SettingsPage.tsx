@@ -99,13 +99,13 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated }: Props) {
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-office-text dark:text-slate-100">Settings</h2>
-        <p className="text-sm text-office-subtext dark:text-slate-400">Kelola akun, keamanan, dan tampilan aplikasi.</p>
+      <div className="rounded-[24px] border border-emerald-100/80 bg-white/70 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/70">
+        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Settings</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Kelola akun, keamanan, dan tampilan aplikasi dengan nuansa yang lebih modern.</p>
       </div>
 
       {/* Account info */}
-      <section className="bg-white dark:bg-slate-800 rounded-2xl border border-office-border dark:border-slate-700 shadow-sm p-5 space-y-4">
+      <section className="rounded-[24px] border border-emerald-100/80 bg-white/80 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/80 space-y-4">
         <h3 className="text-sm font-semibold text-office-text dark:text-slate-200 flex items-center gap-2">
           <Mail size={16} className="text-office-primary" /> Akun
         </h3>
@@ -154,7 +154,7 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated }: Props) {
       </section>
 
       {/* Appearance */}
-      <section className="bg-white dark:bg-slate-800 rounded-2xl border border-office-border dark:border-slate-700 shadow-sm p-5 space-y-4">
+      <section className="rounded-[24px] border border-emerald-100/80 bg-white/80 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/80 space-y-4">
         <h3 className="text-sm font-semibold text-office-text dark:text-slate-200 flex items-center gap-2">
           <Sun size={16} className="text-amber-500" /> Tampilan
         </h3>
@@ -199,7 +199,7 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated }: Props) {
       </section>
 
       {/* Password */}
-      <section className="bg-white dark:bg-slate-800 rounded-2xl border border-office-border dark:border-slate-700 shadow-sm p-5 space-y-4">
+      <section className="rounded-[24px] border border-emerald-100/80 bg-white/80 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/80 space-y-4">
         <h3 className="text-sm font-semibold text-office-text dark:text-slate-200 flex items-center gap-2">
           <ShieldCheck size={16} className="text-emerald-600" /> Keamanan
         </h3>

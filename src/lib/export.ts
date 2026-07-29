@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import { Packer, Document, Paragraph, Table, TableRow, TableCell, TextRun, HeadingLevel } from 'docx';
 import { isoToDisplay, isWithinRange } from './date';
 import type { SuratMasuk, SuratKeluar, BackupData } from '@/types';
 
@@ -62,6 +63,50 @@ function stamp(): string {
   return `${local.getFullYear()}${pad(local.getMonth() + 1)}${pad(local.getDate())}_${pad(local.getHours())}${pad(local.getMinutes())}`;
 }
 
+function createExcelCellStyle(fillColor: string, fontColor = '000000', bold = false) {
+  return {
+    fill: { fgColor: { rgb: fillColor }, type: 'pattern', patternType: 'solid' },
+    font: { bold, color: { rgb: fontColor }, sz: 11 },
+    alignment: { vertical: 'center', wrapText: true },
+    border: {
+      top: { style: 'thin', color: { rgb: 'DCEFE0' } },
+      bottom: { style: 'thin', color: { rgb: 'DCEFE0' } },
+      left: { style: 'thin', color: { rgb: 'DCEFE0' } },
+      right: { style: 'thin', color: { rgb: 'DCEFE0' } },
+    },
+  };
+}
+
+function styleExcelSheet(ws: XLSX.WorkSheet, headers: string[], rows: (string | number)[][]) {
+  const dataRows = rows.length;
+  const range = XLSX.utils.decode_range(ws['!ref'] ?? `A1:${XLSX.utils.encode_cell({ r: dataRows, c: headers.length - 1 })}`);
+
+  for (let r = range.s.r; r <= range.e.r; r += 1) {
+    for (let c = range.s.c; c <= range.e.c; c += 1) {
+      const cellRef = XLSX.utils.encode_cell({ r, c });
+      const cell = ws[cellRef];
+      if (!cell) continue;
+
+      if (r === 0) {
+        cell.s = createExcelCellStyle('2F855A', 'FFFFFF', true);
+        cell.alignment = { ...cell.alignment, horizontal: 'center' };
+      } else if (r % 2 === 1) {
+        cell.s = createExcelCellStyle('F6FFF6', '111827', false);
+      } else {
+        cell.s = createExcelCellStyle('FFFFFF', '111827', false);
+      }
+    }
+  }
+
+  ws['!cols'] = headers.map((header, index) => {
+    const widths = [header.length, ...rows.map((row) => String(row[index] ?? '').length)];
+    return { width: Math.max(16, ...widths.map((value) => value + 2)) };
+  });
+
+  ws['!autofilter'] = { ref: ws['!ref'] ?? `A1:${XLSX.utils.encode_cell({ r: dataRows, c: headers.length - 1 })}` };
+  ws['!freeze'] = { ySplit: 1 };
+}
+
 export async function exportData(params: ExportParams): Promise<void> {
   const { scope, format } = params;
   let masuk = params.suratMasuk;
@@ -84,69 +129,64 @@ export async function exportData(params: ExportParams): Promise<void> {
 
 async function exportXlsx(masuk: SuratMasuk[], keluar: SuratKeluar[], scope: ExportScope, stampStr: string) {
   const wb = XLSX.utils.book_new();
+
+  const addSheet = (name: string, rows: Record<string, string | number>[]) => {
+    if (rows.length === 0) return;
+    const headers = Object.keys(rows[0]);
+    const data = rows.map((row) => headers.map((header) => row[header] ?? '-'));
+    const sheet = XLSX.utils.aoa_to_sheet([headers, ...data]);
+    styleExcelSheet(sheet, headers, data);
+    XLSX.utils.book_append_sheet(wb, sheet, name);
+  };
+
   if (masuk.length > 0 || scope === 'all' || scope === 'masuk') {
-    const ws = XLSX.utils.json_to_sheet(masukRows(masuk));
-    XLSX.utils.book_append_sheet(wb, ws, 'Surat Masuk');
+    addSheet('Surat Masuk', masukRows(masuk));
   }
   if (keluar.length > 0 || scope === 'all' || scope === 'keluar') {
-    const ws = XLSX.utils.json_to_sheet(keluarRows(keluar));
-    XLSX.utils.book_append_sheet(wb, ws, 'Surat Keluar');
+    addSheet('Surat Keluar', keluarRows(keluar));
   }
+
   const scopeLabel = scope === 'all' ? 'Semua' : scope === 'masuk' ? 'SuratMasuk' : scope === 'keluar' ? 'SuratKeluar' : 'Rentang';
   const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
   saveAs(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `Disposisi_${scopeLabel}_${stampStr}.xlsx`);
 }
 
-function escapeHtml(s: string): string {
-  return (s || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+function createTable(headers: string[], rows: (string | number)[][]): Table {
+  const headerCells = headers.map((h) => new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: h, bold: true, color: 'FFFFFF', size: 22 })], spacing: { after: 80 } })], shading: { type: 'solid', color: '2F855A' }, margins: { top: 100, bottom: 100, left: 100, right: 100 } }));
 
-function tableHtml(headers: string[], rows: (string | number)[][]): string {
-  const head = headers.map((h) => `<th style="border:1px solid #999;padding:6px 8px;background:#1E293B;color:#fff;text-align:left;font-family:Arial;">${escapeHtml(h)}</th>`).join('');
-  const body = rows
-    .map(
-      (r) =>
-        `<tr>${r
-          .map((c) => `<td style="border:1px solid #999;padding:6px 8px;font-family:Arial;">${escapeHtml(String(c))}</td>`)
-          .join('')}</tr>`,
-    )
-    .join('');
-  return `<table style="border-collapse:collapse;width:100%;">${head}${body}</table>`;
+  const rowCells = rows.map((r, rowIndex) => new TableRow({ children: r.map((c) => new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: String(c), size: 20, color: '1F2937' })], spacing: { after: 60 } })], shading: { type: 'solid', color: rowIndex % 2 === 0 ? 'F6FFF6' : 'FFFFFF' }, margins: { top: 100, bottom: 100, left: 100, right: 100 } })) }));
+
+  return new Table({ rows: [new TableRow({ children: headerCells }), ...rowCells], width: { size: 100, type: 'pct' }, borders: { top: { style: 'single', size: 1, color: 'C6EAD6' }, bottom: { style: 'single', size: 1, color: 'C6EAD6' }, left: { style: 'single', size: 1, color: 'C6EAD6' }, right: { style: 'single', size: 1, color: 'C6EAD6' }, insideHorizontal: { style: 'single', size: 1, color: 'DCEFE0' }, insideVertical: { style: 'single', size: 1, color: 'DCEFE0' } } });
 }
 
 async function exportDocx(masuk: SuratMasuk[], keluar: SuratKeluar[], scope: ExportScope, stampStr: string) {
   const title = 'Disposisi Surat - Kanwil Kementerian Agama Provinsi Gorontalo';
-  const parts: string[] = [];
-  parts.push(`<h1 style="font-family:Arial;text-align:center;">${escapeHtml(title)}</h1>`);
-  parts.push(`<p style="font-family:Arial;text-align:center;color:#666;">Diekspor: ${new Date().toLocaleString('id-ID')}</p><br/>`);
+  const paragraphs: Paragraph[] = [];
+
+  paragraphs.push(new Paragraph({ children: [new TextRun({ text: title, bold: true, size: 30, color: '2F855A' })], alignment: 'center', spacing: { after: 120 } }));
+  paragraphs.push(new Paragraph({ children: [new TextRun({ text: `Diekspor: ${new Date().toLocaleString('id-ID')}`, italics: true, color: '4B5563', size: 20 })], alignment: 'center', spacing: { after: 240 } }));
 
   if (scope === 'all' || scope === 'masuk') {
     const rows = masukRows(masuk);
-    parts.push(`<h2 style="font-family:Arial;">Surat Masuk</h2>`);
+    paragraphs.push(new Paragraph({ children: [new TextRun({ text: 'Surat Masuk', bold: true, color: '1F2937', size: 24 })], spacing: { before: 240, after: 120 } }));
     if (rows.length === 0) {
-      parts.push(`<p style="font-family:Arial;color:#999;">Tidak ada data.</p>`);
+      paragraphs.push(new Paragraph({ children: [new TextRun({ text: 'Tidak ada data.', italics: true, color: '9CA3AF', size: 20 })], spacing: { after: 240 } }));
     } else {
-      parts.push(tableHtml(Object.keys(rows[0]), rows.map((r) => Object.values(r))));
+      paragraphs.push(new Paragraph({ children: [createTable(Object.keys(rows[0]), rows.map((r) => Object.values(r)))] }));
     }
-    parts.push('<br/>');
   }
   if (scope === 'all' || scope === 'keluar') {
     const rows = keluarRows(keluar);
-    parts.push(`<h2 style="font-family:Arial;">Surat Keluar</h2>`);
+    paragraphs.push(new Paragraph({ children: [new TextRun({ text: 'Surat Keluar', bold: true, color: '1F2937', size: 24 })], spacing: { before: 240, after: 120 } }));
     if (rows.length === 0) {
-      parts.push(`<p style="font-family:Arial;color:#999;">Tidak ada data.</p>`);
+      paragraphs.push(new Paragraph({ children: [new TextRun({ text: 'Tidak ada data.', italics: true, color: '9CA3AF', size: 20 })], spacing: { after: 240 } }));
     } else {
-      parts.push(tableHtml(Object.keys(rows[0]), rows.map((r) => Object.values(r))));
+      paragraphs.push(new Paragraph({ children: [createTable(Object.keys(rows[0]), rows.map((r) => Object.values(r)))] }));
     }
   }
 
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${parts.join('')}</body></html>`;
-  const blob = new Blob([html], { type: 'application/msword' });
+  const doc = new Document({ sections: [{ properties: {}, children: paragraphs }] });
+  const blob = await Packer.toBlob(doc);
   const scopeLabel = scope === 'all' ? 'Semua' : scope === 'masuk' ? 'SuratMasuk' : scope === 'keluar' ? 'SuratKeluar' : 'Rentang';
   saveAs(blob, `Disposisi_${scopeLabel}_${stampStr}.docx`);
 }

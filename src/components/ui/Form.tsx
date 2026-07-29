@@ -13,13 +13,13 @@ export function Field({ label, required, hint, error, children }: FieldProps) {
   return (
     <div className="flex flex-col gap-1.5">
       {label && (
-        <label className="text-sm font-medium text-office-text dark:text-slate-200">
-          {label} {required && <span className="text-red-500">*</span>}
+        <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+          {label} {required && <span className="text-rose-500">*</span>}
         </label>
       )}
       {children}
-      {hint && !error && <p className="text-xs text-office-subtext dark:text-slate-500">{hint}</p>}
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {hint && !error && <p className="text-xs text-slate-500 dark:text-slate-400">{hint}</p>}
+      {error && <p className="text-xs text-rose-500">{error}</p>}
     </div>
   );
 }
@@ -31,7 +31,7 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
 );
 
 export function Textarea({ className = '', ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea className={`input-base resize-y min-h-[80px] ${className}`} {...props} />;
+  return <textarea className={`input-base min-h-[90px] resize-y ${className}`} {...props} />;
 }
 
 interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
@@ -50,19 +50,19 @@ export function Select({ className = '', options, placeholder, ...props }: Selec
           </option>
         ))}
       </select>
-      <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-office-subtext dark:text-slate-400" />
+      <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
     </div>
   );
 }
 
 export function Checkbox({ label, checked, onChange }: { label: ReactNode; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label className="inline-flex items-center gap-2 cursor-pointer select-none text-sm text-office-text dark:text-slate-200">
+    <label className="inline-flex items-center gap-2 cursor-pointer select-none text-sm text-slate-700 dark:text-slate-200">
       <input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 rounded border-office-border text-office-primary focus:ring-office-primary/30 dark:border-slate-600 dark:bg-slate-800"
+        className="h-4 w-4 rounded border-emerald-200 text-emerald-600 focus:ring-emerald-400/30 dark:border-slate-600 dark:bg-slate-800"
       />
       {label}
     </label>

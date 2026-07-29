@@ -187,7 +187,8 @@ function Root() {
   const showMigration = migrationInfo && !migrationDismissed;
 
   return (
-    <div className="flex min-h-screen bg-office-bg dark:bg-slate-900">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.12),_transparent_35%),linear-gradient(135deg,_#f7fcf8,_#f2f7f3_55%,_#eef5fb)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.14),_transparent_35%),linear-gradient(135deg,_#020617,_#0f172a_55%,_#111827)]">
+      <div className="flex min-h-screen">
       <Sidebar
         active={page}
         onNavigate={handleNavigate}
@@ -247,6 +248,7 @@ function Root() {
         <footer className="px-4 sm:px-6 py-3 text-center text-[11px] text-office-subtext dark:text-slate-500 border-t border-office-border dark:border-slate-700">
           {APP_TITLE}
         </footer>
+      </div>
       </div>
     </div>
   );

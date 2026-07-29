@@ -87,7 +87,7 @@ export function DataTable<T extends { id: string }>({
     <div className="flex flex-col gap-3">
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div className="relative flex-1 max-w-sm">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-office-subtext dark:text-slate-400" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
           <input
             value={query}
             onChange={(e) => { setQuery(e.target.value); setPage(1); }}
@@ -98,26 +98,26 @@ export function DataTable<T extends { id: string }>({
         {filters && <div className="flex flex-wrap gap-2">{filters}</div>}
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-office-border dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm">
+      <div className="overflow-x-auto rounded-[24px] border border-emerald-100/80 bg-white/80 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/80">
         <div className="max-h-[65vh] overflow-auto">
           <table className="w-full text-sm">
-            <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-slate-900/80 backdrop-blur">
+            <thead className="sticky top-0 z-10 bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
               <tr>
                 {columns.map((c) => (
                   <th
                     key={c.key}
                     style={c.width ? { width: c.width } : undefined}
-                    className={`px-4 py-3 text-left font-semibold text-office-text dark:text-slate-200 border-b border-office-border dark:border-slate-700 whitespace-nowrap ${c.sortable ? 'cursor-pointer select-none hover:bg-slate-200/60 dark:hover:bg-slate-800/60' : ''} ${c.className || ''}`}
+                    className={`px-4 py-3 text-left font-semibold whitespace-nowrap ${c.sortable ? 'cursor-pointer select-none hover:bg-white/10' : ''} ${c.className || ''}`}
                     onClick={() => c.sortable && toggleSort(c.key)}
                   >
                     <span className="inline-flex items-center gap-1.5">
                       {c.header}
                       {c.sortable && (
-                        <span className="text-office-subtext dark:text-slate-400">
+                        <span className="opacity-90">
                           {sort?.key === c.key ? (
                             sort.dir === 'asc' ? <ArrowUp size={13} /> : <ArrowDown size={13} />
                           ) : (
-                            <ArrowUpDown size={13} className="opacity-40" />
+                            <ArrowUpDown size={13} className="opacity-70" />
                           )}
                         </span>
                       )}
@@ -129,7 +129,7 @@ export function DataTable<T extends { id: string }>({
             <tbody>
               {pageRows.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} className="px-4 py-12 text-center text-office-subtext dark:text-slate-500">
+                  <td colSpan={columns.length} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
                     <Inbox size={32} className="mx-auto mb-2 opacity-40" />
                     <p>{emptyMessage}</p>
                   </td>
@@ -139,10 +139,10 @@ export function DataTable<T extends { id: string }>({
                   <tr
                     key={row.id}
                     onClick={() => onRowClick?.(row)}
-                    className={`border-b border-office-border dark:border-slate-700/60 transition-colors ${onRowClick ? 'cursor-pointer hover:bg-blue-50/50 dark:hover:bg-slate-700/40' : 'hover:bg-slate-50 dark:hover:bg-slate-700/30'} ${i % 2 === 1 ? 'bg-slate-50/40 dark:bg-slate-800/30' : ''}`}
+                    className={`border-b border-emerald-100/70 transition-colors dark:border-slate-700/60 ${onRowClick ? 'cursor-pointer hover:bg-emerald-50/70 dark:hover:bg-slate-700/40' : 'hover:bg-slate-50 dark:hover:bg-slate-700/30'} ${i % 2 === 1 ? 'bg-slate-50/60 dark:bg-slate-800/30' : ''}`}
                   >
                     {columns.map((c) => (
-                      <td key={c.key} className={`px-4 py-3 text-office-text dark:text-slate-200 align-top ${c.className || ''}`}>
+                      <td key={c.key} className={`px-4 py-3 text-slate-700 align-top dark:text-slate-200 ${c.className || ''}`}>
                         {c.render ? c.render(row) : (row as Record<string, ReactNode>)[c.key]}
                       </td>
                     ))}
@@ -155,16 +155,16 @@ export function DataTable<T extends { id: string }>({
       </div>
 
       {filtered.length > 0 && (
-        <div className="flex flex-col sm:flex-row gap-3 items-center justify-between text-sm text-office-subtext dark:text-slate-400">
+        <div className="flex flex-col sm:flex-row gap-3 items-center justify-between text-sm text-slate-500 dark:text-slate-400">
           <p>
             Menampilkan {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, filtered.length)} dari {filtered.length} data
           </p>
           <div className="flex items-center gap-1">
-            <button onClick={() => setPage(1)} disabled={safePage === 1} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"><ChevronsLeft size={16} /></button>
-            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage === 1} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"><ChevronLeft size={16} /></button>
-            <span className="px-3 py-1 font-medium text-office-text dark:text-slate-200">{safePage} / {totalPages}</span>
-            <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={safePage === totalPages} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"><ChevronRight size={16} /></button>
-            <button onClick={() => setPage(totalPages)} disabled={safePage === totalPages} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"><ChevronsRight size={16} /></button>
+            <button onClick={() => setPage(1)} disabled={safePage === 1} className="rounded-xl p-1.5 hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed dark:hover:bg-slate-700"><ChevronsLeft size={16} /></button>
+            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage === 1} className="rounded-xl p-1.5 hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed dark:hover:bg-slate-700"><ChevronLeft size={16} /></button>
+            <span className="px-3 py-1 font-medium text-slate-700 dark:text-slate-200">{safePage} / {totalPages}</span>
+            <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={safePage === totalPages} className="rounded-xl p-1.5 hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed dark:hover:bg-slate-700"><ChevronRight size={16} /></button>
+            <button onClick={() => setPage(totalPages)} disabled={safePage === totalPages} className="rounded-xl p-1.5 hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed dark:hover:bg-slate-700"><ChevronsRight size={16} /></button>
           </div>
         </div>
       )}

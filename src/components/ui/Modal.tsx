@@ -35,18 +35,18 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: M
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-900/50 animate-fade-in" onClick={onClose} />
-      <div className={`relative w-full ${sizes[size]} max-h-[90vh] overflow-hidden rounded-2xl bg-white dark:bg-slate-800 shadow-2xl animate-scale-in flex flex-col`}>
+      <div className="absolute inset-0 bg-slate-900/55 backdrop-blur-sm animate-fade-in" onClick={onClose} />
+      <div className={`relative w-full ${sizes[size]} max-h-[90vh] overflow-hidden rounded-[28px] border border-white/70 bg-white/85 shadow-[0_24px_80px_rgba(15,23,42,0.16)] backdrop-blur-xl animate-scale-in flex flex-col dark:border-slate-700 dark:bg-slate-800/85`}>
         {title && (
-          <div className="flex items-center justify-between border-b border-office-border dark:border-slate-700 px-5 py-4">
-            <h3 className="text-lg font-semibold text-office-text dark:text-slate-100">{title}</h3>
-            <button onClick={onClose} className="text-office-subtext hover:text-office-text dark:text-slate-400 dark:hover:text-slate-200 transition-colors">
-              <X size={20} />
+          <div className="flex items-center justify-between border-b border-emerald-100/80 px-5 py-4 dark:border-slate-700">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{title}</h3>
+            <button onClick={onClose} className="rounded-full p-1.5 text-slate-500 transition-colors hover:bg-emerald-50 hover:text-emerald-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200">
+              <X size={18} />
             </button>
           </div>
         )}
         <div className="overflow-y-auto px-5 py-4 flex-1">{children}</div>
-        {footer && <div className="border-t border-office-border dark:border-slate-700 px-5 py-3 flex items-center justify-end gap-2 bg-slate-50 dark:bg-slate-900/40">{footer}</div>}
+        {footer && <div className="border-t border-emerald-100/80 bg-white/60 px-5 py-3 flex items-center justify-end gap-2 dark:border-slate-700 dark:bg-slate-900/40">{footer}</div>}
       </div>
     </div>
   );
@@ -82,7 +82,7 @@ export function ConfirmModal({
         </>
       }
     >
-      <p className="text-sm text-office-text dark:text-slate-300 leading-relaxed">{message}</p>
+      <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{message}</p>
     </Modal>
   );
 }

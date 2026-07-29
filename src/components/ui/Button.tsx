@@ -10,23 +10,23 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-office-primary text-white hover:bg-office-primaryHover shadow-sm focus:ring-office-primary/30',
-  secondary: 'bg-office-secondary text-office-text hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600 focus:ring-slate-400/30',
-  danger: 'bg-red-600 text-white hover:bg-red-700 shadow-sm focus:ring-red-500/30',
-  ghost: 'text-office-text hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800 focus:ring-slate-400/20',
-  outline: 'border border-office-border bg-white text-office-text hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700 focus:ring-slate-400/20',
+  primary: 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-[0_12px_30px_rgba(16,185,129,0.22)] hover:from-emerald-500 hover:to-teal-500 focus:ring-emerald-500/30',
+  secondary: 'border border-emerald-100 bg-white/80 text-slate-700 shadow-sm hover:bg-emerald-50 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-100 dark:hover:bg-slate-700 focus:ring-emerald-400/20',
+  danger: 'bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-[0_10px_24px_rgba(244,63,94,0.22)] hover:from-rose-500 hover:to-red-500 focus:ring-rose-500/30',
+  ghost: 'text-slate-700 hover:bg-emerald-50 dark:text-slate-200 dark:hover:bg-slate-800 focus:ring-emerald-400/20',
+  outline: 'border border-emerald-200 bg-white/70 text-slate-700 hover:bg-emerald-50 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-100 dark:hover:bg-slate-700 focus:ring-emerald-400/20',
 };
 
 const sizes: Record<Size, string> = {
-  sm: 'px-3 py-1.5 text-sm gap-1.5 rounded-lg',
-  md: 'px-4 py-2 text-sm gap-2 rounded-lg',
-  lg: 'px-5 py-2.5 text-base gap-2 rounded-lg',
+  sm: 'px-3 py-1.5 text-sm gap-1.5 rounded-xl',
+  md: 'px-4 py-2 text-sm gap-2 rounded-2xl',
+  lg: 'px-5 py-2.5 text-base gap-2 rounded-2xl',
 };
 
 export function Button({ variant = 'primary', size = 'md', className = '', children, ...props }: ButtonProps) {
   return (
     <button
-      className={`inline-flex items-center justify-center font-medium transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 active:scale-[0.98] ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`inline-flex items-center justify-center font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 active:scale-[0.98] ${variants[variant]} ${sizes[size]} ${className}`}
       {...props}
     >
       {children}
