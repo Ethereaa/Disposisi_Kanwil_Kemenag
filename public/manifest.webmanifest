@@ -10,7 +10,7 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/kemenag.svg",
+      "src": "/kemenag-seeklogo.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"

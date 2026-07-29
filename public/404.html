@@ -5,11 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Redirecting…</title>
     <script>
-      const requestedPath = window.location.pathname + window.location.search + window.location.hash;
-      const pathParts = window.location.pathname.split('/').filter(Boolean);
-      const basePath = pathParts.length > 1 ? '/' + pathParts.slice(0, -1).join('/') : '/';
-      const redirectUrl = `${basePath}/?redirect=${encodeURIComponent(requestedPath)}`;
-      window.location.replace(redirectUrl);
+      const params = new URLSearchParams(window.location.search);
+      const redirect = params.get('redirect');
+      if (redirect) {
+        window.location.replace(redirect);
+      } else {
+        const requestedPath = window.location.pathname + window.location.search + window.location.hash;
+        const pathParts = window.location.pathname.split('/').filter(Boolean);
+        const basePath = pathParts.length > 1 ? '/' + pathParts[0] : '/';
+        const redirectUrl = `${basePath}/?redirect=${encodeURIComponent(requestedPath)}`;
+        window.location.replace(redirectUrl);
+      }
     </script>
   </head>
   <body>
