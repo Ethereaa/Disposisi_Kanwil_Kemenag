@@ -23,7 +23,13 @@ export function AgendaPreviewHome() {
     return () => { mounted = false; };
   }, []);
 
-  const sortedRows = useMemo(() => [...rows].sort((a, b) => Number(a.tanggalKegiatan || '9999-99-99').localeCompare?.(String(b.tanggalKegiatan || '9999-99-99')) ?? 0), [rows]);
+  const sortedRows = useMemo(
+    () =>
+      [...rows]
+        .sort((a, b) => Number(a.tanggalKegiatan || '9999-99-99').localeCompare?.(String(b.tanggalKegiatan || '9999-99-99')) ?? 0)
+        .slice(0, 10),
+    [rows],
+  );
 
   return (
     <div className="min-h-dvh bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_35%),linear-gradient(135deg,#f7fcf8,#eef6f2)] p-4 text-slate-800 dark:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_35%),linear-gradient(135deg,#020617,#0f172a)] dark:text-slate-100 sm:p-6">

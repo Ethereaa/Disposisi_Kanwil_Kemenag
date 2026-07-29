@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Field, Input, Textarea, Select } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
 import { AGENDA_KETERANGAN_OPTIONS, type AgendaPimpinan } from '@/types';
-import { insertAgendaPimpinan, updateAgendaPimpinan, getNextNomorUrut } from '@/lib/db';
+import { insertAgendaPimpinanAtTop, updateAgendaPimpinan } from '@/lib/db';
 import { todayISO } from '@/lib/date';
 import { getErrorMessage } from '@/lib/error';
 
@@ -41,11 +41,8 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
         disposisiPegawai: editing.disposisiPegawai,
       });
     } else {
-      (async () => {
-        const next = await getNextNomorUrut('agenda_pimpinan');
-        setNomorUrut(next);
-        setForm((prev) => ({ ...prev, tanggalKegiatan: todayISO() }));
-      })();
+      setNomorUrut(1);
+      setForm((prev) => ({ ...prev, tanggalKegiatan: todayISO() }));
     }
   }, [editing]);
 
@@ -63,20 +60,26 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
 
     setBusy(true);
     try {
-      const payload = {
-        nomorUrut,
-        tanggalKegiatan: form.tanggalKegiatan,
-        waktuKegiatan: form.waktuKegiatan,
-        namaKegiatan: form.namaKegiatan.trim(),
-        tempatKegiatan: form.tempatKegiatan.trim(),
-        keterangan: form.keterangan,
-        disposisiPegawai: form.disposisiPegawai.trim(),
-      };
-
       if (editing) {
+        const payload = {
+          nomorUrut,
+          tanggalKegiatan: form.tanggalKegiatan,
+          waktuKegiatan: form.waktuKegiatan,
+          namaKegiatan: form.namaKegiatan.trim(),
+          tempatKegiatan: form.tempatKegiatan.trim(),
+          keterangan: form.keterangan,
+          disposisiPegawai: form.disposisiPegawai.trim(),
+        };
         await updateAgendaPimpinan(editing.id, payload);
       } else {
-        await insertAgendaPimpinan(payload);
+        await insertAgendaPimpinanAtTop({
+          tanggalKegiatan: form.tanggalKegiatan,
+          waktuKegiatan: form.waktuKegiatan,
+          namaKegiatan: form.namaKegiatan.trim(),
+          tempatKegiatan: form.tempatKegiatan.trim(),
+          keterangan: form.keterangan,
+          disposisiPegawai: form.disposisiPegawai.trim(),
+        });
       }
 
       toast('Agenda berhasil disimpan.', 'success');

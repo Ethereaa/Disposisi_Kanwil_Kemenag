@@ -148,6 +148,7 @@ toast(getErrorMessage(err, 'Gagal menghapus agenda.'), 'error');
         searchPlaceholder="Cari agenda pimpinan..."
         emptyMessage="Belum ada agenda pimpinan. Klik 'Tambah Agenda' untuk menambahkan."
         initialSort={{ key: 'nomorUrut', dir: 'asc' }}
+        pageSize={10}
         onRowClick={(r) => setDetail(r)}
       />
 

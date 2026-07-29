@@ -237,6 +237,28 @@ export async function insertAgendaPimpinan(record: Omit<AgendaPimpinan, 'id' | '
   return mapAgenda(data as AgendaRow);
 }
 
+// Inserts a new agenda at nomor_urut = 1 and shifts every existing row
+// down by 1, atomically, via the insert_agenda_pimpinan_at_top() database
+// function. Use this instead of insertAgendaPimpinan() for the "newest
+// always on top" behavior.
+export async function insertAgendaPimpinanAtTop(
+  record: Omit<AgendaPimpinan, 'id' | 'createdAt' | 'updatedAt' | 'nomorUrut'>,
+): Promise<AgendaPimpinan> {
+  const { data: userData } = await supabase.auth.getUser();
+  const email = userData.user?.email ?? '';
+  const { data, error } = await supabase.rpc('insert_agenda_pimpinan_at_top', {
+    p_tanggal_kegiatan: record.tanggalKegiatan,
+    p_waktu_kegiatan: record.waktuKegiatan,
+    p_nama_kegiatan: record.namaKegiatan,
+    p_tempat_kegiatan: record.tempatKegiatan,
+    p_keterangan: record.keterangan,
+    p_disposisi_pegawai: record.disposisiPegawai,
+    p_created_by_email: email,
+  });
+  if (error) throw error;
+  return mapAgenda(data as AgendaRow);
+}
+
 export async function updateAgendaPimpinan(id: string, record: Omit<AgendaPimpinan, 'id' | 'createdAt' | 'updatedAt' | 'nomorUrut'>): Promise<void> {
   const { error } = await supabase
     .from('agenda_pimpinan')
@@ -280,10 +302,10 @@ export async function resequenceNomorUrut(table: SuratTable): Promise<void> {
 export async function resequenceAgendaPimpinan(): Promise<void> {
   const { data, error } = await supabase
     .from('agenda_pimpinan')
-    .select('id, created_at')
-    .order('created_at', { ascending: true });
+    .select('id, nomor_urut')
+    .order('nomor_urut', { ascending: true });
   if (error) throw error;
-  const rows = data as { id: string; created_at: string }[];
+  const rows = data as { id: string; nomor_urut: number }[];
   await Promise.all(
     rows.map((r, i) =>
       supabase.from('agenda_pimpinan').update({ nomor_urut: i + 1 }).eq('id', r.id),
