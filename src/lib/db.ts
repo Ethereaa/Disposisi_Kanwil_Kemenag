@@ -122,7 +122,7 @@ export async function getAllAgendaPimpinan(): Promise<AgendaPimpinan[]> {
   return (data as AgendaRow[]).map(mapAgenda);
 }
 
-export async function getNextNomorUrut(table: SuratTable): Promise<number> {
+export async function getNextNomorUrut(table: SuratTable | AgendaTable): Promise<number> {
   const { data, error } = await supabase
     .from(table)
     .select('nomor_urut')
