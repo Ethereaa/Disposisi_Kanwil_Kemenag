@@ -6,6 +6,7 @@ import { useToast } from '@/components/ui/Toast';
 import { AGENDA_KETERANGAN_OPTIONS, type AgendaPimpinan } from '@/types';
 import { insertAgendaPimpinan, updateAgendaPimpinan, getNextNomorUrut } from '@/lib/db';
 import { todayISO } from '@/lib/date';
+import { getErrorMessage } from '@/lib/errors';
 
 interface Props {
   editing?: AgendaPimpinan | null;
@@ -80,8 +81,7 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
 
       toast('Agenda berhasil disimpan.', 'success');
       onSaved();
-    } catch {
-      toast('Gagal menyimpan agenda.', 'error');
+    } catch (err) {toast(getErrorMessage(err, 'Gagal menyimpan agenda.'), 'error');
     } finally {
       setBusy(false);
     }
