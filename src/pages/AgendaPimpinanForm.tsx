@@ -6,7 +6,7 @@ import { useToast } from '@/components/ui/Toast';
 import { AGENDA_KETERANGAN_OPTIONS, type AgendaPimpinan } from '@/types';
 import { insertAgendaPimpinan, updateAgendaPimpinan, getNextNomorUrut } from '@/lib/db';
 import { todayISO } from '@/lib/date';
-import { getErrorMessage } from '@/lib/errors';
+import { getErrorMessage } from '@/lib/error';
 
 interface Props {
   editing?: AgendaPimpinan | null;
