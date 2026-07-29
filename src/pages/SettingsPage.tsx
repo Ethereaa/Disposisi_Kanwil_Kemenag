@@ -197,7 +197,7 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated }: Props) {
               <Button variant="outline" size="sm" onClick={() => logoInputRef.current?.click()}>
                 <Upload size={15} /> Unggah
               </Button>
-              {logoSrc !== '/kemenag.svg' && (
+              {logoSrc !== '/kemenag-seeklogo.svg' && (
                 <Button variant="ghost" size="sm" onClick={handleResetLogo}>
                   <RotateCcw size={15} /> Default
                 </Button>

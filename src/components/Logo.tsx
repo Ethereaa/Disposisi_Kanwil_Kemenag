@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import KemenagLogo from '/kemenag.svg';
+import KemenagLogo from '/kemenag-seeklogo.svg';
 import { subscribeLogo, getLogoSrc, getLogoSize } from '@/lib/logo';
 
 export function Logo({ size, className = '' }: { size?: number; className?: string }) {

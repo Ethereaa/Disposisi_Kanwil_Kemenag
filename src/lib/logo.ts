@@ -1,6 +1,6 @@
 const KEY = 'disposisi-custom-logo';
 const SIZE_KEY = 'disposisi-logo-size';
-const DEFAULT_LOGO = '/kemenag.svg';
+const DEFAULT_LOGO = '/kemenag-seeklogo.svg';
 const DEFAULT_SIZE = 40;
 const listeners = new Set<() => void>();
 let current: string | null = null;
