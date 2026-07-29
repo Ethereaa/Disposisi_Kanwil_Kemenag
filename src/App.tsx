@@ -137,11 +137,15 @@ function Root() {
     setSidebarOpen(false);
   }
 
-  function handleAuthed() {
+  function handleAuthed(user?: AppUser) {
     setAuthed(true);
-    getCurrentUser().then((u) => {
-      if (u) setUser(u);
-    });
+    if (user) {
+      setUser(user);
+    } else {
+      getCurrentUser().then((u) => {
+        if (u) setUser(u);
+      });
+    }
   }
 
   async function handleLogout() {

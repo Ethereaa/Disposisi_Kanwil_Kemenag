@@ -52,17 +52,40 @@ async function fetchProfile(userId: string): Promise<{ username: string; email: 
     .maybeSingle();
   if (error) return null;
   if (!data) return null;
-  return { username: (data as { username: string }).username, email: (data as { email: string }).email };
+  return { username: data.username, email: data.email };
+}
+
+async function fetchProfileByEmail(email: string): Promise<{ username: string; email: string } | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('username, email')
+    .eq('email', email)
+    .maybeSingle();
+  if (error) return null;
+  if (!data) return null;
+  return { username: data.username, email: data.email };
+}
+
+function getFallbackUsername(email?: string, metadata?: any): string {
+  const usernameFromMetadata = metadata?.username?.trim();
+  if (usernameFromMetadata) return usernameFromMetadata;
+  if (email) return email.split('@')[0];
+  return '';
 }
 
 export async function getCurrentUser(): Promise<AppUser | null> {
   const { data } = await supabase.auth.getUser();
   if (!data.user) return null;
+
   const profile = await fetchProfile(data.user.id);
+  const email = data.user.email ?? profile?.email ?? '';
+  const profileByEmail = !profile && email ? await fetchProfileByEmail(email) : null;
+  const fallbackUsername = getFallbackUsername(email, data.user.user_metadata);
+
   return {
     id: data.user.id,
-    email: data.user.email ?? profile?.email ?? '',
-    username: profile?.username ?? '',
+    email,
+    username: profile?.username ?? profileByEmail?.username ?? fallbackUsername,
   };
 }
 
@@ -143,10 +166,11 @@ export async function loginUser(identifier: string, password: string): Promise<A
   if (!data.user) throw new Error('Login gagal.');
 
   const profile = await fetchProfile(data.user.id);
+  const fallbackUsername = getFallbackUsername(data.user.email ?? undefined, data.user.user_metadata);
   return {
     id: data.user.id,
     email: data.user.email ?? profile?.email ?? '',
-    username: profile?.username ?? '',
+    username: profile?.username ?? fallbackUsername,
   };
 }
 

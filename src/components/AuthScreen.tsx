@@ -4,11 +4,11 @@ import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/Button';
 import { Field, Input } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
-import { APP_TITLE, APP_SHORT } from '@/types';
+import { APP_TITLE, APP_SHORT, type AppUser } from '@/types';
 import { loginUser, registerUser } from '@/lib/storage';
 
 interface AuthScreenProps {
-  onAuthed: () => void;
+  onAuthed: (user?: AppUser) => void;
 }
 
 type Mode = 'login' | 'register';
@@ -37,9 +37,9 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
     setBusy(true);
     try {
       if (mode === 'login') {
-        await loginUser(identifier, password);
+        const user = await loginUser(identifier, password);
         toast('Berhasil login. Selamat datang!', 'success');
-        onAuthed();
+        onAuthed(user);
       } else {
         await registerUser(username, email, password);
         toast('Registrasi berhasil, silakan login.', 'success');
@@ -62,7 +62,7 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
             {APP_SHORT}
           </h1>
           <p className="text-center text-sm text-office-subtext dark:text-slate-400 mt-1 max-w-xs">
-            Kelola disposisi surat masuk dan keluar bersama keluarga
+            Kelola disposisi surat masuk dan keluar
           </p>
         </div>
 
@@ -159,8 +159,8 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
             <Users size={16} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
             <p className="text-xs text-blue-800 dark:text-blue-200">
               {mode === 'register'
-                ? 'Setiap anggota keluarga membuat akun sendiri dengan username dan email masing-masing. Setelah daftar, silakan login.'
-                : 'Masuk dengan email atau username yang Anda daftarkan. Semua orang melihat dan mengelola surat yang sama.'}
+                ? 'Setelah daftar, silakan login.'
+                : 'Masuk dengan email atau username yang Anda daftarkan.'}
             </p>
           </div>
         </div>

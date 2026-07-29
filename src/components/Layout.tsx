@@ -90,10 +90,10 @@ export function Sidebar({ active, onNavigate, open, onToggle, theme, onToggleThe
           </div>
           <div className="flex items-center gap-2 px-2 py-2 rounded-lg bg-white/5">
             <div className="h-8 w-8 rounded-full bg-office-primary text-white flex items-center justify-center text-sm font-semibold shrink-0">
-              {(username || email).charAt(0).toUpperCase()}
+              {(username || email.split('@')[0]).charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-white truncate">{username || email}</p>
+              <p className="text-xs font-medium text-white truncate">{username || email.split('@')[0]}</p>
               <p className="text-[11px] text-slate-400 truncate">{username ? email : 'Anggota Keluarga'}</p>
             </div>
             <button onClick={onLogout} title="Keluar" className="text-slate-400 hover:text-red-400 transition-colors p-1">
