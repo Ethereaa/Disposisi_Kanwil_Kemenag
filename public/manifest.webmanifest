@@ -1,0 +1,19 @@
+{
+  "name": "Agenda Pimpinan Kanwil",
+  "short_name": "Agenda Kanwil",
+  "description": "Preview agenda pimpinan yang cepat dibuka dari ponsel dan dipasang sebagai aplikasi Android.",
+  "start_url": "/#/agenda-preview-home",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7fcf8",
+  "theme_color": "#0f766e",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/kemenag.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

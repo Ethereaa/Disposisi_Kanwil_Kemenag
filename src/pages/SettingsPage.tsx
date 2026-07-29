@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Mail, Lock, Moon, Sun, Save, ShieldCheck, RotateCcw, Upload, User } from 'lucide-react';
+import { Mail, Lock, Moon, Sun, Save, ShieldCheck, RotateCcw, Upload, User, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Field, Input } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
@@ -23,12 +23,16 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated }: Props) {
   const [busyPw, setBusyPw] = useState(false);
   const [logoSrc, setLogoSrc] = useState(getLogoSrc());
   const [logoSize, setLogoSizeState] = useState(getLogoSize());
+  const [installable, setInstallable] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     setLogoSrc(getLogoSrc());
     setLogoSizeState(getLogoSize());
+    const handler = () => setInstallable(true);
+    window.addEventListener('beforeinstallprompt', handler as EventListener);
+    return () => window.removeEventListener('beforeinstallprompt', handler as EventListener);
   }, []);
 
   useEffect(() => {
@@ -104,6 +108,16 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated }: Props) {
     const normalized = Math.max(24, Math.min(220, next));
     setLogoSizeState(normalized);
     setLogoSize(normalized);
+  }
+
+  async function handleInstallApp() {
+    const event = window.deferredInstallPrompt as Event & { prompt?: () => Promise<void>; userChoice?: Promise<{ outcome: string }> } | undefined;
+    if (!event?.prompt) {
+      toast('Instalasi tidak tersedia saat ini. Coba buka aplikasi dari browser Chrome/Edge Android.', 'info');
+      return;
+    }
+    await event.prompt();
+    setInstallable(false);
   }
 
   return (
@@ -218,6 +232,24 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated }: Props) {
           <Button variant="outline" size="sm" onClick={onToggleTheme}>
             {theme === 'dark' ? <><Sun size={15} /> Light</> : <><Moon size={15} /> Dark</>}
           </Button>
+        </div>
+      </section>
+
+      {/* PWA */}
+      <section className="rounded-[24px] border border-emerald-100/80 bg-white/80 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/80 space-y-4">
+        <h3 className="text-sm font-semibold text-office-text dark:text-slate-200 flex items-center gap-2">
+          <Smartphone size={16} className="text-emerald-600" /> Instal Aplikasi Android
+        </h3>
+        <div className="rounded-xl border border-emerald-100/70 bg-emerald-50/70 p-4 dark:border-slate-700 dark:bg-emerald-950/20">
+          <p className="text-sm text-slate-700 dark:text-slate-200">Pasang aplikasi ini sebagai PWA agar tampil seperti aplikasi Android dengan nama <span className="font-semibold">Agenda Pimpinan Kanwil</span>.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button variant="primary" size="sm" onClick={handleInstallApp} disabled={!installable}>
+              <Smartphone size={15} /> {installable ? 'Install Sekarang' : 'Siap diinstall'}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => window.open('/#/agenda-preview-home', '_self')}>
+              Buka Preview Agenda
+            </Button>
+          </div>
         </div>
       </section>
 

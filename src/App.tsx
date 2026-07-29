@@ -8,6 +8,7 @@ import { SuratMasukPage } from '@/pages/SuratMasukPage';
 import { SuratKeluarPage } from '@/pages/SuratKeluarPage';
 import { AgendaPimpinanPage } from '@/pages/AgendaPimpinanPage';
 import { AgendaPimpinanPreview } from '@/pages/AgendaPimpinanPreview';
+import { AgendaPreviewHome } from '@/pages/AgendaPreviewHome';
 import { ExportPage } from '@/pages/ExportPage';
 import { BackupPage } from '@/pages/BackupPage';
 import { SettingsPage } from '@/pages/SettingsPage';
@@ -63,6 +64,10 @@ function Root() {
     initLogo();
     const syncPreviewFromHash = () => {
       const hash = window.location.hash;
+      if (hash === '#/agenda-preview-home') {
+        setPreviewAgendaId('__home__');
+        return;
+      }
       const match = hash.match(/^#\/agenda-preview\/(.+)$/);
       setPreviewAgendaId(match ? match[1] : null);
     };
@@ -201,6 +206,10 @@ function Root() {
   const meta = pageMeta[page];
   const showMigration = migrationInfo && !migrationDismissed;
   const previewAgenda = previewAgendaId ? agendaPimpinan.find((item) => item.id === previewAgendaId) ?? null : null;
+
+  if (previewAgendaId === '__home__') {
+    return <AgendaPreviewHome />;
+  }
 
   if (previewAgendaId) {
     return <AgendaPimpinanPreview agenda={previewAgenda} onClose={() => { window.history.replaceState(null, '', window.location.pathname); setPreviewAgendaId(null); }} />;
