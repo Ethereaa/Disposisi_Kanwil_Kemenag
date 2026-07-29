@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { exportBackup, parseBackup } from '@/lib/export';
+import { getErrorMessage } from '@/lib/errors';
 import { clearTable, bulkInsertMasuk, bulkInsertKeluar } from '@/lib/db';
 import { getCurrentUser } from '@/lib/storage';
 import { formatDateTime } from '@/lib/date';
@@ -35,8 +36,8 @@ export function BackupPage({ suratMasuk, suratKeluar, agendaPimpinan, onRefresh 
       };
       exportBackup(data);
       toast('Backup berhasil diunduh.', 'success');
-    } catch {
-      toast('Gagal membuat backup.', 'error');
+    } catch (err) {
+      toast(getErrorMessage(err, 'Gagal membuat backup.'), 'error');
     } finally {
       setBusy(false);
     }
@@ -68,8 +69,8 @@ export function BackupPage({ suratMasuk, suratKeluar, agendaPimpinan, onRefresh 
       await bulkInsertKeluar(pendingRestore.suratKeluar);
       toast('Data berhasil dipulihkan.', 'success');
       onRefresh();
-    } catch {
-      toast('Gagal memulihkan data.', 'error');
+    } catch (err) {
+      toast(getErrorMessage(err, 'Gagal memulihkan data.'), 'error');
     } finally {
       setBusy(false);
       setPendingRestore(null);
