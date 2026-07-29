@@ -54,8 +54,8 @@ export function ExportPage({ suratMasuk, suratKeluar, agendaPimpinan }: Props) {
         agendaPimpinan,
       });
       toast(`Export ${format.toUpperCase()} berhasil.`, 'success');
-    } catch {
-      toast('Gagal mengekspor data.', 'error');
+    } catch (err) {
+toast(getErrorMessage(err, 'Gagal mengekspor data.'), 'error');
     } finally {
       setBusy(false);
     }
