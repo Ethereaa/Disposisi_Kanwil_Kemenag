@@ -46,8 +46,8 @@ export function Dashboard({ suratMasuk, suratKeluar, onNavigate }: DashboardProp
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-emerald-100">Ringkasan kerja</p>
-            <h2 className="mt-1 text-2xl font-semibold">Disposisi surat dalam satu tampilan</h2>
-            <p className="mt-2 max-w-2xl text-sm text-emerald-50/90">Pantau surat masuk, surat keluar, dan status penandatanganan dengan desain yang lebih segar dan nyaman dipandang.</p>
+            <h2 className="mt-1 text-2xl font-semibold">Daftar Disposisi Surat</h2>
+            <p className="mt-2 max-w-2xl text-sm text-emerald-50/90">Ringkasan Surat Masuk & Surat Keluar.</p>
           </div>
           <div className="rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-sm backdrop-blur">
             Total data: <span className="font-semibold">{stats.total}</span>

@@ -66,12 +66,12 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
             </div>
             <h1 className="max-w-md text-3xl font-semibold leading-tight sm:text-4xl">{APP_SHORT}</h1>
             <p className="mt-3 max-w-md text-sm leading-6 text-emerald-50/90 sm:text-base">
-              Platform disposisi surat yang terasa lebih modern, cepat, dan nyaman untuk kerja harian.
+              Platform Disposisi & Agenda Pimpinan.
             </p>
             <div className="mt-8 rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
               <div className="flex items-center gap-3">
                 <Users size={18} className="text-emerald-100" />
-                <p className="text-sm text-emerald-50/90">Kelola surat masuk, surat keluar, dan ekspor data dengan lebih tenang.</p>
+                <p className="text-sm text-emerald-50/90">Kelola Surat Masuk, Surat Keluar, dan Agenda Pimpinan dengan flexibel.</p>
               </div>
             </div>
           </div>

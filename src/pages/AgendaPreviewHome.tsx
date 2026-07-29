@@ -38,7 +38,7 @@ export function AgendaPreviewHome() {
               <h1 className="text-xl font-semibold">Daftar Preview Agenda</h1>
             </div>
           </div>
-          <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">Aplikasi Android ini menampilkan agenda pimpinan secara ringkas dan cepat untuk dibuka dari layar ponsel.</p>
+          <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">Real Time List Update.</p>
         </div>
 
         {loading ? (
