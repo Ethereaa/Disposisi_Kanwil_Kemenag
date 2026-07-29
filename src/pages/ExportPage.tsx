@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileSpreadsheet, FileText, Download, CalendarRange, Database, Inbox, Send } from 'lucide-react';
+import { FileSpreadsheet, FileText, Download, CalendarRange, Database, Inbox, Send, CalendarClock } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Field, Input } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
@@ -13,12 +13,13 @@ interface Props {
   agendaPimpinan: AgendaPimpinan[];
 }
 
-type Scope = 'all' | 'masuk' | 'keluar' | 'range';
+type Scope = 'all' | 'masuk' | 'keluar' | 'agenda' | 'range';
 
 const scopeOptions: { key: Scope; label: string; desc: string; icon: typeof Database }[] = [
-  { key: 'all', label: 'Semua Data', desc: 'Surat masuk & keluar', icon: Database },
+  { key: 'all', label: 'Semua Data', desc: 'Surat masuk, keluar & agenda pimpinan', icon: Database },
   { key: 'masuk', label: 'Surat Masuk', desc: 'Hanya surat masuk', icon: Inbox },
   { key: 'keluar', label: 'Surat Keluar', desc: 'Hanya surat keluar', icon: Send },
+  { key: 'agenda', label: 'Agenda Pimpinan', desc: 'Hanya agenda pimpinan', icon: CalendarClock },
   { key: 'range', label: 'Rentang Tanggal', desc: 'Filter berdasarkan tanggal', icon: CalendarRange },
 ];
 
