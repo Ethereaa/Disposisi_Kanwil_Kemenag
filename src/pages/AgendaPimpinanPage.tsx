@@ -106,6 +106,7 @@ export function AgendaPimpinanPage({ rows, onRefresh }: Props) {
       onRefresh();
     } catch (err) {
 toast(getErrorMessage(err, 'Gagal menghapus agenda.'), 'error');
+    }
   }
 
   if (view === 'form') {
