@@ -38,8 +38,6 @@ export function BackupPage({ suratMasuk, suratKeluar, agendaPimpinan, onRefresh 
       toast('Backup berhasil diunduh.', 'success');
     } catch (err) {
       toast(getErrorMessage(err, 'Gagal membuat backup.'), 'error');
-    }
-  }
     } finally {
       setBusy(false);
     }
