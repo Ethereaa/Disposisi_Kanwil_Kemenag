@@ -103,8 +103,8 @@ export function SuratKeluarForm({ editing, onSaved, onCancel }: Props) {
         toast('Data berhasil disimpan.', 'success');
         onSaved(false);
       }
-    } catch {
-      toast('Gagal menyimpan data.', 'error');
+    } catch (err) {
+toast(getErrorMessage(err, 'Gagal menyimpan data.'), 'error');
     } finally {
       setBusy(false);
     }
