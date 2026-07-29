@@ -1,6 +1,6 @@
 import { ArrowLeft, Copy, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { isoToDisplay } from '@/lib/date';
+import { isoToDisplayWithDay } from '@/lib/date';
 import type { AgendaPimpinan } from '@/types';
 
 interface Props {
@@ -67,7 +67,7 @@ export function AgendaPimpinanPreview({ agenda, onClose }: Props) {
                 </div>
                 <div className="rounded-2xl bg-white/80 px-3 py-2 text-right shadow-sm dark:bg-slate-900/60">
                   <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Tanggal</p>
-                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{isoToDisplay(agenda.tanggalKegiatan) || '-'}</p>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{isoToDisplayWithDay(agenda.tanggalKegiatan) || '-'}</p>
                 </div>
               </div>
             </div>

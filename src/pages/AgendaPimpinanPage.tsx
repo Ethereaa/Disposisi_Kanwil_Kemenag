@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { useToast } from '@/components/ui/Toast';
-import { isoToDisplay, formatDateTime } from '@/lib/date';
+import { isoToDisplayWithDay, formatDateTime } from '@/lib/date';
 import { deleteAgendaPimpinan, resequenceAgendaPimpinan } from '@/lib/db';
 import type { AgendaPimpinan } from '@/types';
 import { AgendaPimpinanForm } from './AgendaPimpinanForm';
@@ -37,7 +37,7 @@ export function AgendaPimpinanPage({ rows, onRefresh }: Props) {
       header: 'Tanggal',
       sortable: true,
       sortValue: (r) => r.tanggalKegiatan ?? '',
-      render: (r) => <span className="font-medium">{isoToDisplay(r.tanggalKegiatan) || '-'}</span>,
+      render: (r) => <span className="font-medium">{isoToDisplayWithDay(r.tanggalKegiatan) || '-'}</span>,
     },
     {
       key: 'waktuKegiatan',
@@ -182,7 +182,7 @@ toast(getErrorMessage(err, 'Gagal menghapus agenda.'), 'error');
 function DetailContent({ agenda }: { agenda: AgendaPimpinan }) {
   const items = [
     { label: 'Nomor Urut', value: String(agenda.nomorUrut) },
-    { label: 'Tanggal Kegiatan', value: isoToDisplay(agenda.tanggalKegiatan) || '-' },
+    { label: 'Tanggal Kegiatan', value: isoToDisplayWithDay(agenda.tanggalKegiatan) || '-' },
     { label: 'Waktu Kegiatan', value: agenda.waktuKegiatan || '-' },
     { label: 'Nama Kegiatan', value: agenda.namaKegiatan || '-' },
     { label: 'Tempat Kegiatan', value: agenda.tempatKegiatan || '-' },

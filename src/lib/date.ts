@@ -14,6 +14,25 @@ export function isoToDisplay(iso: string | null | undefined): string {
   return `${d}/${m}/${y}`;
 }
 
+const HARI_ID = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+
+export function isoToDayName(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return '';
+  // Construct using local (noon) time to avoid UTC off-by-one day shifts.
+  const date = new Date(y, m - 1, d, 12);
+  return HARI_ID[date.getDay()];
+}
+
+export function isoToDisplayWithDay(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const day = isoToDayName(iso);
+  const display = isoToDisplay(iso);
+  if (!day || !display) return display;
+  return `${day}, ${display}`;
+}
+
 export function displayToISO(display: string): string {
   const trimmed = display.trim();
   if (!trimmed) return '';
