@@ -7,15 +7,16 @@ import { exportBackup, parseBackup } from '@/lib/export';
 import { clearTable, bulkInsertMasuk, bulkInsertKeluar } from '@/lib/db';
 import { getCurrentUser } from '@/lib/storage';
 import { formatDateTime } from '@/lib/date';
-import type { SuratMasuk, SuratKeluar, BackupData } from '@/types';
+import type { AgendaPimpinan, SuratMasuk, SuratKeluar, BackupData } from '@/types';
 
 interface Props {
   suratMasuk: SuratMasuk[];
   suratKeluar: SuratKeluar[];
+  agendaPimpinan: AgendaPimpinan[];
   onRefresh: () => void;
 }
 
-export function BackupPage({ suratMasuk, suratKeluar, onRefresh }: Props) {
+export function BackupPage({ suratMasuk, suratKeluar, agendaPimpinan, onRefresh }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [pendingRestore, setPendingRestore] = useState<BackupData | null>(null);
   const [busy, setBusy] = useState(false);
@@ -30,6 +31,7 @@ export function BackupPage({ suratMasuk, suratKeluar, onRefresh }: Props) {
         exportedAt: new Date().toISOString(),
         suratMasuk,
         suratKeluar,
+        agendaPimpinan,
       };
       exportBackup(data);
       toast('Backup berhasil diunduh.', 'success');
@@ -74,7 +76,7 @@ export function BackupPage({ suratMasuk, suratKeluar, onRefresh }: Props) {
     }
   }
 
-  const total = suratMasuk.length + suratKeluar.length;
+  const total = suratMasuk.length + suratKeluar.length + agendaPimpinan.length;
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -94,14 +96,18 @@ export function BackupPage({ suratMasuk, suratKeluar, onRefresh }: Props) {
             <p className="text-xs text-office-subtext dark:text-slate-400">{total} total data tersimpan di cloud</p>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-slate-50 dark:bg-slate-900/40 rounded-lg p-3 border border-office-border dark:border-slate-700">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-lg border border-office-border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/40">
             <p className="text-xs text-office-subtext dark:text-slate-400">Surat Masuk</p>
             <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{suratMasuk.length}</p>
           </div>
-          <div className="bg-slate-50 dark:bg-slate-900/40 rounded-lg p-3 border border-office-border dark:border-slate-700">
+          <div className="rounded-lg border border-office-border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/40">
             <p className="text-xs text-office-subtext dark:text-slate-400">Surat Keluar</p>
             <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{suratKeluar.length}</p>
+          </div>
+          <div className="rounded-lg border border-office-border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/40">
+            <p className="text-xs text-office-subtext dark:text-slate-400">Agenda Pimpinan</p>
+            <p className="text-xl font-bold text-amber-600 dark:text-amber-400">{agendaPimpinan.length}</p>
           </div>
         </div>
       </div>
@@ -176,6 +182,10 @@ export function BackupPage({ suratMasuk, suratKeluar, onRefresh }: Props) {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-office-subtext dark:text-slate-400">Surat Keluar</span>
                 <span className="text-sm font-semibold text-office-text dark:text-slate-200">{pendingRestore.suratKeluar.length} data</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-office-subtext dark:text-slate-400">Agenda Pimpinan</span>
+                <span className="text-sm font-semibold text-office-text dark:text-slate-200">{pendingRestore.agendaPimpinan?.length ?? 0} data</span>
               </div>
               {pendingRestore.exportedAt && (
                 <div className="flex items-center justify-between pt-2 border-t border-office-border dark:border-slate-700">

@@ -5,11 +5,12 @@ import { Field, Input } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
 import { displayToISO, isoToDisplay } from '@/lib/date';
 import { exportData } from '@/lib/export';
-import type { SuratMasuk, SuratKeluar } from '@/types';
+import type { AgendaPimpinan, SuratMasuk, SuratKeluar } from '@/types';
 
 interface Props {
   suratMasuk: SuratMasuk[];
   suratKeluar: SuratKeluar[];
+  agendaPimpinan: AgendaPimpinan[];
 }
 
 type Scope = 'all' | 'masuk' | 'keluar' | 'range';
@@ -21,7 +22,7 @@ const scopeOptions: { key: Scope; label: string; desc: string; icon: typeof Data
   { key: 'range', label: 'Rentang Tanggal', desc: 'Filter berdasarkan tanggal', icon: CalendarRange },
 ];
 
-export function ExportPage({ suratMasuk, suratKeluar }: Props) {
+export function ExportPage({ suratMasuk, suratKeluar, agendaPimpinan }: Props) {
   const [scope, setScope] = useState<Scope>('all');
   const [format, setFormat] = useState<'xlsx' | 'docx'>('xlsx');
   const [startDisplay, setStartDisplay] = useState('');
@@ -49,6 +50,7 @@ export function ExportPage({ suratMasuk, suratKeluar }: Props) {
         endDate: displayToISO(endDisplay),
         suratMasuk,
         suratKeluar,
+        agendaPimpinan,
       });
       toast(`Export ${format.toUpperCase()} berhasil.`, 'success');
     } catch {
@@ -153,7 +155,7 @@ export function ExportPage({ suratMasuk, suratKeluar }: Props) {
           <Download size={18} /> {busy ? 'Memproses...' : 'Export Sekarang'}
         </Button>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          {suratMasuk.length} surat masuk · {suratKeluar.length} surat keluar
+          {suratMasuk.length} surat masuk · {suratKeluar.length} surat keluar · {agendaPimpinan.length} agenda pimpinan
         </p>
       </div>
     </div>

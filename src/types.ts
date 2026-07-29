@@ -51,11 +51,25 @@ export interface AppUser {
   username: string;
 }
 
+export interface AgendaPimpinan {
+  id: string;
+  nomorUrut: number;
+  tanggalKegiatan: string | null; // ISO yyyy-mm-dd
+  namaKegiatan: string;
+  tempatKegiatan: string;
+  keterangan: string;
+  disposisiPegawai: string;
+  createdByEmail?: string;
+  createdAt: string; // ISO timestamp
+  updatedAt: string; // ISO timestamp
+}
+
 export interface BackupData {
   version: number;
   exportedAt: string;
   suratMasuk: SuratMasuk[];
   suratKeluar: SuratKeluar[];
+  agendaPimpinan: AgendaPimpinan[];
 }
 
 export type Theme = 'light' | 'dark';
@@ -65,6 +79,7 @@ export type PageKey =
   | 'dashboard'
   | 'surat-masuk'
   | 'surat-keluar'
+  | 'agenda-pimpinan'
   | 'export'
   | 'backup'
   | 'settings';
@@ -85,6 +100,23 @@ export const SUB_DISPOSISI: SubDisposisi[] = [
   'Ortala & KUB',
   'Umum/Humas/PTSP',
 ];
+
+export const AGENDA_KETERANGAN_OPTIONS = [
+  'Dihadiri',
+  'Tentatif',
+  'Diwakili oleh Kabag TU',
+  'Diwakili oleh Kabid Penmad',
+  'Diwakili oleh Kabid Papkis',
+  'Diwakili oleh Kabid Bimas Islam',
+  'Diwakili oleh Pembimas Kristen',
+  'Diwakili oleh Pembimas Katolik',
+  'Diwakili oleh Kakankemenag Kota Gorontalo',
+  'Diwakili oleh Kakankemenag Kabupaten Gorontalo',
+  'Diwakili oleh Kakankemenag Kabupaten Boalemo',
+  'Diwakili oleh Kakankemenag Kabupaten Pohuwato',
+  'Diwakili oleh Kakankemenag Bone Bolango',
+  'Diwakili oleh Kakankemenag Gorontalo Utara',
+] as const;
 
 export const APP_TITLE = 'Disposisi Surat Masuk dan Keluar Kanwil Kementerian Agama Provinsi Gorontalo';
 export const APP_SHORT = 'Disposisi Surat Kanwil Kemenag Gorontalo';

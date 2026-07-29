@@ -5,7 +5,7 @@ import { Field, Input } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
 import { Logo } from '@/components/Logo';
 import { getCurrentUser, changePassword, updateUsername } from '@/lib/storage';
-import { setCustomLogo, clearCustomLogo, getLogoSrc } from '@/lib/logo';
+import { setCustomLogo, clearCustomLogo, getLogoSrc, getLogoSize, setLogoSize } from '@/lib/logo';
 import type { Theme, AppUser } from '@/types';
 
 interface Props {
@@ -22,11 +22,13 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated }: Props) {
   const [newPw, setNewPw] = useState('');
   const [busyPw, setBusyPw] = useState(false);
   const [logoSrc, setLogoSrc] = useState(getLogoSrc());
+  const [logoSize, setLogoSizeState] = useState(getLogoSize());
   const logoInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     setLogoSrc(getLogoSrc());
+    setLogoSizeState(getLogoSize());
   }, []);
 
   useEffect(() => {
@@ -94,7 +96,14 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated }: Props) {
   function handleResetLogo() {
     clearCustomLogo();
     setLogoSrc(getLogoSrc());
+    setLogoSizeState(getLogoSize());
     toast('Logo dikembalikan ke default.', 'info');
+  }
+
+  function handleLogoSizeChange(next: number) {
+    const normalized = Math.max(24, Math.min(220, next));
+    setLogoSizeState(normalized);
+    setLogoSize(normalized);
   }
 
   return (
@@ -160,24 +169,38 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated }: Props) {
         </h3>
 
         {/* Logo customization */}
-        <div className="flex flex-col sm:flex-row gap-4 sm:items-center bg-slate-50 dark:bg-slate-900/40 rounded-xl p-4 border border-office-border dark:border-slate-700">
-          <div className="flex items-center gap-3">
-            <Logo size={56} />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-office-text dark:text-slate-200">Logo Aplikasi</p>
-              <p className="text-xs text-office-subtext dark:text-slate-400">Tampil di sidebar, halaman login, dan tab browser. PNG/JPG/SVG, maks. 2 MB.</p>
+        <div className="flex flex-col gap-4 bg-slate-50 dark:bg-slate-900/40 rounded-xl p-4 border border-office-border dark:border-slate-700">
+          <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
+            <div className="flex items-center gap-3">
+              <Logo size={Math.max(48, Math.min(96, logoSize))} />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-office-text dark:text-slate-200">Logo Aplikasi</p>
+                <p className="text-xs text-office-subtext dark:text-slate-400">Tampil di sidebar, halaman login, dan tab browser. PNG/JPG/SVG, maks. 2 MB.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" onChange={handleLogoChange} className="hidden" />
+              <Button variant="outline" size="sm" onClick={() => logoInputRef.current?.click()}>
+                <Upload size={15} /> Unggah
+              </Button>
+              {logoSrc !== '/kemenag.svg' && (
+                <Button variant="ghost" size="sm" onClick={handleResetLogo}>
+                  <RotateCcw size={15} /> Default
+                </Button>
+              )}
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" onChange={handleLogoChange} className="hidden" />
-            <Button variant="outline" size="sm" onClick={() => logoInputRef.current?.click()}>
-              <Upload size={15} /> Unggah
-            </Button>
-            {logoSrc !== '/kemenag.svg' && (
-              <Button variant="ghost" size="sm" onClick={handleResetLogo}>
-                <RotateCcw size={15} /> Default
-              </Button>
-            )}
+          <div className="flex flex-col gap-2 sm:max-w-xs">
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Ukuran Logo (px)</label>
+            <input
+              type="range"
+              min="24"
+              max="220"
+              value={logoSize}
+              onChange={(e) => handleLogoSizeChange(Number(e.target.value))}
+              className="accent-emerald-600"
+            />
+            <p className="text-xs text-slate-500 dark:text-slate-400">Ukuran saat ini: {logoSize}px</p>
           </div>
         </div>
 

@@ -6,15 +6,16 @@ import { Button } from '@/components/ui/Button';
 import { Dashboard } from '@/pages/Dashboard';
 import { SuratMasukPage } from '@/pages/SuratMasukPage';
 import { SuratKeluarPage } from '@/pages/SuratKeluarPage';
+import { AgendaPimpinanPage } from '@/pages/AgendaPimpinanPage';
 import { ExportPage } from '@/pages/ExportPage';
 import { BackupPage } from '@/pages/BackupPage';
 import { SettingsPage } from '@/pages/SettingsPage';
-import { getAllMasuk, getAllKeluar } from '@/lib/db';
+import { getAllMasuk, getAllKeluar, getAllAgendaPimpinan } from '@/lib/db';
 import { supabase } from '@/lib/supabase';
 import { initLogo } from '@/lib/logo';
 import { getTheme, setTheme as persistTheme, applyTheme, getCurrentUser, logout } from '@/lib/storage';
 import { getLocalMigrationData, migrateLocalDataToCloud, deleteOldLocalDatabase } from '@/lib/migrate';
-import type { PageKey, Theme, SuratMasuk, SuratKeluar, AppUser } from '@/types';
+import type { PageKey, Theme, SuratMasuk, SuratKeluar, AgendaPimpinan, AppUser } from '@/types';
 import { APP_TITLE } from '@/types';
 import { Cloud, X } from 'lucide-react';
 
@@ -22,6 +23,7 @@ const pageMeta: Record<PageKey, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'Ringkasan disposisi surat' },
   'surat-masuk': { title: 'Surat Masuk', subtitle: 'Kelola disposisi surat masuk' },
   'surat-keluar': { title: 'Surat Keluar', subtitle: 'Kelola disposisi surat keluar' },
+  'agenda-pimpinan': { title: 'Agenda Pimpinan', subtitle: 'Kelola agenda pimpinan dan disposisi pegawai' },
   export: { title: 'Export Data', subtitle: 'Unduh data ke Excel atau Word' },
   backup: { title: 'Backup Data', subtitle: 'Cadangkan dan pulihkan data' },
   settings: { title: 'Settings', subtitle: 'Profil, keamanan, dan tampilan' },
@@ -44,6 +46,7 @@ function Root() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [suratMasuk, setSuratMasuk] = useState<SuratMasuk[]>([]);
   const [suratKeluar, setSuratKeluar] = useState<SuratKeluar[]>([]);
+  const [agendaPimpinan, setAgendaPimpinan] = useState<AgendaPimpinan[]>([]);
   const [loading, setLoading] = useState(true);
   const [migrationInfo, setMigrationInfo] = useState<{ masuk: number; keluar: number } | null>(null);
   const [migrating, setMigrating] = useState(false);
@@ -84,9 +87,10 @@ function Root() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const [m, k] = await Promise.all([getAllMasuk(), getAllKeluar()]);
+      const [m, k, a] = await Promise.all([getAllMasuk(), getAllKeluar(), getAllAgendaPimpinan()]);
       setSuratMasuk(m);
       setSuratKeluar(k);
+      setAgendaPimpinan(a);
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Gagal memuat data.', 'error');
     } finally {
@@ -107,6 +111,7 @@ function Root() {
     } else {
       setSuratMasuk([]);
       setSuratKeluar([]);
+      setAgendaPimpinan([]);
       setMigrationInfo(null);
       setMigrationDismissed(false);
     }
@@ -239,8 +244,9 @@ function Root() {
               {page === 'dashboard' && <Dashboard suratMasuk={suratMasuk} suratKeluar={suratKeluar} onNavigate={handleNavigate} />}
               {page === 'surat-masuk' && <SuratMasukPage rows={suratMasuk} onRefresh={refresh} />}
               {page === 'surat-keluar' && <SuratKeluarPage rows={suratKeluar} onRefresh={refresh} />}
-              {page === 'export' && <ExportPage suratMasuk={suratMasuk} suratKeluar={suratKeluar} />}
-              {page === 'backup' && <BackupPage suratMasuk={suratMasuk} suratKeluar={suratKeluar} onRefresh={refresh} />}
+              {page === 'agenda-pimpinan' && <AgendaPimpinanPage rows={agendaPimpinan} onRefresh={refresh} />}
+              {page === 'export' && <ExportPage suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} />}
+              {page === 'backup' && <BackupPage suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} onRefresh={refresh} />}
               {page === 'settings' && <SettingsPage theme={theme} onToggleTheme={toggleTheme} onUserUpdated={handleUserUpdated} />}
             </div>
           )}

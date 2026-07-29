@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { Packer, Document, Paragraph, Table, TableRow, TableCell, TextRun, HeadingLevel } from 'docx';
 import { isoToDisplay, isWithinRange } from './date';
-import type { SuratMasuk, SuratKeluar, BackupData } from '@/types';
+import type { AgendaPimpinan, SuratMasuk, SuratKeluar, BackupData } from '@/types';
 
 type ExportScope = 'all' | 'masuk' | 'keluar' | 'range';
 type ExportFormat = 'xlsx' | 'docx';
@@ -14,6 +14,7 @@ interface ExportParams {
   endDate?: string;
   suratMasuk: SuratMasuk[];
   suratKeluar: SuratKeluar[];
+  agendaPimpinan: AgendaPimpinan[];
 }
 
 function filterByRange<T extends { tanggalSurat: string | null }>(items: T[], start?: string, end?: string): T[] {
@@ -52,6 +53,20 @@ function keluarRows(items: SuratKeluar[]) {
       'Perihal Surat': s.perihal,
       'Status TTD': s.ditandatangani ? 'Sudah Ditandatangani' : 'Belum Ditandatangani',
       'Keterangan': s.keterangan,
+    }));
+}
+
+function agendaRows(items: AgendaPimpinan[]) {
+  return items
+    .slice()
+    .sort((a, b) => a.nomorUrut - b.nomorUrut)
+    .map((item) => ({
+      'No. Urut': item.nomorUrut,
+      'Tanggal Kegiatan': isoToDisplay(item.tanggalKegiatan),
+      'Nama Kegiatan': item.namaKegiatan,
+      'Tempat Kegiatan': item.tempatKegiatan,
+      'Keterangan': item.keterangan,
+      'Disposisi Pegawai': item.disposisiPegawai,
     }));
 }
 
@@ -111,23 +126,30 @@ export async function exportData(params: ExportParams): Promise<void> {
   const { scope, format } = params;
   let masuk = params.suratMasuk;
   let keluar = params.suratKeluar;
+  let agenda = params.agendaPimpinan ?? [];
   if (scope === 'range') {
     masuk = filterByRange(masuk, params.startDate, params.endDate);
     keluar = filterByRange(keluar, params.startDate, params.endDate);
   }
-  if (scope === 'masuk') keluar = [];
-  if (scope === 'keluar') masuk = [];
+  if (scope === 'masuk') {
+    keluar = [];
+    agenda = [];
+  }
+  if (scope === 'keluar') {
+    masuk = [];
+    agenda = [];
+  }
 
   const stampStr = stamp();
 
   if (format === 'xlsx') {
-    await exportXlsx(masuk, keluar, scope, stampStr);
+    await exportXlsx(masuk, keluar, agenda, scope, stampStr);
   } else {
-    await exportDocx(masuk, keluar, scope, stampStr);
+    await exportDocx(masuk, keluar, agenda, scope, stampStr);
   }
 }
 
-async function exportXlsx(masuk: SuratMasuk[], keluar: SuratKeluar[], scope: ExportScope, stampStr: string) {
+async function exportXlsx(masuk: SuratMasuk[], keluar: SuratKeluar[], agenda: AgendaPimpinan[], scope: ExportScope, stampStr: string) {
   const wb = XLSX.utils.book_new();
 
   const addSheet = (name: string, rows: Record<string, string | number>[]) => {
@@ -145,6 +167,9 @@ async function exportXlsx(masuk: SuratMasuk[], keluar: SuratKeluar[], scope: Exp
   if (keluar.length > 0 || scope === 'all' || scope === 'keluar') {
     addSheet('Surat Keluar', keluarRows(keluar));
   }
+  if (agenda.length > 0 || scope === 'all') {
+    addSheet('Agenda Pimpinan', agendaRows(agenda));
+  }
 
   const scopeLabel = scope === 'all' ? 'Semua' : scope === 'masuk' ? 'SuratMasuk' : scope === 'keluar' ? 'SuratKeluar' : 'Rentang';
   const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
@@ -159,7 +184,7 @@ function createTable(headers: string[], rows: (string | number)[][]): Table {
   return new Table({ rows: [new TableRow({ children: headerCells }), ...rowCells], width: { size: 100, type: 'pct' }, borders: { top: { style: 'single', size: 1, color: 'C6EAD6' }, bottom: { style: 'single', size: 1, color: 'C6EAD6' }, left: { style: 'single', size: 1, color: 'C6EAD6' }, right: { style: 'single', size: 1, color: 'C6EAD6' }, insideHorizontal: { style: 'single', size: 1, color: 'DCEFE0' }, insideVertical: { style: 'single', size: 1, color: 'DCEFE0' } } });
 }
 
-async function exportDocx(masuk: SuratMasuk[], keluar: SuratKeluar[], scope: ExportScope, stampStr: string) {
+async function exportDocx(masuk: SuratMasuk[], keluar: SuratKeluar[], agenda: AgendaPimpinan[], scope: ExportScope, stampStr: string) {
   const title = 'Disposisi Surat - Kanwil Kementerian Agama Provinsi Gorontalo';
   const paragraphs: Paragraph[] = [];
 
@@ -178,6 +203,15 @@ async function exportDocx(masuk: SuratMasuk[], keluar: SuratKeluar[], scope: Exp
   if (scope === 'all' || scope === 'keluar') {
     const rows = keluarRows(keluar);
     paragraphs.push(new Paragraph({ children: [new TextRun({ text: 'Surat Keluar', bold: true, color: '1F2937', size: 24 })], spacing: { before: 240, after: 120 } }));
+    if (rows.length === 0) {
+      paragraphs.push(new Paragraph({ children: [new TextRun({ text: 'Tidak ada data.', italics: true, color: '9CA3AF', size: 20 })], spacing: { after: 240 } }));
+    } else {
+      paragraphs.push(new Paragraph({ children: [createTable(Object.keys(rows[0]), rows.map((r) => Object.values(r)))] }));
+    }
+  }
+  if (scope === 'all') {
+    const rows = agendaRows(agenda);
+    paragraphs.push(new Paragraph({ children: [new TextRun({ text: 'Agenda Pimpinan', bold: true, color: '1F2937', size: 24 })], spacing: { before: 240, after: 120 } }));
     if (rows.length === 0) {
       paragraphs.push(new Paragraph({ children: [new TextRun({ text: 'Tidak ada data.', italics: true, color: '9CA3AF', size: 20 })], spacing: { after: 240 } }));
     } else {
@@ -203,6 +237,9 @@ export function parseBackup(text: string): BackupData {
   if (!data || typeof data !== 'object') throw new Error('File backup tidak valid.');
   if (!Array.isArray(data.suratMasuk) || !Array.isArray(data.suratKeluar)) {
     throw new Error('Format backup tidak valid: data surat tidak ditemukan.');
+  }
+  if (!Array.isArray(data.agendaPimpinan)) {
+    data.agendaPimpinan = [];
   }
   return data;
 }

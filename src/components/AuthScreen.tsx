@@ -182,7 +182,10 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
         </div>
       </div>
 
-      <p className="absolute bottom-4 text-center text-[11px] text-slate-500 dark:text-slate-400">{APP_TITLE}</p>
+      <div className="absolute bottom-4 flex flex-col items-center gap-1 text-center text-[11px] text-slate-500 dark:text-slate-400">
+        <p>{APP_TITLE}</p>
+        <p className="text-[10px] text-slate-400 dark:text-slate-500">Created by Luthfi Alfikri for Personal Use Only</p>
+      </div>
     </div>
   );
 }

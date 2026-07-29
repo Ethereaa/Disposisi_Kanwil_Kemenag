@@ -1,7 +1,8 @@
 import { supabase } from './supabase';
-import type { SuratMasuk, SuratKeluar } from '@/types';
+import type { AgendaPimpinan, SuratMasuk, SuratKeluar } from '@/types';
 
 export type SuratTable = 'surat_masuk' | 'surat_keluar';
+export type AgendaTable = 'agenda_pimpinan';
 
 interface DBRow {
   id: string;
@@ -26,6 +27,19 @@ interface MasukRow extends DBRow {
 
 interface KeluarRow extends DBRow {
   ditandatangani: boolean;
+}
+
+interface AgendaRow {
+  id: string;
+  nomor_urut: number;
+  tanggal_kegiatan: string | null;
+  nama_kegiatan: string;
+  tempat_kegiatan: string;
+  keterangan: string;
+  disposisi_pegawai: string;
+  created_by_email: string;
+  created_at: string;
+  updated_at: string;
 }
 
 function mapMasuk(r: MasukRow): SuratMasuk {
@@ -64,6 +78,21 @@ function mapKeluar(r: KeluarRow): SuratKeluar {
   };
 }
 
+function mapAgenda(r: AgendaRow): AgendaPimpinan {
+  return {
+    id: r.id,
+    nomorUrut: r.nomor_urut,
+    tanggalKegiatan: r.tanggal_kegiatan,
+    namaKegiatan: r.nama_kegiatan ?? '',
+    tempatKegiatan: r.tempat_kegiatan ?? '',
+    keterangan: r.keterangan ?? '',
+    disposisiPegawai: r.disposisi_pegawai ?? '',
+    createdByEmail: r.created_by_email || undefined,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
 export async function getAllMasuk(): Promise<SuratMasuk[]> {
   const { data, error } = await supabase
     .from('surat_masuk')
@@ -80,6 +109,15 @@ export async function getAllKeluar(): Promise<SuratKeluar[]> {
     .order('nomor_urut', { ascending: true });
   if (error) throw error;
   return (data as KeluarRow[]).map(mapKeluar);
+}
+
+export async function getAllAgendaPimpinan(): Promise<AgendaPimpinan[]> {
+  const { data, error } = await supabase
+    .from('agenda_pimpinan')
+    .select('*')
+    .order('nomor_urut', { ascending: true });
+  if (error) throw error;
+  return (data as AgendaRow[]).map(mapAgenda);
 }
 
 export async function getNextNomorUrut(table: SuratTable): Promise<number> {
@@ -176,8 +214,48 @@ export async function updateKeluar(id: string, record: Omit<SuratKeluar, 'id' | 
   if (error) throw error;
 }
 
+export async function insertAgendaPimpinan(record: Omit<AgendaPimpinan, 'id' | 'createdAt' | 'updatedAt'>): Promise<AgendaPimpinan> {
+  const { data: userData } = await supabase.auth.getUser();
+  const email = userData.user?.email ?? '';
+  const { data, error } = await supabase
+    .from('agenda_pimpinan')
+    .insert({
+      nomor_urut: record.nomorUrut,
+      tanggal_kegiatan: record.tanggalKegiatan,
+      nama_kegiatan: record.namaKegiatan,
+      tempat_kegiatan: record.tempatKegiatan,
+      keterangan: record.keterangan,
+      disposisi_pegawai: record.disposisiPegawai,
+      created_by_email: email,
+    })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return mapAgenda(data as AgendaRow);
+}
+
+export async function updateAgendaPimpinan(id: string, record: Omit<AgendaPimpinan, 'id' | 'createdAt' | 'updatedAt' | 'nomorUrut'>): Promise<void> {
+  const { error } = await supabase
+    .from('agenda_pimpinan')
+    .update({
+      tanggal_kegiatan: record.tanggalKegiatan,
+      nama_kegiatan: record.namaKegiatan,
+      tempat_kegiatan: record.tempatKegiatan,
+      keterangan: record.keterangan,
+      disposisi_pegawai: record.disposisiPegawai,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id);
+  if (error) throw error;
+}
+
 export async function deleteRow(table: SuratTable, id: string): Promise<void> {
   const { error } = await supabase.from(table).delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteAgendaPimpinan(id: string): Promise<void> {
+  const { error } = await supabase.from('agenda_pimpinan').delete().eq('id', id);
   if (error) throw error;
 }
 
@@ -191,6 +269,20 @@ export async function resequenceNomorUrut(table: SuratTable): Promise<void> {
   await Promise.all(
     rows.map((r, i) =>
       supabase.from(table).update({ nomor_urut: i + 1 }).eq('id', r.id),
+    ),
+  );
+}
+
+export async function resequenceAgendaPimpinan(): Promise<void> {
+  const { data, error } = await supabase
+    .from('agenda_pimpinan')
+    .select('id, created_at')
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  const rows = data as { id: string; created_at: string }[];
+  await Promise.all(
+    rows.map((r, i) =>
+      supabase.from('agenda_pimpinan').update({ nomor_urut: i + 1 }).eq('id', r.id),
     ),
   );
 }
@@ -219,6 +311,23 @@ export async function bulkInsertMasuk(items: SuratMasuk[]): Promise<void> {
     created_by_email: email,
   }));
   const { error } = await supabase.from('surat_masuk').insert(rows);
+  if (error) throw error;
+}
+
+export async function bulkInsertAgendaPimpinan(items: AgendaPimpinan[]): Promise<void> {
+  if (items.length === 0) return;
+  const { data: userData } = await supabase.auth.getUser();
+  const email = userData.user?.email ?? '';
+  const rows = items.map((r) => ({
+    nomor_urut: r.nomorUrut,
+    tanggal_kegiatan: r.tanggalKegiatan,
+    nama_kegiatan: r.namaKegiatan,
+    tempat_kegiatan: r.tempatKegiatan,
+    keterangan: r.keterangan,
+    disposisi_pegawai: r.disposisiPegawai,
+    created_by_email: email,
+  }));
+  const { error } = await supabase.from('agenda_pimpinan').insert(rows);
   if (error) throw error;
 }
 
