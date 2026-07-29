@@ -31,6 +31,40 @@ const pageMeta: Record<PageKey, { title: string; subtitle: string }> = {
   settings: { title: 'Settings', subtitle: 'Profil, keamanan, dan tampilan' },
 };
 
+const pagePathMap: Record<PageKey, string> = {
+  dashboard: '/dashboard',
+  'surat-masuk': '/surat-masuk',
+  'surat-keluar': '/surat-keluar',
+  'agenda-pimpinan': '/agenda-pimpinan',
+  export: '/export',
+  backup: '/backup',
+  settings: '/settings',
+};
+
+const BASE_PATH = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '') || '/';
+
+function normalizePath(pathname: string) {
+  const withoutBase = pathname.startsWith(BASE_PATH) ? pathname.slice(BASE_PATH.length) : pathname;
+  const cleanPath = withoutBase.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
+  return cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
+}
+
+function buildRoutePath(path: string) {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  if (BASE_PATH === '/') return normalizedPath;
+  return `${BASE_PATH}${normalizedPath}`;
+}
+
+function getPathRoute(pathname: string): { type: 'page'; page: PageKey } | { type: 'login' } | { type: 'logout' } {
+  const cleanPath = normalizePath(pathname);
+  if (cleanPath === '/login') return { type: 'login' };
+  if (cleanPath === '/logout') return { type: 'logout' };
+
+  const page = Object.entries(pagePathMap).find(([, path]) => path === cleanPath)?.[0] as PageKey | undefined;
+  if (page) return { type: 'page', page };
+  return { type: 'page', page: 'dashboard' };
+}
+
 export default function App() {
   return (
     <ToastProvider>
@@ -52,6 +86,7 @@ function Root() {
   const [loading, setLoading] = useState(true);
   const [previewAgendaId, setPreviewAgendaId] = useState<string | null>(null);
   const [migrationInfo, setMigrationInfo] = useState<{ masuk: number; keluar: number } | null>(null);
+  const [routePage, setRoutePage] = useState<PageKey>('dashboard');
   const [migrating, setMigrating] = useState(false);
   const [migrationDismissed, setMigrationDismissed] = useState(false);
   const { toast } = useToast();
@@ -71,15 +106,29 @@ function Root() {
       const match = hash.match(/^#\/agenda-preview\/(.+)$/);
       setPreviewAgendaId(match ? match[1] : null);
     };
+
+    const syncRouteFromPath = () => {
+      const route = getPathRoute(window.location.pathname);
+      if (route.type === 'page') {
+        setRoutePage(route.page);
+        setPage(route.page);
+      }
+    };
+
     syncPreviewFromHash();
+    syncRouteFromPath();
     window.addEventListener('hashchange', syncPreviewFromHash);
+    window.addEventListener('popstate', syncRouteFromPath);
     (async () => {
       const u = await getCurrentUser();
       setUser(u);
       if (u) setAuthed(true);
       setBootChecked(true);
     })();
-    return () => window.removeEventListener('hashchange', syncPreviewFromHash);
+    return () => {
+      window.removeEventListener('hashchange', syncPreviewFromHash);
+      window.removeEventListener('popstate', syncRouteFromPath);
+    };
   }, []);
 
   // Listen for auth state changes (login / logout / token refresh)
@@ -154,6 +203,8 @@ function Root() {
 
   function handleNavigate(p: PageKey) {
     setPage(p);
+    setRoutePage(p);
+    window.history.pushState({}, '', buildRoutePath(pagePathMap[p]));
     setSidebarOpen(false);
   }
 
@@ -166,6 +217,12 @@ function Root() {
         if (u) setUser(u);
       });
     }
+    const currentRoute = normalizePath(window.location.pathname);
+    const targetPath = currentRoute === '/login' || currentRoute === '/logout' ? '/dashboard' : currentRoute;
+    if (targetPath && targetPath !== currentRoute) {
+      window.history.replaceState({}, '', buildRoutePath(targetPath));
+    }
+    setPage('dashboard');
   }
 
   async function handleLogout() {
@@ -173,6 +230,8 @@ function Root() {
     setUser(null);
     setAuthed(false);
     setPage('dashboard');
+    setRoutePage('dashboard');
+    window.history.replaceState({}, '', buildRoutePath('/login'));
   }
 
   function handleUserUpdated() {
@@ -200,12 +259,24 @@ function Root() {
   }
 
   if (!authed) {
+    const currentRoute = normalizePath(window.location.pathname);
+    if (currentRoute === '/login' || currentRoute === '/logout' || currentRoute === '/') {
+      return <AuthScreen onAuthed={handleAuthed} />;
+    }
     return <AuthScreen onAuthed={handleAuthed} />;
   }
 
   const meta = pageMeta[page];
   const showMigration = migrationInfo && !migrationDismissed;
   const previewAgenda = previewAgendaId ? agendaPimpinan.find((item) => item.id === previewAgendaId) ?? null : null;
+
+  if (window.location.pathname === '/login' && !authed) {
+    return <AuthScreen onAuthed={handleAuthed} />;
+  }
+
+  if (window.location.pathname === '/logout') {
+    return <AuthScreen onAuthed={handleAuthed} />;
+  }
 
   if (previewAgendaId === '__home__') {
     return <AgendaPreviewHome />;

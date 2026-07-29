@@ -14,6 +14,12 @@ window.addEventListener('beforeinstallprompt', (event) => {
   window.deferredInstallPrompt = event as Event & { prompt?: () => Promise<void>; userChoice?: Promise<{ outcome: string }> };
 });
 
+const redirectPath = new URLSearchParams(window.location.search).get('redirect');
+if (redirectPath) {
+  const normalizedPath = redirectPath.startsWith('/') ? redirectPath : `/${redirectPath}`;
+  window.history.replaceState({}, '', normalizedPath);
+}
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => undefined);
