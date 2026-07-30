@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Mail, Lock, Moon, Sun, Save, ShieldCheck, RotateCcw, Upload, User, Smartphone, History, ShieldAlert } from 'lucide-react';
+import { Mail, Lock, Moon, Sun, Save, ShieldCheck, RotateCcw, Upload, User, Smartphone, History, ShieldAlert, BellRing, BellOff } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Field, Input } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
@@ -8,6 +8,13 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { getCurrentUser, changePassword, updateUsername } from '@/lib/storage';
 import { setCustomLogo, clearCustomLogo, getLogoSrc, getLogoSize, setLogoSize } from '@/lib/logo';
 import { formatDateTime } from '@/lib/date';
+import {
+  isPushSupported,
+  getNotificationPermission,
+  getExistingSubscription,
+  subscribeToAgendaReminders,
+  unsubscribeFromAgendaReminders,
+} from '@/lib/push';
 import type { Theme, AppUser, SuratMasuk, SuratKeluar, AgendaPimpinan } from '@/types';
 
 interface Props {
@@ -38,8 +45,15 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
   const [logoSize, setLogoSizeState] = useState(getLogoSize());
   const [installable, setInstallable] = useState(false);
   const [alreadyInstalled, setAlreadyInstalled] = useState(false);
+  const [reminderSubscribed, setReminderSubscribed] = useState(false);
+  const [reminderBusy, setReminderBusy] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!isPushSupported()) return;
+    getExistingSubscription().then((sub) => setReminderSubscribed(!!sub));
+  }, []);
 
   useEffect(() => {
     setLogoSrc(getLogoSrc());
@@ -207,6 +221,27 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
     }
   }
 
+  async function handleToggleReminder() {
+    setReminderBusy(true);
+    try {
+      if (reminderSubscribed) {
+        await unsubscribeFromAgendaReminders();
+        setReminderSubscribed(false);
+        toast('Reminder agenda dinonaktifkan di perangkat ini.', 'info');
+      } else {
+        await subscribeToAgendaReminders();
+        setReminderSubscribed(true);
+        toast('Reminder agenda diaktifkan. Anda akan diingatkan H-1 dan hari-H.', 'success');
+      }
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Gagal mengubah pengaturan reminder.', 'error');
+    } finally {
+      setReminderBusy(false);
+    }
+  }
+
+  const notifPermission = getNotificationPermission();
+
   return (
     <div className="max-w-3xl space-y-6">
       <div className="rounded-[24px] border border-emerald-100/80 bg-white/70 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/70">
@@ -349,6 +384,38 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
                   Tombol aktif otomatis begitu Chrome/Edge mengizinkan instalasi (biasanya setelah beberapa kali buka & login). Di iPhone/iPad, pasang lewat menu Share → "Add to Home Screen".
                 </p>
               )}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Reminder Agenda Pimpinan (Web Push) */}
+      <section className="rounded-[24px] border border-emerald-100/80 bg-white/80 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/80 space-y-4">
+        <h3 className="text-sm font-semibold text-office-text dark:text-slate-200 flex items-center gap-2">
+          <BellRing size={16} className="text-emerald-600" /> Reminder Agenda Pimpinan
+        </h3>
+        <div className="rounded-xl border border-emerald-100/70 bg-emerald-50/70 p-4 dark:border-slate-700 dark:bg-emerald-950/20">
+          <p className="text-sm text-slate-700 dark:text-slate-200">
+            Dapatkan notifikasi otomatis di perangkat ini untuk agenda pimpinan yang jadwalnya <span className="font-semibold">besok (H-1)</span> dan <span className="font-semibold">hari ini (hari-H)</span>.
+          </p>
+
+          {notifPermission === 'unsupported' ? (
+            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Browser ini tidak mendukung notifikasi push. Coba buka lewat Chrome/Edge terbaru.</p>
+          ) : notifPermission === 'denied' ? (
+            <p className="mt-3 text-sm text-rose-600 dark:text-rose-300">Izin notifikasi diblokir di browser ini. Aktifkan lewat pengaturan situs (ikon gembok di address bar) lalu muat ulang halaman.</p>
+          ) : (
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <Button
+                variant={reminderSubscribed ? 'secondary' : 'primary'}
+                size="sm"
+                onClick={handleToggleReminder}
+                disabled={reminderBusy}
+              >
+                {reminderSubscribed ? <><BellOff size={15} /> Nonaktifkan Reminder</> : <><BellRing size={15} /> Aktifkan Reminder</>}
+              </Button>
+              <span className={`text-xs font-medium ${reminderSubscribed ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}`}>
+                {reminderSubscribed ? 'Aktif di perangkat ini' : 'Belum aktif di perangkat ini'}
+              </span>
             </div>
           )}
         </div>
