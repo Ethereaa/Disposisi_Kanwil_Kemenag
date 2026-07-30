@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, Eye, Pencil, Trash2, ArrowLeft, ExternalLink } from 'lucide-react';
+import { Plus, Eye, Pencil, Trash2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { DataTable, type Column } from '@/components/ui/DataTable';
@@ -109,26 +109,6 @@ toast(getErrorMessage(err, 'Gagal menghapus agenda.'), 'error');
     }
   }
 
-  if (view === 'form') {
-    return (
-      <div className="space-y-4">
-        <Button variant="ghost" size="sm" onClick={() => { setView('list'); setEditing(null); }}>
-          <ArrowLeft size={16} /> Kembali ke daftar
-        </Button>
-        <div className="rounded-[24px] border border-emerald-100/80 bg-white/80 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/80 sm:p-6">
-          <h2 className="mb-4 text-lg font-semibold text-slate-800 dark:text-slate-100">
-            {editing ? 'Edit Agenda Pimpinan' : 'Tambah Agenda Pimpinan'}
-          </h2>
-          <AgendaPimpinanForm
-            editing={editing}
-            onSaved={() => { setView('list'); setEditing(null); onRefresh(); }}
-            onCancel={() => { setView('list'); setEditing(null); }}
-          />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 rounded-[24px] border border-emerald-100/80 bg-white/70 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur sm:flex-row sm:items-center sm:justify-between dark:border-slate-700 dark:bg-slate-800/70">
@@ -136,9 +116,14 @@ toast(getErrorMessage(err, 'Gagal menghapus agenda.'), 'error');
           <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Agenda Pimpinan</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">{rows.length} agenda tercatat</p>
         </div>
-        <Button onClick={() => { setEditing(null); setView('form'); }}>
-          <Plus size={16} /> Tambah Agenda
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => window.open('/#/agenda-preview-home', '_self')}>
+            <ExternalLink size={16} /> Buka Preview Agenda
+          </Button>
+          <Button onClick={() => { setEditing(null); setView('form'); }}>
+            <Plus size={16} /> Tambah Agenda
+          </Button>
+        </div>
       </div>
 
       <DataTable
@@ -151,6 +136,19 @@ toast(getErrorMessage(err, 'Gagal menghapus agenda.'), 'error');
         pageSize={10}
         onRowClick={(r) => setDetail(r)}
       />
+
+      <Modal
+        open={view === 'form'}
+        onClose={() => { setView('list'); setEditing(null); }}
+        title={editing ? 'Edit Agenda Pimpinan' : 'Tambah Agenda Pimpinan'}
+        size="lg"
+      >
+        <AgendaPimpinanForm
+          editing={editing}
+          onSaved={() => { setView('list'); setEditing(null); onRefresh(); }}
+          onCancel={() => { setView('list'); setEditing(null); }}
+        />
+      </Modal>
 
       <Modal
         open={!!detail}

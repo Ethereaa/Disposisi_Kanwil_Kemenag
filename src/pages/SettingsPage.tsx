@@ -246,9 +246,6 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated }: Props) {
             <Button variant="primary" size="sm" onClick={handleInstallApp} disabled={!installable}>
               <Smartphone size={15} /> {installable ? 'Install Sekarang' : 'Siap diinstall'}
             </Button>
-            <Button variant="outline" size="sm" onClick={() => window.open('/#/agenda-preview-home', '_self')}>
-              Buka Preview Agenda
-            </Button>
           </div>
         </div>
       </section>

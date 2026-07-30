@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, Eye, Pencil, Trash2, ArrowLeft, Filter, CheckCircle2, XCircle } from 'lucide-react';
+import { Plus, Eye, Pencil, Trash2, Filter, CheckCircle2, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { DataTable, type Column } from '@/components/ui/DataTable';
@@ -116,26 +116,6 @@ toast(getErrorMessage(err, 'Gagal menghapus data.'), 'error');
     }
   }
 
-  if (view === 'form') {
-    return (
-      <div className="space-y-4">
-        <Button variant="ghost" size="sm" onClick={() => { setView('list'); setEditing(null); }}>
-          <ArrowLeft size={16} /> Kembali ke daftar
-        </Button>
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-office-border dark:border-slate-700 shadow-sm p-5 sm:p-6">
-          <h2 className="text-lg font-semibold text-office-text dark:text-slate-100 mb-4">
-            {editing ? 'Edit Surat Keluar' : 'Tambah Surat Keluar'}
-          </h2>
-          <SuratKeluarForm
-            editing={editing}
-            onSaved={() => { setView('list'); setEditing(null); onRefresh(); }}
-            onCancel={() => { setView('list'); setEditing(null); }}
-          />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 rounded-[24px] border border-emerald-100/80 bg-white/70 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur sm:flex-row sm:items-center sm:justify-between dark:border-slate-700 dark:bg-slate-800/70">
@@ -172,6 +152,19 @@ toast(getErrorMessage(err, 'Gagal menghapus data.'), 'error');
         }
         onRowClick={(r) => setDetail(r)}
       />
+
+      <Modal
+        open={view === 'form'}
+        onClose={() => { setView('list'); setEditing(null); }}
+        title={editing ? 'Edit Surat Keluar' : 'Tambah Surat Keluar'}
+        size="lg"
+      >
+        <SuratKeluarForm
+          editing={editing}
+          onSaved={() => { setView('list'); setEditing(null); onRefresh(); }}
+          onCancel={() => { setView('list'); setEditing(null); }}
+        />
+      </Modal>
 
       <Modal
         open={!!detail}
