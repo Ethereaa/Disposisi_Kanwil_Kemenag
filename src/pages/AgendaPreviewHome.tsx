@@ -31,11 +31,7 @@ export function AgendaPreviewHome() {
           const dateA = a.tanggalKegiatan || '0000-00-00';
           const dateB = b.tanggalKegiatan || '0000-00-00';
           if (dateA !== dateB) return dateB.localeCompare(dateA);
-          // Same date: earlier time of day first.
-          const timeA = a.waktuKegiatan || '';
-          const timeB = b.waktuKegiatan || '';
-          if (timeA !== timeB) return timeA.localeCompare(timeB);
-          // Same date and time: most recently created first.
+          // Same date: most recently added first.
           return (b.createdAt || '').localeCompare(a.createdAt || '');
         })
         .slice(0, 10),
