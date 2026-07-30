@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Field, Input, Textarea, Select } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
 import { AGENDA_KETERANGAN_OPTIONS, type AgendaPimpinan } from '@/types';
-import { insertAgendaPimpinanAtTop, updateAgendaPimpinan } from '@/lib/db';
+import { insertAgendaPimpinanSorted, updateAgendaPimpinan } from '@/lib/db';
 import { todayISO } from '@/lib/date';
 import { getErrorMessage } from '@/lib/error';
 
@@ -72,7 +72,7 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
         };
         await updateAgendaPimpinan(editing.id, payload);
       } else {
-        await insertAgendaPimpinanAtTop({
+        await insertAgendaPimpinanSorted({
           tanggalKegiatan: form.tanggalKegiatan,
           waktuKegiatan: form.waktuKegiatan,
           namaKegiatan: form.namaKegiatan.trim(),
@@ -94,11 +94,13 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="flex items-center gap-4 rounded-xl border border-emerald-100 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/40">
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100 text-lg font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-          {nomorUrut}
+          {editing ? nomorUrut : '#'}
         </div>
         <div>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Nomor Urut (otomatis)</p>
-          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Agenda Pimpinan</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Nomor Urut (otomatis berdasarkan tanggal)</p>
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+            {editing ? 'Agenda Pimpinan' : 'Urutan ditentukan setelah disimpan, mengikuti tanggal kegiatan terbaru'}
+          </p>
         </div>
       </div>
 

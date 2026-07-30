@@ -114,10 +114,16 @@ export async function getAllKeluar(): Promise<SuratKeluar[]> {
 }
 
 export async function getAllAgendaPimpinan(): Promise<AgendaPimpinan[]> {
+  // Sorted directly by event date (newest first), not by insertion order.
+  // nomor_urut is kept in sync with this same order by the
+  // resequence_agenda_pimpinan_by_date() DB function, but we order by the
+  // real columns here too as a safety net in case it ever drifts.
   const { data, error } = await supabase
     .from('agenda_pimpinan')
     .select('*')
-    .order('nomor_urut', { ascending: true });
+    .order('tanggal_kegiatan', { ascending: false, nullsFirst: false })
+    .order('waktu_kegiatan', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: false });
   if (error) throw error;
   return (data as AgendaRow[]).map(mapAgenda);
 }
@@ -237,16 +243,17 @@ export async function insertAgendaPimpinan(record: Omit<AgendaPimpinan, 'id' | '
   return mapAgenda(data as AgendaRow);
 }
 
-// Inserts a new agenda at nomor_urut = 1 and shifts every existing row
-// down by 1, atomically, via the insert_agenda_pimpinan_at_top() database
-// function. Use this instead of insertAgendaPimpinan() for the "newest
-// always on top" behavior.
-export async function insertAgendaPimpinanAtTop(
+// Inserts a new agenda and then re-numbers every row by event date
+// (newest tanggal_kegiatan = nomor_urut 1), atomically, via the
+// insert_agenda_pimpinan_sorted() database function. Use this instead of
+// insertAgendaPimpinan() so numbering always reflects the event date
+// rather than the order things were typed in.
+export async function insertAgendaPimpinanSorted(
   record: Omit<AgendaPimpinan, 'id' | 'createdAt' | 'updatedAt' | 'nomorUrut'>,
 ): Promise<AgendaPimpinan> {
   const { data: userData } = await supabase.auth.getUser();
   const email = userData.user?.email ?? '';
-  const { data, error } = await supabase.rpc('insert_agenda_pimpinan_at_top', {
+  const { data, error } = await supabase.rpc('insert_agenda_pimpinan_sorted', {
     p_tanggal_kegiatan: record.tanggalKegiatan,
     p_waktu_kegiatan: record.waktuKegiatan,
     p_nama_kegiatan: record.namaKegiatan,
@@ -273,6 +280,8 @@ export async function updateAgendaPimpinan(id: string, record: Omit<AgendaPimpin
     })
     .eq('id', id);
   if (error) throw error;
+  // The date may have changed, so re-rank every row by event date.
+  await resequenceAgendaPimpinan();
 }
 
 export async function deleteRow(table: SuratTable, id: string): Promise<void> {
@@ -300,17 +309,11 @@ export async function resequenceNomorUrut(table: SuratTable): Promise<void> {
 }
 
 export async function resequenceAgendaPimpinan(): Promise<void> {
-  const { data, error } = await supabase
-    .from('agenda_pimpinan')
-    .select('id, nomor_urut')
-    .order('nomor_urut', { ascending: true });
+  // Re-ranks nomor_urut for every row by tanggal_kegiatan (newest first),
+  // via the DB function — keeps numbering tied to the event date rather
+  // than whatever order the rows happened to be in already.
+  const { error } = await supabase.rpc('resequence_agenda_pimpinan_by_date');
   if (error) throw error;
-  const rows = data as { id: string; nomor_urut: number }[];
-  await Promise.all(
-    rows.map((r, i) =>
-      supabase.from('agenda_pimpinan').update({ nomor_urut: i + 1 }).eq('id', r.id),
-    ),
-  );
 }
 
 export async function clearTable(table: SuratTable): Promise<void> {
