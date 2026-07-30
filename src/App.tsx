@@ -258,6 +258,18 @@ function Root() {
     }
   }
 
+  // The public "Preview Agenda" home screen (installed as its own PWA
+  // shortcut, start_url "/#/agenda-preview-home") fetches its own data and
+  // has its own loading state — it must never wait on the auth bootstrap
+  // chain (getCurrentUser() → supabase.auth.getUser() + fetchProfile(),
+  // two sequential network round-trips). On a cold app-icon launch that
+  // chain can be slow, which used to leave this screen stuck on a blank
+  // div until the user warmed things up by opening the site in a regular
+  // browser tab first. Checking it before `bootChecked` fixes that.
+  if (previewAgendaId === '__home__') {
+    return <AgendaPreviewHome />;
+  }
+
   if (!bootChecked) {
     return <div className="min-h-screen bg-office-bg dark:bg-slate-900" />;
   }
@@ -280,10 +292,6 @@ function Root() {
 
   if (window.location.pathname === '/logout') {
     return <AuthScreen onAuthed={handleAuthed} />;
-  }
-
-  if (previewAgendaId === '__home__') {
-    return <AgendaPreviewHome />;
   }
 
   if (previewAgendaId) {

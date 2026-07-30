@@ -37,15 +37,40 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
   const [logoSrc, setLogoSrc] = useState(getLogoSrc());
   const [logoSize, setLogoSizeState] = useState(getLogoSize());
   const [installable, setInstallable] = useState(false);
+  const [alreadyInstalled, setAlreadyInstalled] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     setLogoSrc(getLogoSrc());
     setLogoSizeState(getLogoSize());
-    const handler = () => setInstallable(true);
-    window.addEventListener('beforeinstallprompt', handler as EventListener);
-    return () => window.removeEventListener('beforeinstallprompt', handler as EventListener);
+
+    // Chrome/Edge Android only fire 'beforeinstallprompt' once, right after
+    // the page loads — usually well before the user ever navigates to
+    // Settings. main.tsx already captures that event into
+    // window.deferredInstallPrompt, so on mount we must check for it
+    // directly instead of only listening for a future event that has
+    // likely already fired and will never fire again this session.
+    if (window.deferredInstallPrompt) {
+      setInstallable(true);
+    }
+
+    const isStandalone = window.matchMedia?.('(display-mode: standalone)').matches
+      || (navigator as unknown as { standalone?: boolean }).standalone === true;
+    setAlreadyInstalled(isStandalone);
+
+    const handleBeforeInstall = () => setInstallable(true);
+    const handleAppInstalled = () => {
+      setInstallable(false);
+      setAlreadyInstalled(true);
+      window.deferredInstallPrompt = undefined;
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall as EventListener);
+    window.addEventListener('appinstalled', handleAppInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall as EventListener);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
   }, []);
 
   useEffect(() => {
@@ -167,11 +192,19 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
   async function handleInstallApp() {
     const event = window.deferredInstallPrompt as Event & { prompt?: () => Promise<void>; userChoice?: Promise<{ outcome: string }> } | undefined;
     if (!event?.prompt) {
-      toast('Instalasi tidak tersedia saat ini. Coba buka aplikasi dari browser Chrome/Edge Android.', 'info');
+      toast('Instalasi tidak tersedia di browser ini. Di Android, buka lewat Chrome/Edge lalu coba lagi. Di iPhone/iPad, gunakan menu Share → "Add to Home Screen".', 'info');
       return;
     }
     await event.prompt();
+    const choice = await event.userChoice;
+    window.deferredInstallPrompt = undefined;
     setInstallable(false);
+    if (choice?.outcome === 'accepted') {
+      setAlreadyInstalled(true);
+      toast('Aplikasi berhasil dipasang.', 'success');
+    } else {
+      toast('Instalasi dibatalkan.', 'info');
+    }
   }
 
   return (
@@ -304,11 +337,20 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
         </h3>
         <div className="rounded-xl border border-emerald-100/70 bg-emerald-50/70 p-4 dark:border-slate-700 dark:bg-emerald-950/20">
           <p className="text-sm text-slate-700 dark:text-slate-200">Pasang aplikasi ini sebagai PWA agar tampil seperti aplikasi Android dengan nama <span className="font-semibold">Agenda Pimpinan Kanwil</span>.</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button variant="primary" size="sm" onClick={handleInstallApp} disabled={!installable}>
-              <Smartphone size={15} /> {installable ? 'Install Sekarang' : 'Siap diinstall'}
-            </Button>
-          </div>
+          {alreadyInstalled ? (
+            <p className="mt-3 text-sm font-medium text-emerald-700 dark:text-emerald-300">Aplikasi sudah terpasang di perangkat ini.</p>
+          ) : (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button variant="primary" size="sm" onClick={handleInstallApp} disabled={!installable}>
+                <Smartphone size={15} /> {installable ? 'Install Sekarang' : 'Menunggu izin browser…'}
+              </Button>
+              {!installable && (
+                <p className="w-full text-xs text-slate-500 dark:text-slate-400">
+                  Tombol aktif otomatis begitu Chrome/Edge mengizinkan instalasi (biasanya setelah beberapa kali buka & login). Di iPhone/iPad, pasang lewat menu Share → "Add to Home Screen".
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
