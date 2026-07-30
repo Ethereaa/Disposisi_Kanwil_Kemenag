@@ -68,7 +68,7 @@ function agendaRows(items: AgendaPimpinan[]) {
     .map((item) => ({
       'No. Urut': item.nomorUrut,
       'Tanggal Kegiatan': isoToDisplay(item.tanggalKegiatan),
-      'Waktu Kegiatan': item.waktuKegiatan || '-',
+      'Waktu Kegiatan': item.waktuKegiatan ? `${item.waktuKegiatan} WITA` : '-',
       'Nama Kegiatan': item.namaKegiatan,
       'Tempat Kegiatan': item.tempatKegiatan,
       'Keterangan': item.keterangan,

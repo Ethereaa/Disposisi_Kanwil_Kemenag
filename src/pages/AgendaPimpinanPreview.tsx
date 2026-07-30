@@ -75,7 +75,7 @@ export function AgendaPimpinanPreview({ agenda, onClose }: Props) {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-900/40">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Waktu</p>
-                <p className="mt-1 text-lg font-semibold text-slate-800 dark:text-slate-100">{agenda.waktuKegiatan || '-'}</p>
+                <p className="mt-1 text-lg font-semibold text-slate-800 dark:text-slate-100">{agenda.waktuKegiatan ? `${agenda.waktuKegiatan} WITA` : '-'}</p>
               </div>
               <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-900/40">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Tempat</p>

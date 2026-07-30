@@ -44,7 +44,7 @@ export function AgendaPimpinanPage({ rows, onRefresh }: Props) {
       header: 'Waktu',
       sortable: true,
       sortValue: (r) => r.waktuKegiatan,
-      render: (r) => <span className="font-medium">{r.waktuKegiatan || '-'}</span>,
+      render: (r) => <span className="font-medium">{r.waktuKegiatan ? `${r.waktuKegiatan} WITA` : '-'}</span>,
     },
     {
       key: 'namaKegiatan',
@@ -182,7 +182,7 @@ function DetailContent({ agenda }: { agenda: AgendaPimpinan }) {
   const items = [
     { label: 'Nomor Urut', value: String(agenda.nomorUrut) },
     { label: 'Tanggal Kegiatan', value: isoToDisplayWithDay(agenda.tanggalKegiatan) || '-' },
-    { label: 'Waktu Kegiatan', value: agenda.waktuKegiatan || '-' },
+    { label: 'Waktu Kegiatan', value: agenda.waktuKegiatan ? `${agenda.waktuKegiatan} WITA` : '-' },
     { label: 'Nama Kegiatan', value: agenda.namaKegiatan || '-' },
     { label: 'Tempat Kegiatan', value: agenda.tempatKegiatan || '-' },
     { label: 'Keterangan', value: agenda.keterangan || '-' },
