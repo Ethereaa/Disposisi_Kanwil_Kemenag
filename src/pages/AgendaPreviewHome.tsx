@@ -23,20 +23,10 @@ export function AgendaPreviewHome() {
     return () => { mounted = false; };
   }, []);
 
-  const sortedRows = useMemo(
-    () =>
-      [...rows]
-        .sort((a, b) => {
-          // Newest tanggalKegiatan first (ISO yyyy-mm-dd sorts correctly as a string).
-          const dateA = a.tanggalKegiatan || '0000-00-00';
-          const dateB = b.tanggalKegiatan || '0000-00-00';
-          if (dateA !== dateB) return dateB.localeCompare(dateA);
-          // Same date: most recently added first.
-          return (b.createdAt || '').localeCompare(a.createdAt || '');
-        })
-        .slice(0, 10),
-    [rows],
-  );
+  // rows already come back ordered by nomorUrut (the DB is the single
+  // source of truth for ordering — see getAllAgendaPimpinan()), so we
+  // only need to cap how many show here.
+  const sortedRows = useMemo(() => rows.slice(0, 10), [rows]);
 
   return (
     <div className="min-h-dvh bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_35%),linear-gradient(135deg,#f7fcf8,#eef6f2)] p-4 text-slate-800 dark:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_35%),linear-gradient(135deg,#020617,#0f172a)] dark:text-slate-100 sm:p-6">
@@ -60,12 +50,12 @@ export function AgendaPreviewHome() {
           <div className="rounded-[24px] border border-emerald-100/70 bg-white/70 p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800/70">Belum ada agenda pimpinan yang tersimpan.</div>
         ) : (
           <div className="space-y-3">
-            {sortedRows.map((item, index) => (
+            {sortedRows.map((item) => (
               <a key={item.id} href={`/#/agenda-preview/${item.id}`} className="block rounded-[24px] border border-emerald-100/70 bg-white/80 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-400 dark:border-slate-700 dark:bg-slate-800/80">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-sm font-bold text-white">
-                      {index + 1}
+                      {item.nomorUrut}
                     </div>
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-600 dark:text-emerald-300">{isoToDisplayWithDay(item.tanggalKegiatan) || '-'}</p>

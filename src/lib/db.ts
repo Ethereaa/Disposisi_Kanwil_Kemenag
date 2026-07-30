@@ -114,16 +114,14 @@ export async function getAllKeluar(): Promise<SuratKeluar[]> {
 }
 
 export async function getAllAgendaPimpinan(): Promise<AgendaPimpinan[]> {
-  // Sorted directly by event date (newest first), not by insertion order.
-  // Same date -> most recently added row first. nomor_urut is kept in
-  // sync with this same order by resequence_agenda_pimpinan_by_date(),
-  // but we order by the real columns here too as a safety net in case
-  // it ever drifts.
+  // nomor_urut is the single source of truth for ordering — it's kept
+  // correct by resequence_agenda_pimpinan_by_date() on every insert,
+  // update, and delete (newest tanggal_kegiatan first, ties broken by
+  // entry_seq — a collision-proof insertion counter, not created_at).
   const { data, error } = await supabase
     .from('agenda_pimpinan')
     .select('*')
-    .order('tanggal_kegiatan', { ascending: false, nullsFirst: false })
-    .order('created_at', { ascending: false });
+    .order('nomor_urut', { ascending: true });
   if (error) throw error;
   return (data as AgendaRow[]).map(mapAgenda);
 }
