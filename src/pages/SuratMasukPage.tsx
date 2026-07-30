@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus, Eye, Pencil, Trash2, Inbox, Filter, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
@@ -18,11 +18,13 @@ interface Props {
   rows: SuratMasuk[];
   onRefresh: () => void;
   canDelete?: boolean;
+  /** Bumped by the global "+ Tambah Cepat" floating button to pop the add form open immediately, even if this page was already mounted. */
+  quickAddSignal?: number;
 }
 
 type View = 'list' | 'form' | 'detail';
 
-export function SuratMasukPage({ rows, onRefresh, canDelete = true }: Props) {
+export function SuratMasukPage({ rows, onRefresh, canDelete = true, quickAddSignal }: Props) {
   const [view, setView] = useState<View>('list');
   const [editing, setEditing] = useState<SuratMasuk | null>(null);
   const [detail, setDetail] = useState<SuratMasuk | null>(null);
@@ -32,6 +34,13 @@ export function SuratMasukPage({ rows, onRefresh, canDelete = true }: Props) {
   const [dateEnd, setDateEnd] = useState('');
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (quickAddSignal === undefined) return;
+    setEditing(null);
+    setView('form');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quickAddSignal]);
 
   const filteredRows = useMemo(() => {
     let out = rows.filter((r) => !removedIds.has(r.id));

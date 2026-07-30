@@ -450,3 +450,51 @@ export async function bulkInsertKeluar(items: SuratKeluar[]): Promise<void> {
 
 export const suratMasukStore: SuratTable = 'surat_masuk';
 export const suratKeluarStore: SuratTable = 'surat_keluar';
+
+export interface DuplicateMatch {
+  id: string;
+  nomorUrut: number;
+}
+
+// Light pre-submit check: does another row in `table` already use this
+// nomor_surat? Blank values are never flagged (nomor surat is optional).
+// Pass `excludeId` when editing so a row doesn't collide with itself.
+export async function checkNomorSuratDuplicate(
+  table: SuratTable,
+  nomorSurat: string,
+  excludeId?: string,
+): Promise<DuplicateMatch | null> {
+  const value = nomorSurat.trim();
+  if (!value) return null;
+  let query = supabase
+    .from(table)
+    .select('id, nomor_urut')
+    .eq('nomor_surat', value)
+    .limit(1);
+  if (excludeId) query = query.neq('id', excludeId);
+  const { data, error } = await query.maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const row = data as { id: string; nomor_urut: number };
+  return { id: row.id, nomorUrut: row.nomor_urut };
+}
+
+// Same idea for nomor_agenda on surat_masuk (the only table that has it).
+export async function checkNomorAgendaDuplicate(
+  nomorAgenda: string,
+  excludeId?: string,
+): Promise<DuplicateMatch | null> {
+  const value = nomorAgenda.trim();
+  if (!value) return null;
+  let query = supabase
+    .from('surat_masuk')
+    .select('id, nomor_urut')
+    .eq('nomor_agenda', value)
+    .limit(1);
+  if (excludeId) query = query.neq('id', excludeId);
+  const { data, error } = await query.maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const row = data as { id: string; nomor_urut: number };
+  return { id: row.id, nomorUrut: row.nomor_urut };
+}

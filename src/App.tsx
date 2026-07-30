@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, lazy, Suspense } from 'react';
 import { Sidebar, Header } from '@/components/Layout';
 import { AuthScreen } from '@/components/AuthScreen';
+import { QuickAddFab, type QuickAddTarget } from '@/components/QuickAddFab';
 import { ToastProvider, useToast } from '@/components/ui/Toast';
 import { Button } from '@/components/ui/Button';
 import { SkeletonPage } from '@/components/ui/Skeleton';
@@ -93,6 +94,7 @@ function Root() {
   const [routePage, setRoutePage] = useState<PageKey>('dashboard');
   const [migrating, setMigrating] = useState(false);
   const [migrationDismissed, setMigrationDismissed] = useState(false);
+  const [quickAdd, setQuickAdd] = useState<{ target: QuickAddTarget; token: number } | null>(null);
   const { toast } = useToast();
 
   // Boot: theme + auth session
@@ -212,6 +214,15 @@ function Root() {
     setSidebarOpen(false);
   }
 
+  // "+ Tambah Cepat" floating button: jump to the right page (even if a
+  // different one is currently open) and signal it to pop its own "add"
+  // form modal straight away, so entering a new surat/agenda never
+  // requires navigating there first.
+  function handleQuickAdd(target: QuickAddTarget) {
+    handleNavigate(target);
+    setQuickAdd({ target, token: Date.now() });
+  }
+
   function handleAuthed(user?: AppUser) {
     setAuthed(true);
     if (user) {
@@ -284,6 +295,7 @@ function Root() {
 
   const meta = pageMeta[page];
   const showMigration = migrationInfo && !migrationDismissed;
+  const unsignedCount = suratKeluar.filter((s) => !s.ditandatangani).length;
   const previewAgenda = previewAgendaId ? agendaPimpinan.find((item) => item.id === previewAgendaId) ?? null : null;
 
   if (window.location.pathname === '/login' && !authed) {
@@ -311,7 +323,9 @@ function Root() {
         email={user?.email || 'Pengguna'}
         username={user?.username || ''}
         onLogout={handleLogout}
+        suratKeluarBadge={unsignedCount}
       />
+      <QuickAddFab onSelect={handleQuickAdd} />
 
       <div className="flex-1 min-w-0 flex flex-col">
         <Header
@@ -348,9 +362,9 @@ function Root() {
             <Suspense fallback={<SkeletonPage />}>
               <div className="animate-fade-in">
                 {page === 'dashboard' && <Dashboard suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} onNavigate={handleNavigate} />}
-                {page === 'surat-masuk' && <SuratMasukPage rows={suratMasuk} onRefresh={refresh} canDelete={user?.role !== 'staf'} />}
-                {page === 'surat-keluar' && <SuratKeluarPage rows={suratKeluar} onRefresh={refresh} canDelete={user?.role !== 'staf'} />}
-                {page === 'agenda-pimpinan' && <AgendaPimpinanPage rows={agendaPimpinan} onRefresh={refresh} canDelete={user?.role !== 'staf'} />}
+                {page === 'surat-masuk' && <SuratMasukPage rows={suratMasuk} onRefresh={refresh} canDelete={user?.role !== 'staf'} quickAddSignal={quickAdd?.target === 'surat-masuk' ? quickAdd.token : undefined} />}
+                {page === 'surat-keluar' && <SuratKeluarPage rows={suratKeluar} onRefresh={refresh} canDelete={user?.role !== 'staf'} quickAddSignal={quickAdd?.target === 'surat-keluar' ? quickAdd.token : undefined} />}
+                {page === 'agenda-pimpinan' && <AgendaPimpinanPage rows={agendaPimpinan} onRefresh={refresh} canDelete={user?.role !== 'staf'} quickAddSignal={quickAdd?.target === 'agenda-pimpinan' ? quickAdd.token : undefined} />}
                 {page === 'export' && <ExportPage suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} />}
                 {page === 'backup' && <BackupPage suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} onRefresh={refresh} />}
                 {page === 'settings' && <SettingsPage theme={theme} onToggleTheme={toggleTheme} onUserUpdated={handleUserUpdated} suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} />}

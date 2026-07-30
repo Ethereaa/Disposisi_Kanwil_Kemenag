@@ -11,8 +11,17 @@ import {
   type SubDisposisi,
 } from '@/types';
 import { displayToISO, isoToDisplay, todayISO } from '@/lib/date';
-import { insertMasukSorted, updateMasuk, getNextNomorUrut, suratMasukStore } from '@/lib/db';
+import {
+  insertMasukSorted,
+  updateMasuk,
+  getNextNomorUrut,
+  suratMasukStore,
+  checkNomorSuratDuplicate,
+  checkNomorAgendaDuplicate,
+} from '@/lib/db';
+import { getErrorMessage } from '@/lib/error';
 import { useInputMode } from '@/lib/useInputMode';
+import { useDebounce } from '@/lib/useDebounce';
 
 interface Props {
   editing?: SuratMasuk | null;
@@ -39,8 +48,32 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [dupNomorSurat, setDupNomorSurat] = useState<number | null>(null);
+  const [dupNomorAgenda, setDupNomorAgenda] = useState<number | null>(null);
   const nomorSuratRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  const debouncedNomorSurat = useDebounce(form.nomorSurat, 400);
+  const debouncedNomorAgenda = useDebounce(form.nomorAgenda, 400);
+
+  // Light pre-submit check: warn (don't block) if this Nomor Surat is
+  // already used by another surat masuk row — catches accidental
+  // double-entry before it only surfaces later in a report.
+  useEffect(() => {
+    let cancelled = false;
+    checkNomorSuratDuplicate('surat_masuk', debouncedNomorSurat, editing?.id).then((match) => {
+      if (!cancelled) setDupNomorSurat(match ? match.nomorUrut : null);
+    }).catch(() => { /* best-effort check; ignore errors */ });
+    return () => { cancelled = true; };
+  }, [debouncedNomorSurat, editing?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    checkNomorAgendaDuplicate(debouncedNomorAgenda, editing?.id).then((match) => {
+      if (!cancelled) setDupNomorAgenda(match ? match.nomorUrut : null);
+    }).catch(() => { /* best-effort check; ignore errors */ });
+    return () => { cancelled = true; };
+  }, [debouncedNomorAgenda, editing?.id]);
 
   useEffect(() => {
     if (editing) {
@@ -123,13 +156,15 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
         setNomorUrut(next);
         setForm({ ...emptyForm, tanggalDiterima: todayISO(), tanggalSurat: todayISO() });
         setErrors({});
+        setDupNomorSurat(null);
+        setDupNomorAgenda(null);
         setTimeout(() => nomorSuratRef.current?.focus(), 50);
       } else {
         toast('Data berhasil disimpan.', 'success');
         onSaved(false);
       }
     } catch (err) {
-toast(getErrorMessage(err, 'Gagal menyimpan data.'), 'error');;
+      toast(getErrorMessage(err, 'Gagal menyimpan data.'), 'error');
     } finally {
       setBusy(false);
     }
@@ -182,7 +217,10 @@ toast(getErrorMessage(err, 'Gagal menyimpan data.'), 'error');;
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">
-        <Field label="Nomor Surat">
+        <Field
+          label="Nomor Surat"
+          warning={dupNomorSurat != null ? `Nomor surat ini sudah dipakai di No. Urut ${dupNomorSurat}` : undefined}
+        >
           <Input
             ref={nomorSuratRef}
             value={form.nomorSurat}
@@ -190,7 +228,11 @@ toast(getErrorMessage(err, 'Gagal menyimpan data.'), 'error');;
             placeholder="cth: 001/ABC/2025"
           />
         </Field>
-        <Field label="Nomor Agenda" hint="Diisi manual, tidak otomatis">
+        <Field
+          label="Nomor Agenda"
+          hint="Diisi manual, tidak otomatis"
+          warning={dupNomorAgenda != null ? `Nomor agenda ini sudah dipakai di No. Urut ${dupNomorAgenda}` : undefined}
+        >
           <Input
             value={form.nomorAgenda}
             onChange={(e) => update('nomorAgenda', e.target.value)}

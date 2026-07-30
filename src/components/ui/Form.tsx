@@ -1,15 +1,17 @@
 import { forwardRef, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes, type ReactNode } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, AlertTriangle } from 'lucide-react';
 
 interface FieldProps {
   label?: ReactNode;
   required?: boolean;
   hint?: string;
   error?: string;
+  /** Non-blocking heads-up (e.g. "nomor ini sudah dipakai") shown in amber, separate from a hard `error`. */
+  warning?: string;
   children: ReactNode;
 }
 
-export function Field({ label, required, hint, error, children }: FieldProps) {
+export function Field({ label, required, hint, error, warning, children }: FieldProps) {
   return (
     <div className="flex flex-col gap-1.5">
       {label && (
@@ -18,7 +20,12 @@ export function Field({ label, required, hint, error, children }: FieldProps) {
         </label>
       )}
       {children}
-      {hint && !error && <p className="text-xs text-slate-500 dark:text-slate-400">{hint}</p>}
+      {hint && !error && !warning && <p className="text-xs text-slate-500 dark:text-slate-400">{hint}</p>}
+      {warning && !error && (
+        <p className="flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+          <AlertTriangle size={12} className="shrink-0" /> {warning}
+        </p>
+      )}
       {error && <p className="text-xs text-rose-500">{error}</p>}
     </div>
   );

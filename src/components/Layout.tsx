@@ -27,6 +27,8 @@ interface SidebarProps {
   email: string;
   username: string;
   onLogout: () => void;
+  /** Count of surat keluar belum ditandatangani — shown as a red badge on the menu item so it's visible from any page, not just the Dashboard. */
+  suratKeluarBadge?: number;
 }
 
 const menu: { key: PageKey; label: string; icon: typeof LayoutDashboard }[] = [
@@ -39,7 +41,7 @@ const menu: { key: PageKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: 'settings', label: 'Settings', icon: SettingsIcon },
 ];
 
-export function Sidebar({ active, onNavigate, open, onToggle, theme, onToggleTheme, email, username, onLogout }: SidebarProps) {
+export function Sidebar({ active, onNavigate, open, onToggle, theme, onToggleTheme, email, username, onLogout, suratKeluarBadge = 0 }: SidebarProps) {
   return (
     <>
       {open && (
@@ -67,6 +69,7 @@ export function Sidebar({ active, onNavigate, open, onToggle, theme, onToggleThe
           {menu.map((m) => {
             const Icon = m.icon;
             const isActive = active === m.key;
+            const badge = m.key === 'surat-keluar' ? suratKeluarBadge : 0;
             return (
               <button
                 key={m.key}
@@ -78,7 +81,15 @@ export function Sidebar({ active, onNavigate, open, onToggle, theme, onToggleThe
                 }`}
               >
                 <Icon size={18} className={isActive ? 'text-white' : 'text-emerald-100/80 group-hover:text-white'} />
-                {m.label}
+                <span className="flex-1">{m.label}</span>
+                {badge > 0 && (
+                  <span
+                    className="inline-flex shrink-0 items-center gap-1 rounded-full bg-rose-500 px-2 py-0.5 text-[11px] font-bold text-white shadow-sm"
+                    title={`${badge} surat keluar belum ditandatangani`}
+                  >
+                    {badge} belum TTD
+                  </span>
+                )}
               </button>
             );
           })}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus, Eye, Pencil, Trash2, ExternalLink, CalendarCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
@@ -15,17 +15,26 @@ interface Props {
   rows: AgendaPimpinan[];
   onRefresh: () => void;
   canDelete?: boolean;
+  /** Bumped by the global "+ Tambah Cepat" floating button to pop the add form open immediately, even if this page was already mounted. */
+  quickAddSignal?: number;
 }
 
 type View = 'list' | 'form' | 'detail';
 
-export function AgendaPimpinanPage({ rows, onRefresh, canDelete = true }: Props) {
+export function AgendaPimpinanPage({ rows, onRefresh, canDelete = true, quickAddSignal }: Props) {
   const [view, setView] = useState<View>('list');
   const [editing, setEditing] = useState<AgendaPimpinan | null>(null);
   const [detail, setDetail] = useState<AgendaPimpinan | null>(null);
   const [toDelete, setToDelete] = useState<AgendaPimpinan | null>(null);
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (quickAddSignal === undefined) return;
+    setEditing(null);
+    setView('form');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quickAddSignal]);
 
   // Optimistic UI: hide the row immediately on delete confirm instead of
   // waiting for the full refetch, then reconcile once refresh() resolves.
