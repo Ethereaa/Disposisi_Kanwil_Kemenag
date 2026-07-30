@@ -233,6 +233,29 @@ export async function insertKeluar(record: Omit<SuratKeluar, 'id' | 'createdAt' 
   return mapKeluar(data as KeluarRow);
 }
 
+// Inserts a new surat keluar and then re-numbers every row by Tanggal
+// Surat (latest date = nomor_urut 1), atomically, via the
+// insert_surat_keluar_sorted() database function. Use this instead of
+// insertKeluar() so numbering always reflects Tanggal Surat rather than
+// the order things were typed in.
+export async function insertKeluarSorted(
+  record: Omit<SuratKeluar, 'id' | 'createdAt' | 'updatedAt' | 'nomorUrut'>,
+): Promise<SuratKeluar> {
+  const { data: userData } = await supabase.auth.getUser();
+  const email = userData.user?.email ?? '';
+  const { data, error } = await supabase.rpc('insert_surat_keluar_sorted', {
+    p_nomor_surat: record.nomorSurat,
+    p_tanggal_surat: record.tanggalSurat,
+    p_pengirim: record.pengirim,
+    p_perihal: record.perihal,
+    p_ditandatangani: record.ditandatangani,
+    p_keterangan: record.keterangan,
+    p_created_by_email: email,
+  });
+  if (error) throw error;
+  return mapKeluar(data as KeluarRow);
+}
+
 export async function updateKeluar(id: string, record: Omit<SuratKeluar, 'id' | 'createdAt' | 'updatedAt' | 'nomorUrut'>): Promise<void> {
   const { error } = await supabase
     .from('surat_keluar')
@@ -247,6 +270,8 @@ export async function updateKeluar(id: string, record: Omit<SuratKeluar, 'id' | 
     })
     .eq('id', id);
   if (error) throw error;
+  // Tanggal Surat may have changed, so re-rank every row by it.
+  await resequenceSuratKeluarByTanggal();
 }
 
 export async function insertAgendaPimpinan(record: Omit<AgendaPimpinan, 'id' | 'createdAt' | 'updatedAt'>): Promise<AgendaPimpinan> {
@@ -340,6 +365,15 @@ export async function resequenceSuratMasukByNomorAgenda(): Promise<void> {
   // first), via the DB function — keeps numbering tied to Nomor Agenda
   // rather than whatever order the rows happened to be entered in.
   const { error } = await supabase.rpc('resequence_surat_masuk_by_nomor_agenda');
+  if (error) throw error;
+}
+
+export async function resequenceSuratKeluarByTanggal(): Promise<void> {
+  // Re-ranks nomor_urut for every surat_keluar row by tanggal_surat
+  // (latest date first), via the DB function — keeps numbering tied to
+  // Tanggal Surat rather than whatever order the rows happened to be
+  // entered in.
+  const { error } = await supabase.rpc('resequence_surat_keluar_by_tanggal');
   if (error) throw error;
 }
 

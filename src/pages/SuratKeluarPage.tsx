@@ -7,7 +7,7 @@ import { Select } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
 import type { SuratKeluar } from '@/types';
 import { isoToDisplay, formatDateTime } from '@/lib/date';
-import { deleteRow, resequenceNomorUrut } from '@/lib/db';
+import { deleteRow, resequenceSuratKeluarByTanggal } from '@/lib/db';
 import { SuratKeluarForm } from './SuratKeluarForm';
 
 interface Props {
@@ -108,7 +108,7 @@ export function SuratKeluarPage({ rows, onRefresh }: Props) {
     if (!toDelete) return;
     try {
       await deleteRow('surat_keluar', toDelete.id);
-      await resequenceNomorUrut('surat_keluar');
+      await resequenceSuratKeluarByTanggal();
       toast('Data berhasil dihapus.', 'success');
       onRefresh();
     } catch (err) {

@@ -197,40 +197,40 @@ function createTable(headers: string[], rows: (string | number)[][]): Table {
 
 async function exportDocx(masuk: SuratMasuk[], keluar: SuratKeluar[], agenda: AgendaPimpinan[], scope: ExportScope, stampStr: string) {
   const title = 'Disposisi Surat - Kanwil Kementerian Agama Provinsi Gorontalo';
-  const paragraphs: Paragraph[] = [];
+  const children: (Paragraph | Table)[] = [];
 
-  paragraphs.push(new Paragraph({ children: [new TextRun({ text: title, bold: true, size: 30, color: '2F855A' })], alignment: 'center', spacing: { after: 120 } }));
-  paragraphs.push(new Paragraph({ children: [new TextRun({ text: `Diekspor: ${new Date().toLocaleString('id-ID')}`, italics: true, color: '4B5563', size: 20 })], alignment: 'center', spacing: { after: 240 } }));
+  children.push(new Paragraph({ children: [new TextRun({ text: title, bold: true, size: 30, color: '2F855A' })], alignment: 'center', spacing: { after: 120 } }));
+  children.push(new Paragraph({ children: [new TextRun({ text: `Diekspor: ${new Date().toLocaleString('id-ID')}`, italics: true, color: '4B5563', size: 20 })], alignment: 'center', spacing: { after: 240 } }));
 
   if (masuk.length > 0 || scope === 'all' || scope === 'masuk') {
     const rows = masukRows(masuk);
-    paragraphs.push(new Paragraph({ children: [new TextRun({ text: 'Surat Masuk', bold: true, color: '1F2937', size: 24 })], spacing: { before: 240, after: 120 } }));
+    children.push(new Paragraph({ children: [new TextRun({ text: 'Surat Masuk', bold: true, color: '1F2937', size: 24 })], spacing: { before: 240, after: 120 } }));
     if (rows.length === 0) {
-      paragraphs.push(new Paragraph({ children: [new TextRun({ text: 'Tidak ada data.', italics: true, color: '9CA3AF', size: 20 })], spacing: { after: 240 } }));
+      children.push(new Paragraph({ children: [new TextRun({ text: 'Tidak ada data.', italics: true, color: '9CA3AF', size: 20 })], spacing: { after: 240 } }));
     } else {
-      paragraphs.push(new Paragraph({ children: [createTable(Object.keys(rows[0]), rows.map((r) => Object.values(r)))] }));
+      children.push(createTable(Object.keys(rows[0]), rows.map((r) => Object.values(r))));
     }
   }
   if (keluar.length > 0 || scope === 'all' || scope === 'keluar') {
     const rows = keluarRows(keluar);
-    paragraphs.push(new Paragraph({ children: [new TextRun({ text: 'Surat Keluar', bold: true, color: '1F2937', size: 24 })], spacing: { before: 240, after: 120 } }));
+    children.push(new Paragraph({ children: [new TextRun({ text: 'Surat Keluar', bold: true, color: '1F2937', size: 24 })], spacing: { before: 240, after: 120 } }));
     if (rows.length === 0) {
-      paragraphs.push(new Paragraph({ children: [new TextRun({ text: 'Tidak ada data.', italics: true, color: '9CA3AF', size: 20 })], spacing: { after: 240 } }));
+      children.push(new Paragraph({ children: [new TextRun({ text: 'Tidak ada data.', italics: true, color: '9CA3AF', size: 20 })], spacing: { after: 240 } }));
     } else {
-      paragraphs.push(new Paragraph({ children: [createTable(Object.keys(rows[0]), rows.map((r) => Object.values(r)))] }));
+      children.push(createTable(Object.keys(rows[0]), rows.map((r) => Object.values(r))));
     }
   }
   if (agenda.length > 0 || scope === 'all' || scope === 'agenda') {
     const rows = agendaRows(agenda);
-    paragraphs.push(new Paragraph({ children: [new TextRun({ text: 'Agenda Pimpinan', bold: true, color: '1F2937', size: 24 })], spacing: { before: 240, after: 120 } }));
+    children.push(new Paragraph({ children: [new TextRun({ text: 'Agenda Pimpinan', bold: true, color: '1F2937', size: 24 })], spacing: { before: 240, after: 120 } }));
     if (rows.length === 0) {
-      paragraphs.push(new Paragraph({ children: [new TextRun({ text: 'Tidak ada data.', italics: true, color: '9CA3AF', size: 20 })], spacing: { after: 240 } }));
+      children.push(new Paragraph({ children: [new TextRun({ text: 'Tidak ada data.', italics: true, color: '9CA3AF', size: 20 })], spacing: { after: 240 } }));
     } else {
-      paragraphs.push(new Paragraph({ children: [createTable(Object.keys(rows[0]), rows.map((r) => Object.values(r)))] }));
+      children.push(createTable(Object.keys(rows[0]), rows.map((r) => Object.values(r))));
     }
   }
 
-  const doc = new Document({ sections: [{ properties: {}, children: paragraphs }] });
+  const doc = new Document({ sections: [{ properties: {}, children }] });
   const blob = await Packer.toBlob(doc);
   const scopeLabel = scope === 'all' ? 'Semua' : scope === 'masuk' ? 'SuratMasuk' : scope === 'keluar' ? 'SuratKeluar' : scope === 'agenda' ? 'AgendaPimpinan' : 'Rentang';
   saveAs(blob, `Disposisi_${scopeLabel}_${stampStr}.docx`);

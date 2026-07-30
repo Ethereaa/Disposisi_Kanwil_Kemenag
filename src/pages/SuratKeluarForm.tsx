@@ -5,7 +5,7 @@ import { Field, Input, Textarea, Checkbox } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
 import type { SuratKeluar } from '@/types';
 import { displayToISO, isoToDisplay, todayISO } from '@/lib/date';
-import { insertKeluar, updateKeluar, getNextNomorUrut, suratKeluarStore } from '@/lib/db';
+import { insertKeluarSorted, updateKeluar, getNextNomorUrut, suratKeluarStore } from '@/lib/db';
 import { useInputMode } from '@/lib/useInputMode';
 
 interface Props {
@@ -89,7 +89,7 @@ export function SuratKeluarForm({ editing, onSaved, onCancel }: Props) {
       if (editing) {
         await updateKeluar(editing.id, payload);
       } else {
-        await insertKeluar(payload);
+        await insertKeluarSorted(payload);
       }
 
       if (stay && !editing) {
