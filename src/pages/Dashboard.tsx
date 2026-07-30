@@ -1,14 +1,19 @@
 import { useMemo } from 'react';
-import { Inbox, Send, CalendarCheck, Database, TrendingUp, Clock, CheckCircle2 } from 'lucide-react';
-import type { SuratMasuk, SuratKeluar, PageKey } from '@/types';
-import { isoToDisplay, isToday } from '@/lib/date';
+import { Inbox, Send, CalendarCheck, Database, TrendingUp, Clock, CheckCircle2, BarChart3, PieChart } from 'lucide-react';
+import type { SuratMasuk, SuratKeluar, AgendaPimpinan, PageKey } from '@/types';
+import { isoToDisplay, isToday, todayISO } from '@/lib/date';
 import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { MiniBarChart, DualTrendChart } from '@/components/ui/MiniBarChart';
 
 interface DashboardProps {
   suratMasuk: SuratMasuk[];
   suratKeluar: SuratKeluar[];
+  agendaPimpinan?: AgendaPimpinan[];
   onNavigate: (p: PageKey) => void;
 }
+
+const HARI_SINGKAT = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 
 export function Dashboard({ suratMasuk, suratKeluar, onNavigate }: DashboardProps) {
   const stats = useMemo(() => {
@@ -23,6 +28,32 @@ export function Dashboard({ suratMasuk, suratKeluar, onNavigate }: DashboardProp
       unsigned,
     };
   }, [suratMasuk, suratKeluar]);
+
+  // Last 7 days trend (surat masuk vs surat keluar), oldest first.
+  const trend = useMemo(() => {
+    const days: { iso: string; label: string }[] = [];
+    const today = todayISO();
+    const [ty, tm, td] = today.split('-').map(Number);
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(ty, tm - 1, td - i, 12);
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      days.push({ iso, label: HARI_SINGKAT[d.getDay()] });
+    }
+    const seriesA = days.map((d) => suratMasuk.filter((s) => s.tanggalDiterima === d.iso).length);
+    const seriesB = days.map((d) => suratKeluar.filter((s) => s.tanggalSurat === d.iso).length);
+    return { labels: days.map((d) => d.label), seriesA, seriesB, hasData: seriesA.some((v) => v > 0) || seriesB.some((v) => v > 0) };
+  }, [suratMasuk, suratKeluar]);
+
+  // Breakdown of surat masuk per bidang (tujuan disposisi) — who receives the most.
+  const perBidang = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const s of suratMasuk) {
+      counts.set(s.tujuanDisposisi, (counts.get(s.tujuanDisposisi) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [suratMasuk]);
 
   const recentMasuk = useMemo(
     () => [...suratMasuk].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5),
@@ -78,6 +109,47 @@ export function Dashboard({ suratMasuk, suratKeluar, onNavigate }: DashboardProp
         })}
       </div>
 
+      {/* Charts */}
+      <div className="grid lg:grid-cols-2 gap-4">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-office-border dark:border-slate-700 shadow-sm p-5">
+          <h3 className="font-semibold text-office-text dark:text-slate-100 flex items-center gap-2 mb-4">
+            <BarChart3 size={18} className="text-office-primary dark:text-emerald-400" /> Tren Surat 7 Hari Terakhir
+          </h3>
+          {trend.hasData ? (
+            <DualTrendChart
+              labels={trend.labels}
+              seriesA={trend.seriesA}
+              seriesB={trend.seriesB}
+              legendA="Surat Masuk"
+              legendB="Surat Keluar"
+            />
+          ) : (
+            <EmptyState
+              icon={BarChart3}
+              title="Belum ada data minggu ini"
+              description="Grafik akan muncul setelah ada surat masuk/keluar dalam 7 hari terakhir."
+              compact
+            />
+          )}
+        </div>
+
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-office-border dark:border-slate-700 shadow-sm p-5">
+          <h3 className="font-semibold text-office-text dark:text-slate-100 flex items-center gap-2 mb-4">
+            <PieChart size={18} className="text-office-primary dark:text-emerald-400" /> Surat Masuk per Bidang
+          </h3>
+          {perBidang.length > 0 ? (
+            <MiniBarChart data={perBidang} />
+          ) : (
+            <EmptyState
+              icon={PieChart}
+              title="Belum ada surat masuk"
+              description="Statistik per bidang akan muncul setelah surat masuk dicatat."
+              compact
+            />
+          )}
+        </div>
+      </div>
+
       {/* Quick info */}
       {stats.unsigned > 0 && (
         <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl px-4 py-3">
@@ -100,7 +172,14 @@ export function Dashboard({ suratMasuk, suratKeluar, onNavigate }: DashboardProp
           </div>
           <div className="divide-y divide-office-border dark:divide-slate-700/60">
             {recentMasuk.length === 0 ? (
-              <p className="px-5 py-8 text-center text-sm text-office-subtext dark:text-slate-500">Belum ada surat masuk.</p>
+              <EmptyState
+                icon={Inbox}
+                title="Belum ada surat masuk"
+                description="Tambah sekarang untuk mulai mencatat disposisi surat masuk."
+                actionLabel="Tambah Surat Masuk"
+                onAction={() => onNavigate('surat-masuk')}
+                compact
+              />
             ) : (
               recentMasuk.map((s) => (
                 <div key={s.id} className="px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
@@ -125,7 +204,14 @@ export function Dashboard({ suratMasuk, suratKeluar, onNavigate }: DashboardProp
           </div>
           <div className="divide-y divide-office-border dark:divide-slate-700/60">
             {recentKeluar.length === 0 ? (
-              <p className="px-5 py-8 text-center text-sm text-office-subtext dark:text-slate-500">Belum ada surat keluar.</p>
+              <EmptyState
+                icon={Send}
+                title="Belum ada surat keluar"
+                description="Tambah sekarang untuk mulai mencatat disposisi surat keluar."
+                actionLabel="Tambah Surat Keluar"
+                onAction={() => onNavigate('surat-keluar')}
+                compact
+              />
             ) : (
               recentKeluar.map((s) => (
                 <div key={s.id} className="px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">

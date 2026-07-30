@@ -10,6 +10,9 @@ import {
   Search,
   Inbox,
 } from 'lucide-react';
+import { useDebounce } from '@/lib/useDebounce';
+import { EmptyState } from './EmptyState';
+import { SkeletonTable } from './Skeleton';
 
 export interface Column<T> {
   key: string;
@@ -31,6 +34,10 @@ interface DataTableProps<T> {
   filters?: ReactNode;
   onRowClick?: (row: T) => void;
   initialSort?: { key: string; dir: 'asc' | 'desc' };
+  loading?: boolean;
+  emptyIcon?: typeof Inbox;
+  emptyActionLabel?: string;
+  onEmptyAction?: () => void;
 }
 
 export function DataTable<T extends { id: string }>({
@@ -43,14 +50,19 @@ export function DataTable<T extends { id: string }>({
   filters,
   onRowClick,
   initialSort,
+  loading = false,
+  emptyIcon,
+  emptyActionLabel,
+  onEmptyAction,
 }: DataTableProps<T>) {
   const [query, setQuery] = useState('');
+  const debouncedQuery = useDebounce(query, 300);
   const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(initialSort ?? null);
   const [page, setPage] = useState(1);
 
   const filtered = useMemo(() => {
     let out = rows;
-    const q = query.trim().toLowerCase();
+    const q = debouncedQuery.trim().toLowerCase();
     if (q) {
       out = out.filter((r) =>
         searchKeys.some((k) => String(r[k] ?? '').toLowerCase().includes(q)),
@@ -69,7 +81,7 @@ export function DataTable<T extends { id: string }>({
       }
     }
     return out;
-  }, [rows, query, searchKeys, sort, columns]);
+  }, [rows, debouncedQuery, searchKeys, sort, columns]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -81,6 +93,10 @@ export function DataTable<T extends { id: string }>({
       if (prev.dir === 'asc') return { key, dir: 'desc' };
       return null;
     });
+  }
+
+  if (loading) {
+    return <SkeletonTable cols={columns.length} />;
   }
 
   return (
@@ -129,9 +145,15 @@ export function DataTable<T extends { id: string }>({
             <tbody>
               {pageRows.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
-                    <Inbox size={32} className="mx-auto mb-2 opacity-40" />
-                    <p>{emptyMessage}</p>
+                  <td colSpan={columns.length} className="px-4 py-4">
+                    <EmptyState
+                      icon={emptyIcon}
+                      title={query.trim() ? 'Tidak ada hasil yang cocok' : emptyMessage}
+                      description={query.trim() ? `Coba kata kunci lain selain "${query.trim()}".` : undefined}
+                      actionLabel={!query.trim() ? emptyActionLabel : undefined}
+                      onAction={!query.trim() ? onEmptyAction : undefined}
+                      compact
+                    />
                   </td>
                 </tr>
               ) : (

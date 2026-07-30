@@ -1,17 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, lazy, Suspense } from 'react';
 import { Sidebar, Header } from '@/components/Layout';
 import { AuthScreen } from '@/components/AuthScreen';
 import { ToastProvider, useToast } from '@/components/ui/Toast';
 import { Button } from '@/components/ui/Button';
-import { Dashboard } from '@/pages/Dashboard';
-import { SuratMasukPage } from '@/pages/SuratMasukPage';
-import { SuratKeluarPage } from '@/pages/SuratKeluarPage';
-import { AgendaPimpinanPage } from '@/pages/AgendaPimpinanPage';
+import { SkeletonPage } from '@/components/ui/Skeleton';
 import { AgendaPimpinanPreview } from '@/pages/AgendaPimpinanPreview';
 import { AgendaPreviewHome } from '@/pages/AgendaPreviewHome';
-import { ExportPage } from '@/pages/ExportPage';
-import { BackupPage } from '@/pages/BackupPage';
-import { SettingsPage } from '@/pages/SettingsPage';
 import { getAllMasuk, getAllKeluar, getAllAgendaPimpinan } from '@/lib/db';
 import { supabase } from '@/lib/supabase';
 import { initLogo } from '@/lib/logo';
@@ -20,6 +14,16 @@ import { getLocalMigrationData, migrateLocalDataToCloud, deleteOldLocalDatabase 
 import type { PageKey, Theme, SuratMasuk, SuratKeluar, AgendaPimpinan, AppUser } from '@/types';
 import { APP_TITLE } from '@/types';
 import { Cloud, X } from 'lucide-react';
+
+// Route-level code splitting: each page becomes its own JS chunk so the
+// initial bundle only pays for the page the user lands on first.
+const Dashboard = lazy(() => import('@/pages/Dashboard').then((m) => ({ default: m.Dashboard })));
+const SuratMasukPage = lazy(() => import('@/pages/SuratMasukPage').then((m) => ({ default: m.SuratMasukPage })));
+const SuratKeluarPage = lazy(() => import('@/pages/SuratKeluarPage').then((m) => ({ default: m.SuratKeluarPage })));
+const AgendaPimpinanPage = lazy(() => import('@/pages/AgendaPimpinanPage').then((m) => ({ default: m.AgendaPimpinanPage })));
+const ExportPage = lazy(() => import('@/pages/ExportPage').then((m) => ({ default: m.ExportPage })));
+const BackupPage = lazy(() => import('@/pages/BackupPage').then((m) => ({ default: m.BackupPage })));
+const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 
 const pageMeta: Record<PageKey, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'Ringkasan disposisi surat' },
@@ -331,19 +335,19 @@ function Root() {
           )}
 
           {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="h-8 w-8 rounded-full border-4 border-office-primary border-t-transparent animate-spin" />
-            </div>
+            <SkeletonPage />
           ) : (
-            <div className="animate-fade-in">
-              {page === 'dashboard' && <Dashboard suratMasuk={suratMasuk} suratKeluar={suratKeluar} onNavigate={handleNavigate} />}
-              {page === 'surat-masuk' && <SuratMasukPage rows={suratMasuk} onRefresh={refresh} />}
-              {page === 'surat-keluar' && <SuratKeluarPage rows={suratKeluar} onRefresh={refresh} />}
-              {page === 'agenda-pimpinan' && <AgendaPimpinanPage rows={agendaPimpinan} onRefresh={refresh} />}
-              {page === 'export' && <ExportPage suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} />}
-              {page === 'backup' && <BackupPage suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} onRefresh={refresh} />}
-              {page === 'settings' && <SettingsPage theme={theme} onToggleTheme={toggleTheme} onUserUpdated={handleUserUpdated} />}
-            </div>
+            <Suspense fallback={<SkeletonPage />}>
+              <div className="animate-fade-in">
+                {page === 'dashboard' && <Dashboard suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} onNavigate={handleNavigate} />}
+                {page === 'surat-masuk' && <SuratMasukPage rows={suratMasuk} onRefresh={refresh} canDelete={user?.role !== 'staf'} />}
+                {page === 'surat-keluar' && <SuratKeluarPage rows={suratKeluar} onRefresh={refresh} canDelete={user?.role !== 'staf'} />}
+                {page === 'agenda-pimpinan' && <AgendaPimpinanPage rows={agendaPimpinan} onRefresh={refresh} canDelete={user?.role !== 'staf'} />}
+                {page === 'export' && <ExportPage suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} />}
+                {page === 'backup' && <BackupPage suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} onRefresh={refresh} />}
+                {page === 'settings' && <SettingsPage theme={theme} onToggleTheme={toggleTheme} onUserUpdated={handleUserUpdated} suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} />}
+              </div>
+            </Suspense>
           )}
         </main>
         <footer className="border-t border-office-border px-4 py-3 text-center text-[11px] text-office-subtext dark:border-slate-700 dark:text-slate-500 sm:px-6">

@@ -1,27 +1,35 @@
 import { useMemo, useState } from 'react';
-import { Plus, Eye, Pencil, Trash2, ExternalLink } from 'lucide-react';
+import { Plus, Eye, Pencil, Trash2, ExternalLink, CalendarCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { useToast } from '@/components/ui/Toast';
 import { isoToDisplayWithDay, formatDateTime } from '@/lib/date';
 import { deleteAgendaPimpinan, resequenceAgendaPimpinan } from '@/lib/db';
+import { getErrorMessage } from '@/lib/error';
 import type { AgendaPimpinan } from '@/types';
 import { AgendaPimpinanForm } from './AgendaPimpinanForm';
+import { AgendaStatusBadge, DateProximityBadge } from '@/components/ui/StatusBadge';
 
 interface Props {
   rows: AgendaPimpinan[];
   onRefresh: () => void;
+  canDelete?: boolean;
 }
 
 type View = 'list' | 'form' | 'detail';
 
-export function AgendaPimpinanPage({ rows, onRefresh }: Props) {
+export function AgendaPimpinanPage({ rows, onRefresh, canDelete = true }: Props) {
   const [view, setView] = useState<View>('list');
   const [editing, setEditing] = useState<AgendaPimpinan | null>(null);
   const [detail, setDetail] = useState<AgendaPimpinan | null>(null);
   const [toDelete, setToDelete] = useState<AgendaPimpinan | null>(null);
+  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+
+  // Optimistic UI: hide the row immediately on delete confirm instead of
+  // waiting for the full refetch, then reconcile once refresh() resolves.
+  const visibleRows = useMemo(() => rows.filter((r) => !removedIds.has(r.id)), [rows, removedIds]);
 
   const columns: Column<AgendaPimpinan>[] = [
     {
@@ -37,7 +45,12 @@ export function AgendaPimpinanPage({ rows, onRefresh }: Props) {
       header: 'Tanggal',
       sortable: true,
       sortValue: (r) => r.tanggalKegiatan ?? '',
-      render: (r) => <span className="font-medium">{isoToDisplayWithDay(r.tanggalKegiatan) || '-'}</span>,
+      render: (r) => (
+        <span className="inline-flex items-center gap-1.5 font-medium">
+          {isoToDisplayWithDay(r.tanggalKegiatan) || '-'}
+          <DateProximityBadge iso={r.tanggalKegiatan} />
+        </span>
+      ),
     },
     {
       key: 'waktuKegiatan',
@@ -65,7 +78,7 @@ export function AgendaPimpinanPage({ rows, onRefresh }: Props) {
       header: 'Keterangan',
       sortable: true,
       sortValue: (r) => r.keterangan,
-      render: (r) => <span className="max-w-[220px] truncate inline-block">{r.keterangan || '-'}</span>,
+      render: (r) => <AgendaStatusBadge value={r.keterangan} />,
     },
     {
       key: 'disposisiPegawai',
@@ -89,9 +102,11 @@ export function AgendaPimpinanPage({ rows, onRefresh }: Props) {
           <button onClick={(e) => { e.stopPropagation(); setEditing(r); setView('form'); }} className="rounded-md p-1.5 text-slate-500 hover:bg-amber-100 hover:text-amber-600 dark:text-slate-400 dark:hover:bg-amber-900/40" title="Edit">
             <Pencil size={16} />
           </button>
-          <button onClick={(e) => { e.stopPropagation(); setToDelete(r); }} className="rounded-md p-1.5 text-slate-500 hover:bg-red-100 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-900/40" title="Hapus">
-            <Trash2 size={16} />
-          </button>
+          {canDelete && (
+            <button onClick={(e) => { e.stopPropagation(); setToDelete(r); }} className="rounded-md p-1.5 text-slate-500 hover:bg-red-100 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-900/40" title="Hapus">
+              <Trash2 size={16} />
+            </button>
+          )}
         </div>
       ),
     },
@@ -99,13 +114,22 @@ export function AgendaPimpinanPage({ rows, onRefresh }: Props) {
 
   async function confirmDelete() {
     if (!toDelete) return;
+    const id = toDelete.id;
+    setToDelete(null);
+    // Optimistic: hide immediately, roll back if the delete actually fails.
+    setRemovedIds((prev) => new Set(prev).add(id));
     try {
-      await deleteAgendaPimpinan(toDelete.id);
+      await deleteAgendaPimpinan(id);
       await resequenceAgendaPimpinan();
       toast('Agenda berhasil dihapus.', 'success');
       onRefresh();
     } catch (err) {
-toast(getErrorMessage(err, 'Gagal menghapus agenda.'), 'error');
+      setRemovedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      toast(getErrorMessage(err, 'Gagal menghapus agenda.'), 'error');
     }
   }
 
@@ -128,10 +152,13 @@ toast(getErrorMessage(err, 'Gagal menghapus agenda.'), 'error');
 
       <DataTable
         columns={columns}
-        rows={rows}
+        rows={visibleRows}
         searchKeys={['namaKegiatan', 'tempatKegiatan', 'keterangan', 'disposisiPegawai']}
         searchPlaceholder="Cari agenda pimpinan..."
-        emptyMessage="Belum ada agenda pimpinan. Klik 'Tambah Agenda' untuk menambahkan."
+        emptyMessage="Belum ada agenda pimpinan."
+        emptyIcon={CalendarCheck}
+        emptyActionLabel="Tambah Agenda"
+        onEmptyAction={() => { setEditing(null); setView('form'); }}
         initialSort={{ key: 'nomorUrut', dir: 'asc' }}
         pageSize={10}
         onRowClick={(r) => setDetail(r)}

@@ -1,35 +1,44 @@
 import { useMemo, useState } from 'react';
-import { Plus, Eye, Pencil, Trash2, Inbox, Filter } from 'lucide-react';
+import { Plus, Eye, Pencil, Trash2, Inbox, Filter, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Select } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
-import type { SuratMasuk, TujuanDisposisi } from '@/types';
+import type { SuratMasuk } from '@/types';
 import { TUJUAN_DISPOSISI } from '@/types';
-import { isoToDisplay, formatDateTime } from '@/lib/date';
+import { isoToDisplay, formatDateTime, isWithinRange } from '@/lib/date';
 import { deleteRow, resequenceSuratMasukByNomorAgenda } from '@/lib/db';
+import { getErrorMessage } from '@/lib/error';
 import { SuratMasukForm } from './SuratMasukForm';
+import { DateRangeFilter } from '@/components/ui/DateRangeFilter';
+import { printSuratMasuk } from '@/lib/printDisposisi';
 
 interface Props {
   rows: SuratMasuk[];
   onRefresh: () => void;
+  canDelete?: boolean;
 }
 
 type View = 'list' | 'form' | 'detail';
 
-export function SuratMasukPage({ rows, onRefresh }: Props) {
+export function SuratMasukPage({ rows, onRefresh, canDelete = true }: Props) {
   const [view, setView] = useState<View>('list');
   const [editing, setEditing] = useState<SuratMasuk | null>(null);
   const [detail, setDetail] = useState<SuratMasuk | null>(null);
   const [toDelete, setToDelete] = useState<SuratMasuk | null>(null);
   const [tujuanFilter, setTujuanFilter] = useState<string>('');
+  const [dateStart, setDateStart] = useState('');
+  const [dateEnd, setDateEnd] = useState('');
+  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   const filteredRows = useMemo(() => {
-    if (!tujuanFilter) return rows;
-    return rows.filter((r) => r.tujuanDisposisi === tujuanFilter);
-  }, [rows, tujuanFilter]);
+    let out = rows.filter((r) => !removedIds.has(r.id));
+    if (tujuanFilter) out = out.filter((r) => r.tujuanDisposisi === tujuanFilter);
+    if (dateStart || dateEnd) out = out.filter((r) => isWithinRange(r.tanggalDiterima, dateStart, dateEnd));
+    return out;
+  }, [rows, tujuanFilter, dateStart, dateEnd, removedIds]);
 
   const columns: Column<SuratMasuk>[] = [
     {
@@ -98,12 +107,17 @@ export function SuratMasukPage({ rows, onRefresh }: Props) {
           <button onClick={(e) => { e.stopPropagation(); setDetail(r); }} className="p-1.5 rounded-md text-office-subtext hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-900/40" title="Lihat">
             <Eye size={16} />
           </button>
+          <button onClick={(e) => { e.stopPropagation(); printSuratMasuk(r); }} className="p-1.5 rounded-md text-office-subtext hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700" title="Cetak Lembar Disposisi">
+            <Printer size={16} />
+          </button>
           <button onClick={(e) => { e.stopPropagation(); setEditing(r); setView('form'); }} className="p-1.5 rounded-md text-office-subtext hover:bg-amber-100 hover:text-amber-600 dark:hover:bg-amber-900/40" title="Edit">
             <Pencil size={16} />
           </button>
-          <button onClick={(e) => { e.stopPropagation(); setToDelete(r); }} className="p-1.5 rounded-md text-office-subtext hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/40" title="Hapus">
-            <Trash2 size={16} />
-          </button>
+          {canDelete && (
+            <button onClick={(e) => { e.stopPropagation(); setToDelete(r); }} className="p-1.5 rounded-md text-office-subtext hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/40" title="Hapus">
+              <Trash2 size={16} />
+            </button>
+          )}
         </div>
       ),
     },
@@ -111,13 +125,21 @@ export function SuratMasukPage({ rows, onRefresh }: Props) {
 
   async function confirmDelete() {
     if (!toDelete) return;
+    const id = toDelete.id;
+    setToDelete(null);
+    setRemovedIds((prev) => new Set(prev).add(id));
     try {
-      await deleteRow('surat_masuk', toDelete.id);
+      await deleteRow('surat_masuk', id);
       await resequenceSuratMasukByNomorAgenda();
       toast('Data berhasil dihapus.', 'success');
       onRefresh();
     } catch (err) {
-toast(getErrorMessage(err, 'Gagal menghapus data.'), 'error');
+      setRemovedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      toast(getErrorMessage(err, 'Gagal menghapus data.'), 'error');
     }
   }
 
@@ -138,10 +160,13 @@ toast(getErrorMessage(err, 'Gagal menghapus data.'), 'error');
         rows={filteredRows}
         searchKeys={['nomorSurat', 'nomorAgenda', 'pengirim', 'perihal', 'tujuanDisposisi', 'isiDisposisi']}
         searchPlaceholder="Cari surat masuk..."
-        emptyMessage="Belum ada surat masuk. Klik 'Tambah Surat' untuk menambahkan."
+        emptyMessage="Belum ada surat masuk."
+        emptyIcon={Inbox}
+        emptyActionLabel="Tambah Surat"
+        onEmptyAction={() => { setEditing(null); setView('form'); }}
         initialSort={{ key: 'nomorUrut', dir: 'asc' }}
         filters={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Filter size={14} className="text-office-subtext dark:text-slate-400" />
             <Select
               value={tujuanFilter}
@@ -150,6 +175,7 @@ toast(getErrorMessage(err, 'Gagal menghapus data.'), 'error');
               options={TUJUAN_DISPOSISI.map((t) => ({ value: t, label: t }))}
               className="w-44"
             />
+            <DateRangeFilter start={dateStart} end={dateEnd} onChange={(s, e) => { setDateStart(s); setDateEnd(e); }} />
           </div>
         }
         onRowClick={(r) => setDetail(r)}
@@ -177,6 +203,9 @@ toast(getErrorMessage(err, 'Gagal menghapus data.'), 'error');
         footer={
           <>
             <Button variant="secondary" onClick={() => setDetail(null)}>Tutup</Button>
+            <Button variant="outline" onClick={() => { if (detail) printSuratMasuk(detail); }}>
+              <Printer size={16} /> Cetak
+            </Button>
             <Button onClick={() => { if (detail) { setEditing(detail); setView('form'); setDetail(null); } }}>
               <Pencil size={16} /> Edit
             </Button>

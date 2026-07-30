@@ -45,10 +45,13 @@ export type SubDisposisi =
   | 'Ortala & KUB'
   | 'Umum/Humas/PTSP';
 
+export type AppRole = 'admin' | 'staf';
+
 export interface AppUser {
   id: string;
   email: string;
   username: string;
+  role: AppRole;
 }
 
 export interface AgendaPimpinan {

@@ -1,20 +1,33 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Mail, Lock, Moon, Sun, Save, ShieldCheck, RotateCcw, Upload, User, Smartphone } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { Mail, Lock, Moon, Sun, Save, ShieldCheck, RotateCcw, Upload, User, Smartphone, History, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Field, Input } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
 import { Logo } from '@/components/Logo';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { getCurrentUser, changePassword, updateUsername } from '@/lib/storage';
 import { setCustomLogo, clearCustomLogo, getLogoSrc, getLogoSize, setLogoSize } from '@/lib/logo';
-import type { Theme, AppUser } from '@/types';
+import { formatDateTime } from '@/lib/date';
+import type { Theme, AppUser, SuratMasuk, SuratKeluar, AgendaPimpinan } from '@/types';
 
 interface Props {
   theme: Theme;
   onToggleTheme: () => void;
   onUserUpdated: () => void;
+  suratMasuk?: SuratMasuk[];
+  suratKeluar?: SuratKeluar[];
+  agendaPimpinan?: AgendaPimpinan[];
 }
 
-export function SettingsPage({ theme, onToggleTheme, onUserUpdated }: Props) {
+interface ActivityItem {
+  id: string;
+  label: string;
+  by: string;
+  at: string;
+  kind: 'masuk' | 'keluar' | 'agenda';
+}
+
+export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk = [], suratKeluar = [], agendaPimpinan = [] }: Props) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [usernameEdit, setUsernameEdit] = useState('');
   const [editingUsername, setEditingUsername] = useState(false);
@@ -41,6 +54,47 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated }: Props) {
       setUsernameEdit(u?.username ?? '');
     });
   }, []);
+
+  const recentActivity = useMemo<ActivityItem[]>(() => {
+    const items: ActivityItem[] = [
+      ...suratMasuk.map((s) => ({
+        id: `masuk-${s.id}`,
+        label: `Surat Masuk No. ${s.nomorUrut} — ${s.perihal || 'tanpa perihal'}`,
+        by: s.createdByEmail || 'Tidak diketahui',
+        at: s.updatedAt || s.createdAt,
+        kind: 'masuk' as const,
+      })),
+      ...suratKeluar.map((s) => ({
+        id: `keluar-${s.id}`,
+        label: `Surat Keluar No. ${s.nomorUrut} — ${s.perihal || 'tanpa perihal'}`,
+        by: s.createdByEmail || 'Tidak diketahui',
+        at: s.updatedAt || s.createdAt,
+        kind: 'keluar' as const,
+      })),
+      ...agendaPimpinan.map((a) => ({
+        id: `agenda-${a.id}`,
+        label: `Agenda No. ${a.nomorUrut} — ${a.namaKegiatan || 'tanpa nama kegiatan'}`,
+        by: a.createdByEmail || 'Tidak diketahui',
+        at: a.updatedAt || a.createdAt,
+        kind: 'agenda' as const,
+      })),
+    ];
+    return items
+      .filter((i) => i.at)
+      .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+      .slice(0, 10);
+  }, [suratMasuk, suratKeluar, agendaPimpinan]);
+
+  const kindBadge: Record<ActivityItem['kind'], string> = {
+    masuk: 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300',
+    keluar: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
+    agenda: 'bg-violet-50 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300',
+  };
+  const kindLabel: Record<ActivityItem['kind'], string> = {
+    masuk: 'Surat Masuk',
+    keluar: 'Surat Keluar',
+    agenda: 'Agenda',
+  };
 
   async function handleUsername(e: FormEvent) {
     e.preventDefault();
@@ -174,6 +228,14 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated }: Props) {
         <p className="text-xs text-office-subtext dark:text-slate-400">
           Email adalah identitas akun Anda dan tidak dapat diubah. Setiap anggota keluarga memiliki akun dengan email sendiri.
         </p>
+        {user?.role && (
+          <div className="flex items-center gap-2">
+            <ShieldAlert size={14} className="text-office-subtext dark:text-slate-400" />
+            <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${user.role === 'admin' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-700/50 dark:text-slate-300'}`}>
+              {user.role === 'admin' ? 'Admin — bisa hapus data' : 'Staf — lihat & input saja'}
+            </span>
+          </div>
+        )}
       </section>
 
       {/* Appearance */}
@@ -248,6 +310,33 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated }: Props) {
             </Button>
           </div>
         </div>
+      </section>
+
+      {/* Activity log (simple audit trail from existing createdByEmail data) */}
+      <section className="rounded-[24px] border border-emerald-100/80 bg-white/80 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/80 space-y-4">
+        <h3 className="text-sm font-semibold text-office-text dark:text-slate-200 flex items-center gap-2">
+          <History size={16} className="text-office-primary" /> Aktivitas Terbaru
+        </h3>
+        {recentActivity.length === 0 ? (
+          <EmptyState icon={History} title="Belum ada aktivitas" description="Aktivitas terbaru akan muncul di sini." compact />
+        ) : (
+          <ul className="divide-y divide-office-border dark:divide-slate-700/60">
+            {recentActivity.map((item) => (
+              <li key={item.id} className="flex items-start justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-office-text dark:text-slate-200">{item.label}</p>
+                  <p className="text-xs text-office-subtext dark:text-slate-400">oleh {item.by}</p>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium ${kindBadge[item.kind]}`}>
+                    {kindLabel[item.kind]}
+                  </span>
+                  <span className="text-[11px] text-office-subtext dark:text-slate-500">{formatDateTime(item.at)}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       {/* Password */}

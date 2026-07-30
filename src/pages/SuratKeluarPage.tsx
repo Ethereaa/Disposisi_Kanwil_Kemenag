@@ -1,36 +1,45 @@
 import { useMemo, useState } from 'react';
-import { Plus, Eye, Pencil, Trash2, Filter, CheckCircle2, XCircle } from 'lucide-react';
+import { Plus, Eye, Pencil, Trash2, Filter, CheckCircle2, XCircle, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Select } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
 import type { SuratKeluar } from '@/types';
-import { isoToDisplay, formatDateTime } from '@/lib/date';
+import { isoToDisplay, formatDateTime, isWithinRange } from '@/lib/date';
 import { deleteRow, resequenceSuratKeluarByTanggal } from '@/lib/db';
+import { getErrorMessage } from '@/lib/error';
 import { SuratKeluarForm } from './SuratKeluarForm';
+import { DateRangeFilter } from '@/components/ui/DateRangeFilter';
+import { printSuratKeluar } from '@/lib/printDisposisi';
 
 interface Props {
   rows: SuratKeluar[];
   onRefresh: () => void;
+  canDelete?: boolean;
 }
 
 type View = 'list' | 'form' | 'detail';
 type StatusFilter = '' | 'signed' | 'unsigned';
 
-export function SuratKeluarPage({ rows, onRefresh }: Props) {
+export function SuratKeluarPage({ rows, onRefresh, canDelete = true }: Props) {
   const [view, setView] = useState<View>('list');
   const [editing, setEditing] = useState<SuratKeluar | null>(null);
   const [detail, setDetail] = useState<SuratKeluar | null>(null);
   const [toDelete, setToDelete] = useState<SuratKeluar | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('');
+  const [dateStart, setDateStart] = useState('');
+  const [dateEnd, setDateEnd] = useState('');
+  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   const filteredRows = useMemo(() => {
-    if (!statusFilter) return rows;
-    if (statusFilter === 'signed') return rows.filter((r) => r.ditandatangani);
-    return rows.filter((r) => !r.ditandatangani);
-  }, [rows, statusFilter]);
+    let out = rows.filter((r) => !removedIds.has(r.id));
+    if (statusFilter === 'signed') out = out.filter((r) => r.ditandatangani);
+    if (statusFilter === 'unsigned') out = out.filter((r) => !r.ditandatangani);
+    if (dateStart || dateEnd) out = out.filter((r) => isWithinRange(r.tanggalSurat, dateStart, dateEnd));
+    return out;
+  }, [rows, statusFilter, dateStart, dateEnd, removedIds]);
 
   const columns: Column<SuratKeluar>[] = [
     {
@@ -93,12 +102,17 @@ export function SuratKeluarPage({ rows, onRefresh }: Props) {
           <button onClick={(e) => { e.stopPropagation(); setDetail(r); }} className="p-1.5 rounded-md text-office-subtext hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-900/40" title="Lihat">
             <Eye size={16} />
           </button>
+          <button onClick={(e) => { e.stopPropagation(); printSuratKeluar(r); }} className="p-1.5 rounded-md text-office-subtext hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700" title="Cetak Lembar Disposisi">
+            <Printer size={16} />
+          </button>
           <button onClick={(e) => { e.stopPropagation(); setEditing(r); setView('form'); }} className="p-1.5 rounded-md text-office-subtext hover:bg-amber-100 hover:text-amber-600 dark:hover:bg-amber-900/40" title="Edit">
             <Pencil size={16} />
           </button>
-          <button onClick={(e) => { e.stopPropagation(); setToDelete(r); }} className="p-1.5 rounded-md text-office-subtext hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/40" title="Hapus">
-            <Trash2 size={16} />
-          </button>
+          {canDelete && (
+            <button onClick={(e) => { e.stopPropagation(); setToDelete(r); }} className="p-1.5 rounded-md text-office-subtext hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/40" title="Hapus">
+              <Trash2 size={16} />
+            </button>
+          )}
         </div>
       ),
     },
@@ -106,13 +120,21 @@ export function SuratKeluarPage({ rows, onRefresh }: Props) {
 
   async function confirmDelete() {
     if (!toDelete) return;
+    const id = toDelete.id;
+    setToDelete(null);
+    setRemovedIds((prev) => new Set(prev).add(id));
     try {
-      await deleteRow('surat_keluar', toDelete.id);
+      await deleteRow('surat_keluar', id);
       await resequenceSuratKeluarByTanggal();
       toast('Data berhasil dihapus.', 'success');
       onRefresh();
     } catch (err) {
-toast(getErrorMessage(err, 'Gagal menghapus data.'), 'error');
+      setRemovedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      toast(getErrorMessage(err, 'Gagal menghapus data.'), 'error');
     }
   }
 
@@ -133,10 +155,12 @@ toast(getErrorMessage(err, 'Gagal menghapus data.'), 'error');
         rows={filteredRows}
         searchKeys={['nomorSurat', 'pengirim', 'perihal', 'keterangan']}
         searchPlaceholder="Cari surat keluar..."
-        emptyMessage="Belum ada surat keluar. Klik 'Tambah Surat' untuk menambahkan."
+        emptyMessage="Belum ada surat keluar."
+        emptyActionLabel="Tambah Surat"
+        onEmptyAction={() => { setEditing(null); setView('form'); }}
         initialSort={{ key: 'nomorUrut', dir: 'asc' }}
         filters={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Filter size={14} className="text-office-subtext dark:text-slate-400" />
             <Select
               value={statusFilter}
@@ -148,6 +172,7 @@ toast(getErrorMessage(err, 'Gagal menghapus data.'), 'error');
               ]}
               className="w-48"
             />
+            <DateRangeFilter start={dateStart} end={dateEnd} onChange={(s, e) => { setDateStart(s); setDateEnd(e); }} />
           </div>
         }
         onRowClick={(r) => setDetail(r)}
@@ -174,6 +199,9 @@ toast(getErrorMessage(err, 'Gagal menghapus data.'), 'error');
         footer={
           <>
             <Button variant="secondary" onClick={() => setDetail(null)}>Tutup</Button>
+            <Button variant="outline" onClick={() => { if (detail) printSuratKeluar(detail); }}>
+              <Printer size={16} /> Cetak
+            </Button>
             <Button onClick={() => { if (detail) { setEditing(detail); setView('form'); setDetail(null); } }}>
               <Pencil size={16} /> Edit
             </Button>

@@ -44,15 +44,18 @@ export function setSidebarOpen(open: boolean): void {
 
 // --- Auth (Supabase multi-user email/password + profiles) ---
 
-async function fetchProfile(userId: string): Promise<{ username: string; email: string } | null> {
+async function fetchProfile(userId: string): Promise<{ username: string; email: string; role: AppUser['role'] } | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('username, email')
+    .select('username, email, role')
     .eq('id', userId)
     .maybeSingle();
   if (error) return null;
   if (!data) return null;
-  return { username: data.username, email: data.email };
+  // `role` may not exist yet on installs that haven't run the role migration —
+  // default to 'admin' so behavior is unchanged (no one loses access unexpectedly).
+  const role: AppUser['role'] = data.role === 'staf' ? 'staf' : 'admin';
+  return { username: data.username, email: data.email, role };
 }
 
 function getFallbackUsername(email?: string, metadata?: any): string {
@@ -79,6 +82,7 @@ export async function getCurrentUser(): Promise<AppUser | null> {
     id: data.user.id,
     email,
     username: profile.username ?? fallbackUsername,
+    role: profile.role,
   };
 }
 
@@ -169,6 +173,7 @@ export async function loginUser(identifier: string, password: string): Promise<A
     id: data.user.id,
     email: data.user.email ?? profile.email ?? '',
     username: profile.username ?? fallbackUsername,
+    role: profile.role,
   };
 }
 
