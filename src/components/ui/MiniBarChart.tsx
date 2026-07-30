@@ -55,7 +55,7 @@ export function DualTrendChart({ labels, seriesA, seriesB, legendA, legendB }: D
 
   return (
     <div className="w-full overflow-x-auto">
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full min-w-[420px]" style={{ height }}>
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full min-w-[420px]" style={{ height: h }}>
         {[0, 0.5, 1].map((f) => (
           <line
             key={f}
