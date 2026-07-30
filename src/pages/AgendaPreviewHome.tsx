@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Clock3, MapPin, Users, Sparkles } from 'lucide-react';
+import { MapPin, Users, Sparkles } from 'lucide-react';
 import { getAllAgendaPimpinan } from '@/lib/db';
 import type { AgendaPimpinan } from '@/types';
 import { isoToDisplayWithDay } from '@/lib/date';
@@ -59,10 +59,16 @@ export function AgendaPreviewHome() {
                   </div>
                   <div className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">{item.waktuKegiatan || '--:--'}</div>
                 </div>
-                <div className="mt-3 grid gap-2 text-sm text-slate-600 dark:text-slate-300 sm:grid-cols-2">
+                <div className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-300">
                   <div className="flex items-center gap-2"><MapPin size={15} className="text-emerald-600" /> {item.tempatKegiatan || '-'}</div>
-                  <div className="flex items-center gap-2"><Users size={15} className="text-emerald-600" /> {item.disposisiPegawai || '-'}</div>
-                  <div className="flex items-center gap-2 sm:col-span-2"><Clock3 size={15} className="text-emerald-600" /> {item.keterangan || '-'}</div>
+                  <div>
+                    <div className="flex items-center gap-2"><Users size={15} className="text-emerald-600" /> {item.keterangan || '-'}</div>
+                    {item.disposisiPegawai && (
+                      <div className="ml-[23px] mt-0.5 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                        <span className="text-emerald-500">›</span> {item.disposisiPegawai}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </a>
             ))}
