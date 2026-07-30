@@ -28,14 +28,17 @@ export function AgendaStatusBadge({ value }: { value: string }) {
   );
 }
 
-/** Shows a small "Hari Ini" / "Besok" chip next to a date, computed from ISO yyyy-mm-dd. */
+/** Shows a small "Hari Ini" / "Besok" / "Lusa" chip next to a date, computed from ISO yyyy-mm-dd. */
 export function DateProximityBadge({ iso }: { iso: string | null | undefined }) {
   if (!iso) return null;
   const today = todayISO();
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tz = tomorrow.getTimezoneOffset() * 60000;
-  const tomorrowISO = new Date(tomorrow.getTime() - tz).toISOString().slice(0, 10);
+
+  const addDaysISO = (days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    const tz = d.getTimezoneOffset() * 60000;
+    return new Date(d.getTime() - tz).toISOString().slice(0, 10);
+  };
 
   if (iso === today) {
     return (
@@ -44,10 +47,17 @@ export function DateProximityBadge({ iso }: { iso: string | null | undefined }) 
       </span>
     );
   }
-  if (iso === tomorrowISO) {
+  if (iso === addDaysISO(1)) {
     return (
       <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
         Besok
+      </span>
+    );
+  }
+  if (iso === addDaysISO(2)) {
+    return (
+      <span className="inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-700 dark:bg-sky-900/50 dark:text-sky-300">
+        Lusa
       </span>
     );
   }

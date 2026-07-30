@@ -3,6 +3,7 @@ import { MapPin, Users, Sparkles } from 'lucide-react';
 import { getAllAgendaPimpinan } from '@/lib/db';
 import type { AgendaPimpinan } from '@/types';
 import { isoToDisplayWithDay } from '@/lib/date';
+import { AgendaStatusBadge, DateProximityBadge } from '@/components/ui/StatusBadge';
 
 export function AgendaPreviewHome() {
   const [rows, setRows] = useState<AgendaPimpinan[]>([]);
@@ -54,7 +55,10 @@ export function AgendaPreviewHome() {
               <a key={item.id} href={`/#/agenda-preview/${item.id}`} className="block rounded-[24px] border border-emerald-100/70 bg-white/80 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-400 dark:border-slate-700 dark:bg-slate-800/80">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-600 dark:text-emerald-300">{isoToDisplayWithDay(item.tanggalKegiatan) || '-'}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-600 dark:text-emerald-300">{isoToDisplayWithDay(item.tanggalKegiatan) || '-'}</p>
+                      <DateProximityBadge iso={item.tanggalKegiatan} />
+                    </div>
                     <h2 className="mt-1 text-base font-semibold text-slate-800 dark:text-slate-100">{item.namaKegiatan || 'Agenda'}</h2>
                   </div>
                   <div className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">{item.waktuKegiatan ? `${item.waktuKegiatan} WITA` : '--:--'}</div>
@@ -62,7 +66,7 @@ export function AgendaPreviewHome() {
                 <div className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-300">
                   <div className="flex items-center gap-2"><MapPin size={15} className="text-emerald-600" /> {item.tempatKegiatan || '-'}</div>
                   <div>
-                    <div className="flex items-center gap-2"><Users size={15} className="text-emerald-600" /> {item.keterangan || '-'}</div>
+                    <div className="flex items-center gap-2"><Users size={15} className="text-emerald-600" /> <AgendaStatusBadge value={item.keterangan} /></div>
                     {item.disposisiPegawai && (
                       <div className="ml-[23px] mt-0.5 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                         <span className="text-emerald-500">›</span> {item.disposisiPegawai}
