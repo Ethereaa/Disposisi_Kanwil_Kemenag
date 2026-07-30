@@ -8,7 +8,7 @@ import { useToast } from '@/components/ui/Toast';
 import type { SuratMasuk, TujuanDisposisi } from '@/types';
 import { TUJUAN_DISPOSISI } from '@/types';
 import { isoToDisplay, formatDateTime } from '@/lib/date';
-import { deleteRow, resequenceNomorUrut } from '@/lib/db';
+import { deleteRow, resequenceSuratMasukByNomorAgenda } from '@/lib/db';
 import { SuratMasukForm } from './SuratMasukForm';
 
 interface Props {
@@ -113,7 +113,7 @@ export function SuratMasukPage({ rows, onRefresh }: Props) {
     if (!toDelete) return;
     try {
       await deleteRow('surat_masuk', toDelete.id);
-      await resequenceNomorUrut('surat_masuk');
+      await resequenceSuratMasukByNomorAgenda();
       toast('Data berhasil dihapus.', 'success');
       onRefresh();
     } catch (err) {

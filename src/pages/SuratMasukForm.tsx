@@ -11,7 +11,7 @@ import {
   type SubDisposisi,
 } from '@/types';
 import { displayToISO, isoToDisplay, todayISO } from '@/lib/date';
-import { insertMasuk, updateMasuk, getNextNomorUrut, suratMasukStore } from '@/lib/db';
+import { insertMasukSorted, updateMasuk, getNextNomorUrut, suratMasukStore } from '@/lib/db';
 import { useInputMode } from '@/lib/useInputMode';
 
 interface Props {
@@ -114,7 +114,7 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
       if (editing) {
         await updateMasuk(editing.id, payload);
       } else {
-        await insertMasuk(payload);
+        await insertMasukSorted(payload);
       }
 
       if (stay && !editing) {
