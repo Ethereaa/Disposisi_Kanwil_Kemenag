@@ -2,9 +2,10 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Field, Input, Textarea, Select } from '@/components/ui/Form';
+import { AttachmentField } from '@/components/ui/AttachmentField';
 import { useToast } from '@/components/ui/Toast';
-import { AGENDA_KETERANGAN_OPTIONS, type AgendaPimpinan } from '@/types';
-import { insertAgendaPimpinanSorted, updateAgendaPimpinan } from '@/lib/db';
+import { AGENDA_KETERANGAN_OPTIONS, type AgendaPimpinan, type Attachment } from '@/types';
+import { insertAgendaPimpinanSorted, updateAgendaPimpinan, updateLampiran } from '@/lib/db';
 import { todayISO } from '@/lib/date';
 import { getErrorMessage } from '@/lib/error';
 
@@ -21,6 +22,7 @@ const emptyForm = {
   tempatKegiatan: '',
   keterangan: '',
   disposisiPegawai: '',
+  lampiran: [] as Attachment[],
 };
 
 export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
@@ -39,6 +41,7 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
         tempatKegiatan: editing.tempatKegiatan,
         keterangan: editing.keterangan,
         disposisiPegawai: editing.disposisiPegawai,
+        lampiran: editing.lampiran ?? [],
       });
     } else {
       setNomorUrut(1);
@@ -69,17 +72,24 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
           tempatKegiatan: form.tempatKegiatan.trim(),
           keterangan: form.keterangan,
           disposisiPegawai: form.disposisiPegawai.trim(),
+          lampiran: form.lampiran,
         };
         await updateAgendaPimpinan(editing.id, payload);
       } else {
-        await insertAgendaPimpinanSorted({
+        const inserted = await insertAgendaPimpinanSorted({
           tanggalKegiatan: form.tanggalKegiatan,
           waktuKegiatan: form.waktuKegiatan,
           namaKegiatan: form.namaKegiatan.trim(),
           tempatKegiatan: form.tempatKegiatan.trim(),
           keterangan: form.keterangan,
           disposisiPegawai: form.disposisiPegawai.trim(),
+          lampiran: form.lampiran,
         });
+        // insert_agenda_pimpinan_sorted() doesn't take lampiran, so attachments
+        // picked before the row existed are attached right after.
+        if (form.lampiran.length > 0) {
+          await updateLampiran('agenda_pimpinan', inserted.id, form.lampiran);
+        }
       }
 
       toast('Agenda berhasil disimpan.', 'success');
@@ -117,6 +127,15 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
           <Input value={form.disposisiPegawai} onChange={(e) => update('disposisiPegawai', e.target.value)} placeholder="Nama pegawai / disposisi" />
         </Field>
       </div>
+
+      <Field label="Lampiran / Scan Dokumen">
+        <AttachmentField
+          folder="agenda-pimpinan"
+          value={form.lampiran}
+          onChange={(next) => update('lampiran', next)}
+          disabled={busy}
+        />
+      </Field>
 
       <div className="flex flex-col gap-2 border-t border-slate-200 pt-4 dark:border-slate-700 sm:flex-row">
         <Button type="submit" disabled={busy}>

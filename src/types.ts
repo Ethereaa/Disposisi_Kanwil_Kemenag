@@ -1,3 +1,13 @@
+// Metadata for one scanned/uploaded file attached to a record. The file
+// itself lives in the `lampiran-surat` Supabase Storage bucket; only the
+// path + display info is kept here.
+export interface Attachment {
+  path: string;
+  name: string;
+  type: string;
+  size: number;
+}
+
 export interface SuratMasuk {
   id: string;
   nomorUrut: number;
@@ -11,6 +21,7 @@ export interface SuratMasuk {
   subDisposisi?: SubDisposisi | null;
   isiDisposisi: string;
   keterangan: string;
+  lampiran: Attachment[];
   createdByEmail?: string;
   createdAt: string; // ISO timestamp
   updatedAt: string; // ISO timestamp
@@ -25,6 +36,7 @@ export interface SuratKeluar {
   perihal: string;
   ditandatangani: boolean;
   keterangan: string;
+  lampiran: Attachment[];
   createdByEmail?: string;
   createdAt: string; // ISO timestamp
   updatedAt: string; // ISO timestamp
@@ -63,6 +75,7 @@ export interface AgendaPimpinan {
   tempatKegiatan: string;
   keterangan: string;
   disposisiPegawai: string;
+  lampiran: Attachment[];
   createdByEmail?: string;
   createdAt: string; // ISO timestamp
   updatedAt: string; // ISO timestamp

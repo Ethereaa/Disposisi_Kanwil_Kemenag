@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Save, Plus, X, Zap, Repeat } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Field, Input, Textarea, Select, Checkbox } from '@/components/ui/Form';
+import { AttachmentField } from '@/components/ui/AttachmentField';
 import { useToast } from '@/components/ui/Toast';
 import {
   TUJUAN_DISPOSISI,
@@ -9,11 +10,13 @@ import {
   type SuratMasuk,
   type TujuanDisposisi,
   type SubDisposisi,
+  type Attachment,
 } from '@/types';
 import { displayToISO, isoToDisplay, todayISO } from '@/lib/date';
 import {
   insertMasukSorted,
   updateMasuk,
+  updateLampiran,
   getNextNomorUrut,
   suratMasukStore,
   checkNomorSuratDuplicate,
@@ -40,6 +43,7 @@ const emptyForm = {
   subDisposisi: '' as SubDisposisi | '',
   isiDisposisi: '',
   keterangan: '',
+  lampiran: [] as Attachment[],
 };
 
 export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
@@ -89,6 +93,7 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
         subDisposisi: editing.subDisposisi || ('' as SubDisposisi),
         isiDisposisi: editing.isiDisposisi,
         keterangan: editing.keterangan,
+        lampiran: editing.lampiran ?? [],
       });
     } else {
       (async () => {
@@ -143,11 +148,17 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
         subDisposisi: form.tujuanDisposisi === 'Kabag TU' ? (form.subDisposisi as SubDisposisi) : null,
         isiDisposisi: form.isiDisposisi.trim(),
         keterangan: form.keterangan.trim(),
+        lampiran: form.lampiran,
       };
       if (editing) {
         await updateMasuk(editing.id, payload);
       } else {
-        await insertMasukSorted(payload);
+        const inserted = await insertMasukSorted(payload);
+        // insert_surat_masuk_sorted() doesn't take lampiran, so attachments
+        // picked before the row existed are attached right after.
+        if (form.lampiran.length > 0) {
+          await updateLampiran('surat_masuk', inserted.id, form.lampiran);
+        }
       }
 
       if (stay && !editing) {
@@ -301,6 +312,15 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
           onChange={(e) => update('keterangan', e.target.value)}
           placeholder="Keterangan tambahan..."
           rows={2}
+        />
+      </Field>
+
+      <Field label="Lampiran / Scan Surat Asli">
+        <AttachmentField
+          folder="surat-masuk"
+          value={form.lampiran}
+          onChange={(next) => update('lampiran', next)}
+          disabled={busy}
         />
       </Field>
 

@@ -97,6 +97,7 @@ export async function migrateLocalDataToCloud(): Promise<{ masuk: number; keluar
       subDisposisi: (r.subDisposisi ?? null) as SuratMasuk['subDisposisi'],
       isiDisposisi: r.isiDisposisi,
       keterangan: r.keterangan,
+      lampiran: [],
       createdAt: new Date(r.createdAt).toISOString(),
       updatedAt: new Date(r.updatedAt).toISOString(),
     }));
@@ -113,6 +114,7 @@ export async function migrateLocalDataToCloud(): Promise<{ masuk: number; keluar
       perihal: r.perihal,
       ditandatangani: r.ditandatangani,
       keterangan: r.keterangan,
+      lampiran: [],
       createdAt: new Date(r.createdAt).toISOString(),
       updatedAt: new Date(r.updatedAt).toISOString(),
     }));

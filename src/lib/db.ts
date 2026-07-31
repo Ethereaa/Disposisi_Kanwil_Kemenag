@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
-import type { AgendaPimpinan, SuratMasuk, SuratKeluar } from '@/types';
+import type { AgendaPimpinan, SuratMasuk, SuratKeluar, Attachment } from '@/types';
+import { normalizeLampiran } from './attachments';
 
 export type SuratTable = 'surat_masuk' | 'surat_keluar';
 export type AgendaTable = 'agenda_pimpinan';
@@ -12,6 +13,7 @@ interface DBRow {
   pengirim: string;
   perihal: string;
   keterangan: string;
+  lampiran: unknown;
   created_by_email: string;
   created_at: string;
   updated_at: string;
@@ -38,6 +40,7 @@ interface AgendaRow {
   tempat_kegiatan: string;
   keterangan: string;
   disposisi_pegawai: string;
+  lampiran: unknown;
   created_by_email: string;
   created_at: string;
   updated_at: string;
@@ -57,6 +60,7 @@ function mapMasuk(r: MasukRow): SuratMasuk {
     subDisposisi: r.sub_disposisi as SuratMasuk['subDisposisi'] ?? null,
     isiDisposisi: r.isi_disposisi ?? '',
     keterangan: r.keterangan ?? '',
+    lampiran: normalizeLampiran(r.lampiran),
     createdByEmail: r.created_by_email || undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -73,6 +77,7 @@ function mapKeluar(r: KeluarRow): SuratKeluar {
     perihal: r.perihal ?? '',
     ditandatangani: r.ditandatangani ?? false,
     keterangan: r.keterangan ?? '',
+    lampiran: normalizeLampiran(r.lampiran),
     createdByEmail: r.created_by_email || undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -89,6 +94,7 @@ function mapAgenda(r: AgendaRow): AgendaPimpinan {
     tempatKegiatan: r.tempat_kegiatan ?? '',
     keterangan: r.keterangan ?? '',
     disposisiPegawai: r.disposisi_pegawai ?? '',
+    lampiran: normalizeLampiran(r.lampiran),
     createdByEmail: r.created_by_email || undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -168,6 +174,7 @@ export async function insertMasuk(record: Omit<SuratMasuk, 'id' | 'createdAt' | 
       sub_disposisi: record.subDisposisi ?? null,
       isi_disposisi: record.isiDisposisi,
       keterangan: record.keterangan,
+      lampiran: record.lampiran ?? [],
       created_by_email: email,
     })
     .select('*')
@@ -217,6 +224,7 @@ export async function updateMasuk(id: string, record: Omit<SuratMasuk, 'id' | 'c
       sub_disposisi: record.subDisposisi ?? null,
       isi_disposisi: record.isiDisposisi,
       keterangan: record.keterangan,
+      lampiran: record.lampiran ?? [],
       updated_at: new Date().toISOString(),
     })
     .eq('id', id);
@@ -238,6 +246,7 @@ export async function insertKeluar(record: Omit<SuratKeluar, 'id' | 'createdAt' 
       perihal: record.perihal,
       ditandatangani: record.ditandatangani,
       keterangan: record.keterangan,
+      lampiran: record.lampiran ?? [],
       created_by_email: email,
     })
     .select('*')
@@ -279,6 +288,7 @@ export async function updateKeluar(id: string, record: Omit<SuratKeluar, 'id' | 
       perihal: record.perihal,
       ditandatangani: record.ditandatangani,
       keterangan: record.keterangan,
+      lampiran: record.lampiran ?? [],
       updated_at: new Date().toISOString(),
     })
     .eq('id', id);
@@ -300,6 +310,7 @@ export async function insertAgendaPimpinan(record: Omit<AgendaPimpinan, 'id' | '
       tempat_kegiatan: record.tempatKegiatan,
       keterangan: record.keterangan,
       disposisi_pegawai: record.disposisiPegawai,
+      lampiran: record.lampiran ?? [],
       created_by_email: email,
     })
     .select('*')
@@ -341,6 +352,7 @@ export async function updateAgendaPimpinan(id: string, record: Omit<AgendaPimpin
       tempat_kegiatan: record.tempatKegiatan,
       keterangan: record.keterangan,
       disposisi_pegawai: record.disposisiPegawai,
+      lampiran: record.lampiran ?? [],
       updated_at: new Date().toISOString(),
     })
     .eq('id', id);
@@ -356,6 +368,15 @@ export async function deleteRow(table: SuratTable, id: string): Promise<void> {
 
 export async function deleteAgendaPimpinan(id: string): Promise<void> {
   const { error } = await supabase.from('agenda_pimpinan').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// insertMasukSorted / insertKeluarSorted / insertAgendaPimpinanSorted go
+// through a DB function (RPC) that doesn't know about `lampiran`, so any
+// attachments picked in the form before the row existed are saved with
+// this follow-up call right after the sorted insert succeeds.
+export async function updateLampiran(table: SuratTable | AgendaTable, id: string, lampiran: Attachment[]): Promise<void> {
+  const { error } = await supabase.from(table).update({ lampiran }).eq('id', id);
   if (error) throw error;
 }
 
@@ -419,6 +440,7 @@ export async function bulkInsertMasuk(items: SuratMasuk[]): Promise<void> {
     sub_disposisi: r.subDisposisi ?? null,
     isi_disposisi: r.isiDisposisi,
     keterangan: r.keterangan,
+    lampiran: r.lampiran ?? [],
     created_by_email: email,
   }));
   const { error } = await supabase.from('surat_masuk').insert(rows);
@@ -437,6 +459,7 @@ export async function bulkInsertAgendaPimpinan(items: AgendaPimpinan[]): Promise
     tempat_kegiatan: r.tempatKegiatan,
     keterangan: r.keterangan,
     disposisi_pegawai: r.disposisiPegawai,
+    lampiran: r.lampiran ?? [],
     created_by_email: email,
   }));
   const { error } = await supabase.from('agenda_pimpinan').insert(rows);
@@ -455,6 +478,7 @@ export async function bulkInsertKeluar(items: SuratKeluar[]): Promise<void> {
     perihal: r.perihal,
     ditandatangani: r.ditandatangani,
     keterangan: r.keterangan,
+    lampiran: r.lampiran ?? [],
     created_by_email: email,
   }));
   const { error } = await supabase.from('surat_keluar').insert(rows);

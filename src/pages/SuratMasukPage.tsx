@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Eye, Pencil, Trash2, Inbox, Filter, Printer } from 'lucide-react';
+import { Plus, Eye, Pencil, Trash2, Inbox, Filter, Printer, Paperclip } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Select } from '@/components/ui/Form';
+import { AttachmentField } from '@/components/ui/AttachmentField';
 import { useToast } from '@/components/ui/Toast';
 import type { SuratMasuk } from '@/types';
 import { TUJUAN_DISPOSISI } from '@/types';
@@ -106,6 +107,16 @@ export function SuratMasukPage({ rows, onRefresh, canDelete = true, quickAddSign
       header: 'Tgl Diterima',
       sortable: true,
       sortValue: (r) => r.tanggalDiterima ?? '',
+    },
+    {
+      key: 'lampiran',
+      header: 'Lampiran',
+      width: '90px',
+      render: (r) => r.lampiran?.length ? (
+        <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-300">
+          <Paperclip size={12} /> {r.lampiran.length}
+        </span>
+      ) : <span className="text-xs text-office-subtext dark:text-slate-500">-</span>,
     },
     {
       key: 'actions',
@@ -264,6 +275,10 @@ function DetailContent({ s }: { s: SuratMasuk }) {
       <div>
         <p className="text-xs text-office-subtext dark:text-slate-400 mb-1">Keterangan</p>
         <p className="text-sm text-office-text dark:text-slate-200 whitespace-pre-wrap bg-slate-50 dark:bg-slate-900/40 rounded-lg p-3 border border-office-border dark:border-slate-700">{s.keterangan || '-'}</p>
+      </div>
+      <div>
+        <p className="text-xs text-office-subtext dark:text-slate-400 mb-1">Lampiran</p>
+        <AttachmentField folder="surat-masuk" value={s.lampiran} onChange={() => {}} readOnly />
       </div>
       <p className="text-xs text-office-subtext dark:text-slate-500 pt-2 border-t border-office-border dark:border-slate-700">
         Dibuat: {formatDateTime(s.createdAt)} · Diperbarui: {formatDateTime(s.updatedAt)}

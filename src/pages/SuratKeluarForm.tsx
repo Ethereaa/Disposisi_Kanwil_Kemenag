@@ -2,12 +2,14 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Save, Plus, X, Zap, Repeat } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Field, Input, Textarea, Checkbox } from '@/components/ui/Form';
+import { AttachmentField } from '@/components/ui/AttachmentField';
 import { useToast } from '@/components/ui/Toast';
-import type { SuratKeluar } from '@/types';
+import type { SuratKeluar, Attachment } from '@/types';
 import { displayToISO, isoToDisplay, todayISO } from '@/lib/date';
 import {
   insertKeluarSorted,
   updateKeluar,
+  updateLampiran,
   getNextNomorUrut,
   suratKeluarStore,
   checkNomorSuratDuplicate,
@@ -29,6 +31,7 @@ const emptyForm = {
   perihal: '',
   ditandatangani: false,
   keterangan: '',
+  lampiran: [] as Attachment[],
 };
 
 export function SuratKeluarForm({ editing, onSaved, onCancel }: Props) {
@@ -64,6 +67,7 @@ export function SuratKeluarForm({ editing, onSaved, onCancel }: Props) {
         perihal: editing.perihal,
         ditandatangani: editing.ditandatangani,
         keterangan: editing.keterangan,
+        lampiran: editing.lampiran ?? [],
       });
     } else {
       (async () => {
@@ -107,11 +111,17 @@ export function SuratKeluarForm({ editing, onSaved, onCancel }: Props) {
         perihal: form.perihal.trim(),
         ditandatangani: form.ditandatangani,
         keterangan: form.keterangan.trim(),
+        lampiran: form.lampiran,
       };
       if (editing) {
         await updateKeluar(editing.id, payload);
       } else {
-        await insertKeluarSorted(payload);
+        const inserted = await insertKeluarSorted(payload);
+        // insert_surat_keluar_sorted() doesn't take lampiran, so attachments
+        // picked before the row existed are attached right after.
+        if (form.lampiran.length > 0) {
+          await updateLampiran('surat_keluar', inserted.id, form.lampiran);
+        }
       }
 
       if (stay && !editing) {
@@ -229,6 +239,15 @@ export function SuratKeluarForm({ editing, onSaved, onCancel }: Props) {
           onChange={(e) => update('keterangan', e.target.value)}
           placeholder="Keterangan tambahan..."
           rows={3}
+        />
+      </Field>
+
+      <Field label="Lampiran / Scan Surat Asli">
+        <AttachmentField
+          folder="surat-keluar"
+          value={form.lampiran}
+          onChange={(next) => update('lampiran', next)}
+          disabled={busy}
         />
       </Field>
 
