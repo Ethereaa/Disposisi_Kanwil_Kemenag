@@ -6,6 +6,11 @@ export interface Attachment {
   name: string;
   type: string;
   size: number;
+  /** Small base64 data-URL preview (first page), generated at upload time
+   *  for photo-derived documents. Stored inline in the `lampiran` jsonb
+   *  column — no extra Storage object or signed URL needed just to show a
+   *  thumbnail in a list/table. Absent for files picked directly as PDF. */
+  thumbnail?: string;
 }
 
 export interface SuratMasuk {
