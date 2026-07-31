@@ -1,14 +1,41 @@
+import { useEffect, useState } from 'react';
 import { ArrowLeft, Copy, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { isoToDisplayWithDay } from '@/lib/date';
+import { getAgendaPimpinanById } from '@/lib/db';
 import type { AgendaPimpinan } from '@/types';
 
 interface Props {
-  agenda: AgendaPimpinan | null;
+  agendaId: string;
   onClose: () => void;
 }
 
-export function AgendaPimpinanPreview({ agenda, onClose }: Props) {
+// Standalone single-agenda preview — shareable link / QR target. Fetches
+// its own data (works logged-out) and has no interactive elements besides
+// "Kembali" and "Bagikan": it is read-only by design, never a click-through
+// into the rest of the app.
+export function AgendaPimpinanPreview({ agendaId, onClose }: Props) {
+  const [agenda, setAgenda] = useState<AgendaPimpinan | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    getAgendaPimpinanById(agendaId)
+      .then((data) => { if (mounted) setAgenda(data); })
+      .catch(() => { if (mounted) setAgenda(null); })
+      .finally(() => { if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, [agendaId]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_35%),linear-gradient(135deg,#f7fcf8,#eef6f2)] p-4 text-center dark:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_35%),linear-gradient(135deg,#020617,#0f172a)]">
+        <p className="text-sm text-slate-500 dark:text-slate-400">Memuat agenda...</p>
+      </div>
+    );
+  }
+
   if (!agenda) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_35%),linear-gradient(135deg,#f7fcf8,#eef6f2)] p-4 text-center dark:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_35%),linear-gradient(135deg,#020617,#0f172a)]">
@@ -22,11 +49,11 @@ export function AgendaPimpinanPreview({ agenda, onClose }: Props) {
   }
 
   const shareUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}${window.location.pathname}#/agenda-preview/${agenda.id}`
+    ? `${window.location.origin}/#/agenda-preview/${agenda.id}`
     : '';
 
   async function handleShare() {
-    if (!shareUrl) return;
+    if (!shareUrl || !agenda) return;
     try {
       if (navigator.share) {
         await navigator.share({ title: 'Agenda Pimpinan', text: agenda.namaKegiatan, url: shareUrl });

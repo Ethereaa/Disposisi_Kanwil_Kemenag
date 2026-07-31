@@ -54,6 +54,27 @@ function normalizePath(pathname: string) {
   return cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
 }
 
+// Resolves what the standalone Preview Agenda Pimpinan screen should show
+// for the current URL, checking (in order): hash-based preview routes
+// (#/agenda-preview-home, #/agenda-preview/:id — used by push notification
+// links and older shared links), then clean-path routes (/agenda-preview,
+// /agenda-preview/:id — used when the link is opened fresh / typed
+// directly). Returns '__home__' for the list, an id for a single agenda,
+// or null if the current URL isn't a preview route at all.
+function resolvePreviewRoute(): string | null {
+  const hash = window.location.hash;
+  if (hash === '#/agenda-preview-home') return '__home__';
+  const hashMatch = hash.match(/^#\/agenda-preview\/(.+)$/);
+  if (hashMatch) return hashMatch[1];
+
+  const cleanPath = normalizePath(window.location.pathname);
+  if (cleanPath === '/agenda-preview') return '__home__';
+  const pathMatch = cleanPath.match(/^\/agenda-preview\/(.+)$/);
+  if (pathMatch) return pathMatch[1];
+
+  return null;
+}
+
 function buildRoutePath(path: string) {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   if (BASE_PATH === '/') return normalizedPath;
@@ -89,7 +110,7 @@ function Root() {
   const [suratKeluar, setSuratKeluar] = useState<SuratKeluar[]>([]);
   const [agendaPimpinan, setAgendaPimpinan] = useState<AgendaPimpinan[]>([]);
   const [loading, setLoading] = useState(true);
-  const [previewAgendaId, setPreviewAgendaId] = useState<string | null>(null);
+  const [previewAgendaId, setPreviewAgendaId] = useState<string | null>(() => resolvePreviewRoute());
   const [migrationInfo, setMigrationInfo] = useState<{ masuk: number; keluar: number } | null>(null);
   const [routePage, setRoutePage] = useState<PageKey>('dashboard');
   const [migrating, setMigrating] = useState(false);
@@ -104,16 +125,11 @@ function Root() {
     applyTheme(t);
     initLogo();
     const syncPreviewFromHash = () => {
-      const hash = window.location.hash;
-      if (hash === '#/agenda-preview-home') {
-        setPreviewAgendaId('__home__');
-        return;
-      }
-      const match = hash.match(/^#\/agenda-preview\/(.+)$/);
-      setPreviewAgendaId(match ? match[1] : null);
+      setPreviewAgendaId(resolvePreviewRoute());
     };
 
     const syncRouteFromPath = () => {
+      syncPreviewFromHash();
       const route = getPathRoute(window.location.pathname);
       if (route.type === 'page') {
         setRoutePage(route.page);
@@ -269,16 +285,29 @@ function Root() {
     }
   }
 
-  // The public "Preview Agenda" home screen (installed as its own PWA
-  // shortcut, start_url "/#/agenda-preview-home") fetches its own data and
-  // has its own loading state — it must never wait on the auth bootstrap
-  // chain (getCurrentUser() → supabase.auth.getUser() + fetchProfile(),
-  // two sequential network round-trips). On a cold app-icon launch that
-  // chain can be slow, which used to leave this screen stuck on a blank
-  // div until the user warmed things up by opening the site in a regular
-  // browser tab first. Checking it before `bootChecked` fixes that.
+  // The standalone "Preview Agenda Pimpinan" screens — both the list
+  // (previewAgendaId === '__home__') and a single shared agenda
+  // (previewAgendaId === an id) — are a fully independent, public route.
+  // They fetch their own data and must never depend on the auth bootstrap
+  // chain (getCurrentUser() → supabase.auth.getUser() + fetchProfile()) or
+  // on data already loaded into Root's state, so they work from any
+  // device, logged in or not, and render before bootChecked/authed are
+  // even evaluated. They are also read-only by design: no click-through
+  // into the rest of the app, so there is nothing for a "back" action to
+  // get confused about.
   if (previewAgendaId === '__home__') {
     return <AgendaPreviewHome />;
+  }
+  if (previewAgendaId) {
+    return (
+      <AgendaPimpinanPreview
+        agendaId={previewAgendaId}
+        onClose={() => {
+          window.history.replaceState(null, '', buildRoutePath('/dashboard'));
+          setPreviewAgendaId(null);
+        }}
+      />
+    );
   }
 
   if (!bootChecked) {
@@ -296,7 +325,6 @@ function Root() {
   const meta = pageMeta[page];
   const showMigration = migrationInfo && !migrationDismissed;
   const unsignedCount = suratKeluar.filter((s) => !s.ditandatangani).length;
-  const previewAgenda = previewAgendaId ? agendaPimpinan.find((item) => item.id === previewAgendaId) ?? null : null;
 
   if (window.location.pathname === '/login' && !authed) {
     return <AuthScreen onAuthed={handleAuthed} />;
@@ -304,10 +332,6 @@ function Root() {
 
   if (window.location.pathname === '/logout') {
     return <AuthScreen onAuthed={handleAuthed} />;
-  }
-
-  if (previewAgendaId) {
-    return <AgendaPimpinanPreview agenda={previewAgenda} onClose={() => { window.history.replaceState(null, '', window.location.pathname); setPreviewAgendaId(null); }} />;
   }
 
   return (

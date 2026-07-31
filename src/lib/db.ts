@@ -126,6 +126,19 @@ export async function getAllAgendaPimpinan(): Promise<AgendaPimpinan[]> {
   return (data as AgendaRow[]).map(mapAgenda);
 }
 
+// Used by the standalone Preview Agenda Pimpinan screen (public route,
+// works without login) to fetch a single agenda by id, instead of
+// depending on the authenticated app's already-loaded list.
+export async function getAgendaPimpinanById(id: string): Promise<AgendaPimpinan | null> {
+  const { data, error } = await supabase
+    .from('agenda_pimpinan')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? mapAgenda(data as AgendaRow) : null;
+}
+
 export async function getNextNomorUrut(table: SuratTable | AgendaTable): Promise<number> {
   const { data, error } = await supabase
     .from(table)

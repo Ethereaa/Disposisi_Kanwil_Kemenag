@@ -102,7 +102,7 @@ export function AgendaPimpinanPage({ rows, onRefresh, canDelete = true, quickAdd
       width: '110px',
       render: (r) => (
         <div className="flex items-center gap-1">
-          <button onClick={(e) => { e.stopPropagation(); window.location.hash = `#/agenda-preview/${r.id}`; }} className="rounded-md p-1.5 text-slate-500 hover:bg-emerald-100 hover:text-emerald-600 dark:text-slate-400 dark:hover:bg-emerald-900/40" title="Buka Preview">
+          <button onClick={(e) => { e.stopPropagation(); window.open(`/agenda-preview/${r.id}`, '_blank', 'noopener,noreferrer'); }} className="rounded-md p-1.5 text-slate-500 hover:bg-emerald-100 hover:text-emerald-600 dark:text-slate-400 dark:hover:bg-emerald-900/40" title="Buka Preview">
             <ExternalLink size={16} />
           </button>
           <button onClick={(e) => { e.stopPropagation(); setDetail(r); }} className="rounded-md p-1.5 text-slate-500 hover:bg-emerald-100 hover:text-emerald-600 dark:text-slate-400 dark:hover:bg-emerald-900/40" title="Lihat">
@@ -150,7 +150,7 @@ export function AgendaPimpinanPage({ rows, onRefresh, canDelete = true, quickAdd
           <p className="text-sm text-slate-500 dark:text-slate-400">{rows.length} agenda tercatat</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => window.open('/#/agenda-preview-home', '_self')}>
+          <Button variant="outline" onClick={() => window.open('/agenda-preview', '_blank', 'noopener,noreferrer')}>
             <ExternalLink size={16} /> Buka Preview Agenda
           </Button>
           <Button onClick={() => { setEditing(null); setView('form'); }}>

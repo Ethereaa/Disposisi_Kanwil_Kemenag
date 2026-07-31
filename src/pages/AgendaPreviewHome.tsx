@@ -52,7 +52,7 @@ export function AgendaPreviewHome() {
         ) : (
           <div className="space-y-3">
             {sortedRows.map((item) => (
-              <a key={item.id} href={`/#/agenda-preview/${item.id}`} className="block rounded-[24px] border border-emerald-100/70 bg-white/80 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-400 dark:border-slate-700 dark:bg-slate-800/80">
+              <div key={item.id} className="rounded-[24px] border border-emerald-100/70 bg-white/80 p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -74,7 +74,7 @@ export function AgendaPreviewHome() {
                     )}
                   </div>
                 </div>
-              </a>
+              </div>
             ))}
           </div>
         )}
