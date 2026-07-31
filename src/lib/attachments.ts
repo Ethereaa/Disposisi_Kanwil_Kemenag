@@ -134,3 +134,37 @@ export async function photosToPdf(
   const file = new File([blob], `${safeName}.pdf`, { type: 'application/pdf' });
   return { file, thumbnail };
 }
+
+// Combines several already-uploaded attachments into ONE in-memory PDF —
+// used for "Preview Semua": when a batch of separate lampiran documents
+// (e.g. several letters scanned back-to-back) needs to be reviewed in a
+// single click instead of opening each one individually. Nothing is
+// re-uploaded or changed in Storage; this only builds a throwaway blob
+// for the preview modal (see AttachmentField's handleViewMerged).
+//
+// Almost every attachment is already a PDF (photosToPdf converts photos
+// before upload), but a raw image is handled too so the merge never
+// silently skips a document.
+export async function mergeAttachmentsToPdf(attachments: Attachment[]): Promise<Blob> {
+  const { PDFDocument } = await import('pdf-lib');
+  const merged = await PDFDocument.create();
+
+  for (const a of attachments) {
+    const { data, error } = await supabase.storage.from(BUCKET).download(a.path);
+    if (error || !data) throw error ?? new Error(`Gagal mengambil ${a.name}.`);
+    const bytes = new Uint8Array(await data.arrayBuffer());
+
+    if (a.type === 'application/pdf') {
+      const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
+      const pages = await merged.copyPages(src, src.getPageIndices());
+      pages.forEach((p) => merged.addPage(p));
+    } else {
+      const image = a.type === 'image/png' ? await merged.embedPng(bytes) : await merged.embedJpg(bytes);
+      const page = merged.addPage([image.width, image.height]);
+      page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+    }
+  }
+
+  const mergedBytes = await merged.save();
+  return new Blob([mergedBytes.slice()], { type: 'application/pdf' });
+}
