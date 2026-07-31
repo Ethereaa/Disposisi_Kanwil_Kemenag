@@ -5,6 +5,7 @@ import { Field, Input } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
 import { displayToISO, isoToDisplay } from '@/lib/date';
 import { exportData } from '@/lib/export';
+import { getErrorMessage } from '@/lib/error';
 import type { AgendaPimpinan, SuratMasuk, SuratKeluar } from '@/types';
 
 interface Props {
@@ -55,7 +56,7 @@ export function ExportPage({ suratMasuk, suratKeluar, agendaPimpinan }: Props) {
       });
       toast(`Export ${format.toUpperCase()} berhasil.`, 'success');
     } catch (err) {
-toast(getErrorMessage(err, 'Gagal mengekspor data.'), 'error');
+      toast(getErrorMessage(err, 'Gagal mengekspor data.'), 'error');
     } finally {
       setBusy(false);
     }

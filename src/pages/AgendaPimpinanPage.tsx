@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Eye, Pencil, Trash2, ExternalLink, CalendarCheck, Paperclip } from 'lucide-react';
+import { Plus, Eye, Pencil, Trash2, ExternalLink, CalendarCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { AttachmentField } from '@/components/ui/AttachmentField';
+import { LampiranCell } from '@/components/ui/LampiranCell';
 import { useToast } from '@/components/ui/Toast';
 import { isoToDisplayWithDay, formatDateTime } from '@/lib/date';
 import { deleteAgendaPimpinan, resequenceAgendaPimpinan } from '@/lib/db';
@@ -101,11 +102,7 @@ export function AgendaPimpinanPage({ rows, onRefresh, canDelete = true, quickAdd
       key: 'lampiran',
       header: 'Lampiran',
       width: '90px',
-      render: (r) => r.lampiran?.length ? (
-        <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-300">
-          <Paperclip size={12} /> {r.lampiran.length}
-        </span>
-      ) : <span className="text-xs text-office-subtext dark:text-slate-500">-</span>,
+      render: (r) => <LampiranCell lampiran={r.lampiran} />,
     },
     {
       key: 'actions',

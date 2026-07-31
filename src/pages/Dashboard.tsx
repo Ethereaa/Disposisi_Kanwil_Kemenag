@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import { Inbox, Send, CalendarCheck, Database, TrendingUp, Clock, CheckCircle2, BarChart3, PieChart } from 'lucide-react';
+import { Inbox, Send, CalendarCheck, Database, TrendingUp, Clock, CheckCircle2, BarChart3, PieChart, Paperclip } from 'lucide-react';
 import type { SuratMasuk, SuratKeluar, AgendaPimpinan, PageKey } from '@/types';
-import { isoToDisplay, isToday, todayISO } from '@/lib/date';
+import { isoToDisplay, isToday, isThisMonth, todayISO } from '@/lib/date';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { MiniBarChart, DualTrendChart } from '@/components/ui/MiniBarChart';
@@ -54,6 +54,22 @@ export function Dashboard({ suratMasuk, suratKeluar, onNavigate }: DashboardProp
       .map(([label, value]) => ({ label, value }))
       .sort((a, b) => b.value - a.value);
   }, [suratMasuk]);
+
+  // % of this month's letters (masuk + keluar) that already have a scanned
+  // lampiran attached, vs. still missing one — a compliance signal so an
+  // admin can see at a glance whether staff are actually scanning surat in,
+  // not just recording them.
+  const attachmentCompliance = useMemo(() => {
+    const masukBulan = suratMasuk.filter((s) => isThisMonth(s.tanggalDiterima));
+    const keluarBulan = suratKeluar.filter((s) => isThisMonth(s.tanggalSurat));
+    const total = masukBulan.length + keluarBulan.length;
+    const withScan =
+      masukBulan.filter((s) => s.lampiran?.length > 0).length +
+      keluarBulan.filter((s) => s.lampiran?.length > 0).length;
+    const without = total - withScan;
+    const pct = total > 0 ? Math.round((withScan / total) * 100) : 0;
+    return { total, withScan, without, pct };
+  }, [suratMasuk, suratKeluar]);
 
   const recentMasuk = useMemo(
     () => [...suratMasuk].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5),
@@ -149,6 +165,50 @@ export function Dashboard({ suratMasuk, suratKeluar, onNavigate }: DashboardProp
           )}
         </div>
       </div>
+
+      {/* Attachment compliance */}
+      {attachmentCompliance.total > 0 && (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-office-border dark:border-slate-700 shadow-sm p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="font-semibold text-office-text dark:text-slate-100 flex items-center gap-2">
+                <Paperclip size={18} className="text-office-primary dark:text-emerald-400" /> Kepatuhan Lampiran Bulan Ini
+              </h3>
+              <p className="text-sm text-office-subtext dark:text-slate-400 mt-0.5">
+                {attachmentCompliance.withScan} dari {attachmentCompliance.total} surat bulan ini sudah ada scan lampiran.
+              </p>
+            </div>
+            <div
+              className={`shrink-0 text-3xl font-bold tabular-nums ${
+                attachmentCompliance.pct >= 80
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : attachmentCompliance.pct >= 50
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-rose-600 dark:text-rose-400'
+              }`}
+            >
+              {attachmentCompliance.pct}%
+            </div>
+          </div>
+          <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700/50">
+            <div
+              className={`h-full rounded-full transition-all ${
+                attachmentCompliance.pct >= 80
+                  ? 'bg-emerald-500'
+                  : attachmentCompliance.pct >= 50
+                    ? 'bg-amber-500'
+                    : 'bg-rose-500'
+              }`}
+              style={{ width: `${attachmentCompliance.pct}%` }}
+            />
+          </div>
+          {attachmentCompliance.without > 0 && (
+            <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+              {attachmentCompliance.without} surat bulan ini belum ada scan lampiran.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Quick info */}
       {stats.unsigned > 0 && (
