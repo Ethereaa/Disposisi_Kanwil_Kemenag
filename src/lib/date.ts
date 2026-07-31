@@ -55,6 +55,10 @@ export function isToday(iso: string | null): boolean {
   return !!iso && iso === todayISO();
 }
 
+export function isThisMonth(iso: string | null): boolean {
+  return !!iso && iso.slice(0, 7) === todayISO().slice(0, 7);
+}
+
 export function formatDateTime(value: string | number): string {
   const d = new Date(value);
   const tz = d.getTimezoneOffset() * 60000;
