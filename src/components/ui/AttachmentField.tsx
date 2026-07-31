@@ -10,9 +10,10 @@ import {
   Paperclip,
   Copy,
   ExternalLink,
+  Layers,
 } from 'lucide-react';
 import type { Attachment } from '@/types';
-import { uploadAttachment, deleteAttachment, getAttachmentUrl, photosToPdf } from '@/lib/attachments';
+import { uploadAttachment, deleteAttachment, getAttachmentUrl, photosToPdf, mergeAttachmentsToPdf } from '@/lib/attachments';
 import { useToast } from './Toast';
 import { Modal } from './Modal';
 import { Skeleton } from './Skeleton';
@@ -54,6 +55,7 @@ export function AttachmentField({ value, onChange, folder, disabled, readOnly }:
   const [progress, setProgress] = useState<ProgressState | null>(null);
   const [photoMode, setPhotoMode] = useState<PhotoMode>('single');
   const [preview, setPreview] = useState<PreviewState | null>(null);
+  const [mergedBusy, setMergedBusy] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const pickInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -103,6 +105,14 @@ export function AttachmentField({ value, onChange, folder, disabled, readOnly }:
           uploaded.length > 1 ? `${uploaded.length} lampiran berhasil diupload.` : 'Lampiran berhasil diupload.',
           'success',
         );
+        // Batch mode keeps each scanned document as its own attachment
+        // (so they stay individually deletable), but reviewing several
+        // of them one-by-one is tedious — so as soon as a batch produces
+        // more than one document, immediately show them combined into a
+        // single merged PDF, one click, no extra button press needed.
+        if (photoMode === 'batch' && uploaded.length > 1) {
+          void handleViewMerged(uploaded);
+        }
       }
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Gagal mengupload lampiran.', 'error');
@@ -121,6 +131,35 @@ export function AttachmentField({ value, onChange, folder, disabled, readOnly }:
       toast('Gagal membuka lampiran.', 'error');
       setPreview(null);
     }
+  }
+
+  // Combines several attachments into one throwaway PDF (nothing is
+  // re-uploaded) so they can be reviewed in the same preview modal with
+  // a single click, instead of opening each document one at a time.
+  async function handleViewMerged(list: Attachment[]) {
+    const synthetic: Attachment = {
+      path: '__merged__',
+      name: `Gabungan ${list.length} Lampiran.pdf`,
+      type: 'application/pdf',
+      size: 0,
+    };
+    setMergedBusy(true);
+    setPreview({ attachment: synthetic, url: null, loading: true });
+    try {
+      const blob = await mergeAttachmentsToPdf(list);
+      const url = URL.createObjectURL(blob);
+      setPreview({ attachment: synthetic, url, loading: false });
+    } catch {
+      toast('Gagal menggabungkan lampiran.', 'error');
+      setPreview(null);
+    } finally {
+      setMergedBusy(false);
+    }
+  }
+
+  function closePreview() {
+    if (preview?.url?.startsWith('blob:')) URL.revokeObjectURL(preview.url);
+    setPreview(null);
   }
 
   async function handleDelete(a: Attachment) {
@@ -217,7 +256,7 @@ export function AttachmentField({ value, onChange, folder, disabled, readOnly }:
             PDF/foto surat asli — otomatis jadi PDF.{' '}
             {photoMode === 'single'
               ? 'Beberapa foto sekaligus akan digabung jadi 1 dokumen (multi-halaman).'
-              : 'Mode Batch: tiap foto jadi dokumen terpisah — cocok untuk beberapa surat sekaligus.'}
+              : 'Mode Batch: tiap foto jadi dokumen terpisah (cocok untuk beberapa surat sekaligus) — setelah upload, semuanya otomatis ditampilkan gabungan dalam 1 preview PDF.'}
           </p>
 
           {progress && (
@@ -243,6 +282,19 @@ export function AttachmentField({ value, onChange, folder, disabled, readOnly }:
         <p className="flex items-center gap-1.5 text-xs text-office-subtext dark:text-slate-400">
           <Paperclip size={13} /> {readOnly ? 'Tidak ada lampiran.' : 'Belum ada lampiran.'}
         </p>
+      )}
+
+      {value.length > 1 && (
+        <button
+          type="button"
+          disabled={mergedBusy}
+          onClick={() => handleViewMerged(value)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white/70 px-3 py-1.5 text-xs font-medium text-office-primary hover:bg-emerald-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800/70 dark:text-emerald-400 dark:hover:bg-slate-700"
+          title="Gabungkan semua lampiran jadi satu PDF untuk dilihat sekaligus"
+        >
+          {mergedBusy ? <Loader2 size={13} className="animate-spin" /> : <Layers size={13} />}
+          Preview Semua ({value.length} dokumen)
+        </button>
       )}
 
       {value.length > 0 && (
@@ -299,7 +351,7 @@ export function AttachmentField({ value, onChange, folder, disabled, readOnly }:
           staff scanning multiple letters don't have to leave the page. */}
       <Modal
         open={!!preview}
-        onClose={() => setPreview(null)}
+        onClose={closePreview}
         title={preview?.attachment.name}
         size="xl"
         footer={
