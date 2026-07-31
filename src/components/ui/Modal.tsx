@@ -24,10 +24,17 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: M
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
+    // Reference-counted so a nested modal (e.g. the attachment preview
+    // lightbox opened from inside a detail/form modal) doesn't reset
+    // overflow while an outer modal is still open.
+    const prevCount = Number(document.body.dataset.modalOpenCount || '0');
+    document.body.dataset.modalOpenCount = String(prevCount + 1);
     document.body.style.overflow = 'hidden';
     return () => {
       window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
+      const nextCount = Math.max(0, Number(document.body.dataset.modalOpenCount || '1') - 1);
+      document.body.dataset.modalOpenCount = String(nextCount);
+      if (nextCount === 0) document.body.style.overflow = '';
     };
   }, [open, onClose]);
 
