@@ -1,4 +1,4 @@
-import { useState, useMemo, type ReactNode } from 'react';
+import { useState, useMemo, useRef, type ReactNode } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -69,6 +69,20 @@ export function DataTable<T extends { id: string }>({
   const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(initialSort ?? null);
   const [page, setPage] = useState(1);
 
+  // Callers (SuratMasukPage etc.) pass `columns` and `searchKeys` as fresh
+  // array/object literals on every render — they're never memoized there,
+  // and rightly so, since `columns` closes over per-render handlers. If
+  // those literals sat directly in the dependency array below, filtering
+  // and sorting would recompute on every parent re-render (e.g. opening an
+  // unrelated modal), not just when the query/sort/rows the person is
+  // actually looking at changed. `columnsRef` sidesteps that: it's kept
+  // current on every render, but doesn't drive recomputation itself. For
+  // `searchKeys` — already just a handful of string keys — comparing by
+  // content instead of array identity gets the same effect cheaply.
+  const columnsRef = useRef(columns);
+  columnsRef.current = columns;
+  const searchKeysDep = searchKeys.join('|');
+
   const filtered = useMemo(() => {
     let out = rows;
     const q = debouncedQuery.trim().toLowerCase();
@@ -78,7 +92,7 @@ export function DataTable<T extends { id: string }>({
       );
     }
     if (sort) {
-      const col = columns.find((c) => c.key === sort.key);
+      const col = columnsRef.current.find((c) => c.key === sort.key);
       if (col?.sortValue) {
         out = [...out].sort((a, b) => {
           const va = col.sortValue!(a);
@@ -90,7 +104,8 @@ export function DataTable<T extends { id: string }>({
       }
     }
     return out;
-  }, [rows, debouncedQuery, searchKeys, sort, columns]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- searchKeysDep stands in for searchKeys (content, not identity); columnsRef.current stands in for columns
+  }, [rows, debouncedQuery, searchKeysDep, sort]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);

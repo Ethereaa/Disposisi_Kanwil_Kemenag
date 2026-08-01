@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { SkeletonPage } from '@/components/ui/Skeleton';
 import { AgendaPimpinanPreview } from '@/pages/AgendaPimpinanPreview';
 import { AgendaPreviewHome } from '@/pages/AgendaPreviewHome';
-import { getAllMasuk, getAllKeluar, getAllAgendaPimpinan } from '@/lib/db';
+import { getAllMasuk, getAllKeluar, getAllAgendaPimpinan, consumeTruncationWarnings } from '@/lib/db';
 import { supabase } from '@/lib/supabase';
 import { initLogo } from '@/lib/logo';
 import { getTheme, setTheme as persistTheme, applyTheme, getCurrentUser, logout } from '@/lib/storage';
@@ -177,6 +177,13 @@ function Root() {
       setSuratMasuk(m);
       setSuratKeluar(k);
       setAgendaPimpinan(a);
+      const truncatedTables = consumeTruncationWarnings();
+      if (truncatedTables.length > 0) {
+        toast(
+          `Data ${truncatedTables.join(', ')} sangat banyak — sebagian data terbaru mungkin belum ditampilkan. Hubungi admin untuk penanganan lebih lanjut.`,
+          'error',
+        );
+      }
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Gagal memuat data.', 'error');
     } finally {

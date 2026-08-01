@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MapPin, Users, Sparkles } from 'lucide-react';
-import { getAllAgendaPimpinan } from '@/lib/db';
+import { getTopAgendaPimpinan } from '@/lib/db';
 import type { AgendaPimpinan } from '@/types';
 import { isoToDisplayWithDay } from '@/lib/date';
 import { AgendaStatusBadge, DateProximityBadge } from '@/components/ui/StatusBadge';
@@ -13,7 +13,7 @@ export function AgendaPreviewHome() {
     let mounted = true;
     (async () => {
       try {
-        const data = await getAllAgendaPimpinan();
+        const data = await getTopAgendaPimpinan(10);
         if (mounted) setRows(data);
       } catch {
         if (mounted) setRows([]);
@@ -24,10 +24,10 @@ export function AgendaPreviewHome() {
     return () => { mounted = false; };
   }, []);
 
-  // rows already come back ordered by nomorUrut (the DB is the single
-  // source of truth for ordering — see getAllAgendaPimpinan()), so we
-  // only need to cap how many show here.
-  const sortedRows = useMemo(() => rows.slice(0, 10), [rows]);
+  // rows already come back ordered by nomorUrut, capped to 10 server-side
+  // (see getTopAgendaPimpinan() — the DB is the single source of truth for
+  // ordering), so there's nothing left to slice client-side.
+  const sortedRows = rows;
 
   return (
     <div className="min-h-dvh bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_35%),linear-gradient(135deg,#f7fcf8,#eef6f2)] p-4 text-slate-800 dark:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_35%),linear-gradient(135deg,#020617,#0f172a)] dark:text-slate-100 sm:p-6">

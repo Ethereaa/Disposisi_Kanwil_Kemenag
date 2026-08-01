@@ -101,22 +101,104 @@ function mapAgenda(r: AgendaRow): AgendaPimpinan {
   };
 }
 
+// --- Bounded "fetch everything" helper -------------------------------
+//
+// getAllMasuk/getAllKeluar/getAllAgendaPimpinan used to do a single
+// `.select('*')` with no `.range()`. That relies on Supabase/PostgREST's
+// default per-request row cap (commonly 1000 rows on hosted projects) —
+// past that many rows, the old code would silently come back with a
+// truncated table and no error, no warning, nothing. That's a real
+// correctness bug independent of scale: any table already past the
+// default cap would have been under-reporting today.
+//
+// fetchAllRows() below fixes that by paging through the table in
+// FETCH_PAGE_SIZE batches via `.range()` until it has everything, so the
+// result is always complete for tables under FETCH_ROW_CAP rows. That cap
+// is a deliberate safety valve, not a design target: past it we stop
+// rather than risk pulling an unbounded number of rows into a mobile
+// browser's memory, and we tell the caller so it can surface a warning
+// instead of quietly handing back a partial dataset. See
+// docs/improvement-log-performance.md for the plan to replace this with
+// real server-side pagination once any table gets close to the cap.
+const FETCH_PAGE_SIZE = 1000;
+export const FETCH_ROW_CAP = 20000;
+
+interface FetchAllResult<T> {
+  rows: T[];
+  truncated: boolean;
+}
+
+async function fetchAllRows<T>(table: string, orderColumn: string): Promise<FetchAllResult<T>> {
+  const rows: T[] = [];
+  let from = 0;
+  let truncated = false;
+  for (;;) {
+    const to = from + FETCH_PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from(table)
+      .select('*')
+      .order(orderColumn, { ascending: true })
+      .range(from, to);
+    if (error) throw error;
+    const batch = (data ?? []) as T[];
+    rows.push(...batch);
+    if (batch.length < FETCH_PAGE_SIZE) break;
+    if (rows.length >= FETCH_ROW_CAP) {
+      truncated = true;
+      break;
+    }
+    from += FETCH_PAGE_SIZE;
+  }
+  return { rows, truncated };
+}
+
+// Tracks, per table, whether the most recent getAllX() call above hit
+// FETCH_ROW_CAP and had to stop early. App.tsx reads this right after
+// refresh() (via consumeTruncationWarnings()) so the person recording
+// surat sees an explicit warning instead of the app silently working
+// from an incomplete list.
+const truncationState = { surat_masuk: false, surat_keluar: false, agenda_pimpinan: false };
+const truncationLabels: Record<keyof typeof truncationState, string> = {
+  surat_masuk: 'Surat Masuk',
+  surat_keluar: 'Surat Keluar',
+  agenda_pimpinan: 'Agenda Pimpinan',
+};
+
+function markTruncation(table: keyof typeof truncationState, truncated: boolean) {
+  truncationState[table] = truncated;
+  if (truncated) {
+    console.warn(
+      `[db] ${table} has more than ${FETCH_ROW_CAP} rows — stopped loading after the cap. ` +
+      `See docs/improvement-log-performance.md for the server-side pagination migration path.`,
+    );
+  }
+}
+
+// Call once after loading data (e.g. right after Promise.all([getAllMasuk(),
+// ...])) to get a human-readable list of which tables, if any, came back
+// incomplete because they hit FETCH_ROW_CAP. Reading this clears the flags,
+// so each refresh() only warns about that refresh's result.
+export function consumeTruncationWarnings(): string[] {
+  const warnings: string[] = [];
+  for (const key of Object.keys(truncationState) as (keyof typeof truncationState)[]) {
+    if (truncationState[key]) {
+      warnings.push(truncationLabels[key]);
+      truncationState[key] = false;
+    }
+  }
+  return warnings;
+}
+
 export async function getAllMasuk(): Promise<SuratMasuk[]> {
-  const { data, error } = await supabase
-    .from('surat_masuk')
-    .select('*')
-    .order('nomor_urut', { ascending: true });
-  if (error) throw error;
-  return (data as MasukRow[]).map(mapMasuk);
+  const { rows, truncated } = await fetchAllRows<MasukRow>('surat_masuk', 'nomor_urut');
+  markTruncation('surat_masuk', truncated);
+  return rows.map(mapMasuk);
 }
 
 export async function getAllKeluar(): Promise<SuratKeluar[]> {
-  const { data, error } = await supabase
-    .from('surat_keluar')
-    .select('*')
-    .order('nomor_urut', { ascending: true });
-  if (error) throw error;
-  return (data as KeluarRow[]).map(mapKeluar);
+  const { rows, truncated } = await fetchAllRows<KeluarRow>('surat_keluar', 'nomor_urut');
+  markTruncation('surat_keluar', truncated);
+  return rows.map(mapKeluar);
 }
 
 export async function getAllAgendaPimpinan(): Promise<AgendaPimpinan[]> {
@@ -124,10 +206,23 @@ export async function getAllAgendaPimpinan(): Promise<AgendaPimpinan[]> {
   // correct by resequence_agenda_pimpinan_by_date() on every insert,
   // update, and delete (newest tanggal_kegiatan first, ties broken by
   // entry_seq — a collision-proof insertion counter, not created_at).
+  const { rows, truncated } = await fetchAllRows<AgendaRow>('agenda_pimpinan', 'nomor_urut');
+  markTruncation('agenda_pimpinan', truncated);
+  return rows.map(mapAgenda);
+}
+
+// Used by the standalone, unauthenticated Preview Agenda Pimpinan *list*
+// screen (AgendaPreviewHome), which only ever displays the first 10
+// entries. It used to call getAllAgendaPimpinan() and slice(0, 10)
+// client-side — fetching the entire table on every visit of a public,
+// unauthenticated route just to show 10 rows. This fetches only what's
+// shown, server-side.
+export async function getTopAgendaPimpinan(limit: number): Promise<AgendaPimpinan[]> {
   const { data, error } = await supabase
     .from('agenda_pimpinan')
     .select('*')
-    .order('nomor_urut', { ascending: true });
+    .order('nomor_urut', { ascending: true })
+    .range(0, limit - 1);
   if (error) throw error;
   return (data as AgendaRow[]).map(mapAgenda);
 }

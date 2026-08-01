@@ -1,4 +1,4 @@
-const CACHE_NAME = 'agenda-kanwil-cache-v3';
+const CACHE_NAME = 'agenda-kanwil-cache-v4';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -21,6 +21,16 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+
+  // Only page navigations (loading the app shell itself) fall back to the
+  // cached shell when offline. Everything else — in particular Supabase
+  // REST/Storage requests for Surat/Agenda data and attachments — is left
+  // to fail with a normal network error when there's no connection, so the
+  // app's existing loading/error handling (see App.tsx's refresh()) can
+  // tell the person their data didn't load, instead of this worker handing
+  // back index.html's markup as if it were a successful API response.
+  if (event.request.mode !== 'navigate') return;
+
   event.respondWith(
     fetch(event.request)
       .catch(() => caches.match(event.request).then((cached) => cached || caches.match('/index.html')))

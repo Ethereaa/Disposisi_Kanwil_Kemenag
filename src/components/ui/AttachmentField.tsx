@@ -133,6 +133,11 @@ export function AttachmentField({ value, onChange, folder, disabled, readOnly }:
   // only ever requested once per attachment, no matter how many times this
   // component re-renders or `value` changes for unrelated reasons.
   useEffect(() => {
+    // Read-only views (surat/agenda detail modals) don't need the page
+    // count badge enough to justify downloading every attached PDF's full
+    // bytes just to open a detail view — that count is still one tap away
+    // via "Lihat" (handleView), which already needs to fetch the file.
+    if (readOnly) return;
     const pending = value.filter(
       (a) => a.type === 'application/pdf' && a.path !== '__merged__' && !pageCountFetched.current.has(a.path),
     );
@@ -154,7 +159,7 @@ export function AttachmentField({ value, onChange, folder, disabled, readOnly }:
     return () => {
       cancelled = true;
     };
-  }, [value]);
+  }, [value, readOnly]);
 
   // Photo(s) picked in one go — whether from the camera or the file picker
   // — are turned into PDF attachment(s) automatically. In "single" mode
