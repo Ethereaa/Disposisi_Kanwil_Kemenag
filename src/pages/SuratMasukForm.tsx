@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Save, Plus, X, Zap, Repeat } from 'lucide-react';
+import { Save, Plus, X, Zap, Repeat, FileSearch, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Field, Input, Textarea, Select, Checkbox } from '@/components/ui/Form';
 import { AttachmentField } from '@/components/ui/AttachmentField';
@@ -22,6 +22,8 @@ import {
   checkNomorSuratDuplicate,
   checkNomorAgendaDuplicate,
 } from '@/lib/db';
+import { getAttachmentUrl } from '@/lib/attachments';
+import { extractTextFromAttachmentFile, parseSuratFields } from '@/lib/ocr';
 import { getErrorMessage } from '@/lib/error';
 import { useInputMode } from '@/lib/useInputMode';
 import { useDebounce } from '@/lib/useDebounce';
@@ -54,8 +56,43 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
   const [busy, setBusy] = useState(false);
   const [dupNomorSurat, setDupNomorSurat] = useState<number | null>(null);
   const [dupNomorAgenda, setDupNomorAgenda] = useState<number | null>(null);
+  const [ocrBusy, setOcrBusy] = useState(false);
   const nomorSuratRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // OCR-reads the first lampiran (assumed to be page 1 of the letter) and
+  // prefills Nomor Surat / Tanggal Surat from it — an explicit, on-demand
+  // action since OCR is heavy on the client (see lib/ocr.ts).
+  async function handleAutoFillFromScan() {
+    const first = form.lampiran[0];
+    if (!first) {
+      toast('Upload lampiran terlebih dahulu.', 'error');
+      return;
+    }
+    setOcrBusy(true);
+    try {
+      const url = await getAttachmentUrl(first.path);
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const file = new File([blob], first.name, { type: first.type });
+      const text = await extractTextFromAttachmentFile(file);
+      const parsed = parseSuratFields(text);
+      if (!parsed.nomorSurat && !parsed.tanggalISO) {
+        toast('Nomor surat/tanggal tidak terbaca dari lampiran. Isi manual ya.', 'error');
+      } else {
+        setForm((f) => ({
+          ...f,
+          nomorSurat: parsed.nomorSurat ?? f.nomorSurat,
+          tanggalSurat: parsed.tanggalISO ?? f.tanggalSurat,
+        }));
+        toast('Nomor surat/tanggal terisi otomatis — silakan periksa kembali.', 'success');
+      }
+    } catch (err) {
+      toast(getErrorMessage(err, 'Gagal membaca teks dari lampiran.'), 'error');
+    } finally {
+      setOcrBusy(false);
+    }
+  }
 
   const debouncedNomorSurat = useDebounce(form.nomorSurat, 400);
   const debouncedNomorAgenda = useDebounce(form.nomorAgenda, 400);
@@ -315,7 +352,20 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
         />
       </Field>
 
-      <Field label="Lampiran / Scan Surat Asli">
+      <Field
+        label="Lampiran / Scan Surat Asli"
+        hint={
+          <button
+            type="button"
+            disabled={ocrBusy || busy || form.lampiran.length === 0}
+            onClick={handleAutoFillFromScan}
+            className="inline-flex items-center gap-1 font-medium text-office-primary hover:underline disabled:opacity-50 disabled:no-underline dark:text-emerald-400"
+          >
+            {ocrBusy ? <Loader2 size={12} className="animate-spin" /> : <FileSearch size={12} />}
+            {ocrBusy ? 'Membaca...' : 'Baca Otomatis dari Foto (isi Nomor Surat & Tanggal)'}
+          </button>
+        }
+      >
         <AttachmentField
           folder="surat-masuk"
           value={form.lampiran}

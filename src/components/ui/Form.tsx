@@ -4,7 +4,7 @@ import { ChevronDown, AlertTriangle } from 'lucide-react';
 interface FieldProps {
   label?: ReactNode;
   required?: boolean;
-  hint?: string;
+  hint?: ReactNode;
   error?: string;
   /** Non-blocking heads-up (e.g. "nomor ini sudah dipakai") shown in amber, separate from a hard `error`. */
   warning?: string;
