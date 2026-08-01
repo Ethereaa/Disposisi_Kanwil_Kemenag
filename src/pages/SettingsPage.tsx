@@ -244,13 +244,13 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div className="rounded-[24px] border border-emerald-100/80 bg-white/70 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/70">
+      <div className="soft-panel p-4">
         <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Settings</h2>
         <p className="text-sm text-slate-500 dark:text-slate-400">Kelola akun, keamanan, dan tampilan aplikasi dengan nuansa yang lebih modern.</p>
       </div>
 
       {/* Account info */}
-      <section className="rounded-[24px] border border-emerald-100/80 bg-white/80 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/80 space-y-4">
+      <section className="soft-panel p-5 space-y-4">
         <h3 className="text-sm font-semibold text-office-text dark:text-slate-200 flex items-center gap-2">
           <Mail size={16} className="text-office-primary" /> Akun
         </h3>
@@ -307,7 +307,7 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
       </section>
 
       {/* Appearance */}
-      <section className="rounded-[24px] border border-emerald-100/80 bg-white/80 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/80 space-y-4">
+      <section className="soft-panel p-5 space-y-4">
         <h3 className="text-sm font-semibold text-office-text dark:text-slate-200 flex items-center gap-2">
           <Sun size={16} className="text-amber-500" /> Tampilan
         </h3>
@@ -366,7 +366,7 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
       </section>
 
       {/* PWA */}
-      <section className="rounded-[24px] border border-emerald-100/80 bg-white/80 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/80 space-y-4">
+      <section className="soft-panel p-5 space-y-4">
         <h3 className="text-sm font-semibold text-office-text dark:text-slate-200 flex items-center gap-2">
           <Smartphone size={16} className="text-emerald-600" /> Instal Aplikasi Android
         </h3>
@@ -390,7 +390,7 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
       </section>
 
       {/* Reminder Agenda Pimpinan (Web Push) */}
-      <section className="rounded-[24px] border border-emerald-100/80 bg-white/80 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/80 space-y-4">
+      <section className="soft-panel p-5 space-y-4">
         <h3 className="text-sm font-semibold text-office-text dark:text-slate-200 flex items-center gap-2">
           <BellRing size={16} className="text-emerald-600" /> Reminder Agenda Pimpinan
         </h3>
@@ -422,7 +422,7 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
       </section>
 
       {/* Activity log (simple audit trail from existing createdByEmail data) */}
-      <section className="rounded-[24px] border border-emerald-100/80 bg-white/80 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/80 space-y-4">
+      <section className="soft-panel p-5 space-y-4">
         <h3 className="text-sm font-semibold text-office-text dark:text-slate-200 flex items-center gap-2">
           <History size={16} className="text-office-primary" /> Aktivitas Terbaru
         </h3>
@@ -449,7 +449,7 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
       </section>
 
       {/* Password */}
-      <section className="rounded-[24px] border border-emerald-100/80 bg-white/80 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/80 space-y-4">
+      <section className="soft-panel p-5 space-y-4">
         <h3 className="text-sm font-semibold text-office-text dark:text-slate-200 flex items-center gap-2">
           <ShieldCheck size={16} className="text-emerald-600" /> Keamanan
         </h3>

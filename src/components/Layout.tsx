@@ -48,11 +48,11 @@ export function Sidebar({ active, onNavigate, open, onToggle, theme, onToggleThe
         <div className="fixed inset-0 z-30 bg-slate-900/60 backdrop-blur-sm lg:hidden" onClick={onToggle} />
       )}
       <aside
-        className={`fixed lg:sticky top-0 left-0 z-40 h-screen w-64 shrink-0 flex flex-col overflow-hidden border-r border-white/10 bg-[linear-gradient(135deg,rgba(15,23,42,0.98),rgba(22,101,52,0.95))] text-slate-100 transition-transform duration-300 lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
+        className={`fixed lg:sticky top-0 left-0 z-40 h-screen w-64 shrink-0 flex flex-col overflow-hidden border-r border-white/10 sidebar-gradient text-slate-100 transition-transform duration-300 lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.28),transparent_45%)]" />
         <div className="relative flex items-center gap-3 border-b border-white/10 px-4 py-4">
-          <div className="rounded-2xl border border-white/15 bg-white/10 p-2 shadow-lg shadow-emerald-950/20">
+          <div className="rounded-2xl border border-white/15 bg-white/10 p-2">
             <Logo size={38} />
           </div>
           <div className="flex-1 min-w-0">
@@ -76,7 +76,7 @@ export function Sidebar({ active, onNavigate, open, onToggle, theme, onToggleThe
                 onClick={() => onNavigate(m.key)}
                 className={`group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-sm font-medium transition-all ${
                   isActive
-                    ? 'bg-white/15 text-white shadow-lg shadow-emerald-950/20'
+                    ? 'bg-white/15 text-white'
                     : 'text-emerald-50/90 hover:bg-white/10 hover:text-white'
                 }`}
               >
@@ -114,6 +114,62 @@ export function Sidebar({ active, onNavigate, open, onToggle, theme, onToggleThe
         </div>
       </aside>
     </>
+  );
+}
+
+const bottomNavItems: { key: PageKey; label: string; icon: typeof LayoutDashboard }[] = [
+  { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { key: 'surat-masuk', label: 'Surat Masuk', icon: Inbox },
+  { key: 'surat-keluar', label: 'Surat Keluar', icon: Send },
+  { key: 'agenda-pimpinan', label: 'Agenda', icon: Briefcase },
+];
+
+interface BottomNavProps {
+  active: PageKey;
+  onNavigate: (page: PageKey) => void;
+  onMore: () => void;
+  /** Count of surat keluar belum ditandatangani — mirrors the Sidebar badge so it's visible from the tab bar too. */
+  suratKeluarBadge?: number;
+}
+
+/** Fixed bottom tab bar for small screens — the sidebar drawer remains reachable via the "Lainnya" tab, which opens it, so Export/Backup/Settings stay one tap away without needing their own slots. */
+export function BottomNav({ active, onNavigate, onMore, suratKeluarBadge = 0 }: BottomNavProps) {
+  const moreActive = active === 'export' || active === 'backup' || active === 'settings';
+  return (
+    <nav
+      className="fixed inset-x-0 bottom-0 z-30 flex border-t border-office-border bg-white/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom)] dark:border-slate-700 dark:bg-slate-800/95 lg:hidden"
+      aria-label="Navigasi utama"
+    >
+      {bottomNavItems.map((m) => {
+        const Icon = m.icon;
+        const isActive = active === m.key;
+        const badge = m.key === 'surat-keluar' ? suratKeluarBadge : 0;
+        return (
+          <button
+            key={m.key}
+            onClick={() => onNavigate(m.key)}
+            className={`relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition-colors ${
+              isActive ? 'text-office-primary dark:text-emerald-400' : 'text-office-subtext dark:text-slate-400'
+            }`}
+          >
+            <Icon size={20} />
+            <span className="truncate">{m.label}</span>
+            {badge > 0 && (
+              <span className="absolute right-1/4 top-1 h-2 w-2 rounded-full bg-rose-500" title={`${badge} surat keluar belum ditandatangani`} />
+            )}
+          </button>
+        );
+      })}
+      <button
+        onClick={onMore}
+        className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition-colors ${
+          moreActive ? 'text-office-primary dark:text-emerald-400' : 'text-office-subtext dark:text-slate-400'
+        }`}
+      >
+        <Menu size={20} />
+        <span className="truncate">Lainnya</span>
+      </button>
+    </nav>
   );
 }
 

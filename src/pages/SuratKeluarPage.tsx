@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Eye, Pencil, Trash2, Filter, CheckCircle2, XCircle, Printer } from 'lucide-react';
+import { Plus, Eye, Pencil, Trash2, Filter, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Select } from '@/components/ui/Form';
 import { AttachmentField } from '@/components/ui/AttachmentField';
 import { LampiranCell } from '@/components/ui/LampiranCell';
+import { SuratKeluarStatusBadge } from '@/components/ui/StatusBadge';
 import { useToast } from '@/components/ui/Toast';
 import type { SuratKeluar } from '@/types';
 import { isoToDisplay, formatDateTime, isWithinRange } from '@/lib/date';
@@ -93,16 +94,7 @@ export function SuratKeluarPage({ rows, onRefresh, canDelete = true, quickAddSig
       header: 'Status TTD',
       sortable: true,
       sortValue: (r) => (r.ditandatangani ? 1 : 0),
-      render: (r) =>
-        r.ditandatangani ? (
-          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-            <CheckCircle2 size={13} /> Sudah TTD
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
-            <XCircle size={13} /> Belum TTD
-          </span>
-        ),
+      render: (r) => <SuratKeluarStatusBadge value={r.ditandatangani} />,
     },
     {
       key: 'lampiran',
@@ -157,7 +149,7 @@ export function SuratKeluarPage({ rows, onRefresh, canDelete = true, quickAddSig
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 rounded-[24px] border border-emerald-100/80 bg-white/70 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur sm:flex-row sm:items-center sm:justify-between dark:border-slate-700 dark:bg-slate-800/70">
+      <div className="soft-panel flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-office-text dark:text-slate-100">Daftar Surat Keluar</h2>
           <p className="text-sm text-office-subtext dark:text-slate-400">{filteredRows.length} surat tercatat</p>
@@ -176,6 +168,8 @@ export function SuratKeluarPage({ rows, onRefresh, canDelete = true, quickAddSig
         emptyActionLabel="Tambah Surat"
         onEmptyAction={() => { setEditing(null); setView('form'); }}
         initialSort={{ key: 'nomorUrut', dir: 'asc' }}
+        mobileTitleKey="perihal"
+        mobileSubtitleKey="ditandatangani"
         filters={
           <div className="flex flex-wrap items-center gap-2">
             <Filter size={14} className="text-office-subtext dark:text-slate-400" />
@@ -246,7 +240,6 @@ function DetailContent({ s }: { s: SuratKeluar }) {
     { label: 'Tanggal Surat', value: isoToDisplay(s.tanggalSurat) || '-' },
     { label: 'Pengirim Surat', value: s.pengirim || '-' },
     { label: 'Perihal Surat', value: s.perihal || '-' },
-    { label: 'Status Tanda Tangan', value: s.ditandatangani ? 'Sudah Ditandatangani' : 'Belum Ditandatangani' },
   ];
   return (
     <div className="space-y-4">
@@ -257,6 +250,12 @@ function DetailContent({ s }: { s: SuratKeluar }) {
             <p className="text-sm font-medium text-office-text dark:text-slate-200">{it.value}</p>
           </div>
         ))}
+        <div className="border-b border-office-border dark:border-slate-700/60 pb-2">
+          <p className="text-xs text-office-subtext dark:text-slate-400">Status Tanda Tangan</p>
+          <p className="mt-0.5">
+            <SuratKeluarStatusBadge value={s.ditandatangani} />
+          </p>
+        </div>
       </div>
       <div>
         <p className="text-xs text-office-subtext dark:text-slate-400 mb-1">Keterangan</p>

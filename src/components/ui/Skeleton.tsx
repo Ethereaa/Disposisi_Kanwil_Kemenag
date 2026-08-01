@@ -30,7 +30,7 @@ export function SkeletonStatCards({ count = 4 }: { count?: number }) {
 
 export function SkeletonTable({ rows = 6, cols = 5 }: { rows?: number; cols?: number }) {
   return (
-    <div className="rounded-[24px] border border-emerald-100/80 bg-white/80 p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
+    <div className="soft-panel p-4">
       <div className="mb-4 flex items-center justify-between">
         <Skeleton className="h-9 w-64 rounded-xl" />
       </div>
@@ -55,7 +55,7 @@ export function SkeletonTable({ rows = 6, cols = 5 }: { rows?: number; cols?: nu
 export function SkeletonPage() {
   return (
     <div className="space-y-6">
-      <Skeleton className="h-28 w-full rounded-[28px]" />
+      <Skeleton className="h-28 w-full rounded-2xl" />
       <SkeletonStatCards />
       <SkeletonTable />
     </div>

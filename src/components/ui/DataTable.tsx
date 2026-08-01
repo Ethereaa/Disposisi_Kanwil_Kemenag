@@ -38,6 +38,12 @@ interface DataTableProps<T> {
   emptyIcon?: typeof Inbox;
   emptyActionLabel?: string;
   onEmptyAction?: () => void;
+  /** Column key shown as the card title on mobile. Defaults to the first column. */
+  mobileTitleKey?: string;
+  /** Column key shown as a small line under the title on mobile (e.g. a status/date). */
+  mobileSubtitleKey?: string;
+  /** Column key whose rendered content is pulled out into a footer action row on mobile, instead of the label/value grid. Defaults to 'actions'. */
+  mobileActionsKey?: string;
 }
 
 export function DataTable<T extends { id: string }>({
@@ -54,6 +60,9 @@ export function DataTable<T extends { id: string }>({
   emptyIcon,
   emptyActionLabel,
   onEmptyAction,
+  mobileTitleKey,
+  mobileSubtitleKey,
+  mobileActionsKey = 'actions',
 }: DataTableProps<T>) {
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounce(query, 300);
@@ -99,6 +108,24 @@ export function DataTable<T extends { id: string }>({
     return <SkeletonTable cols={columns.length} />;
   }
 
+  const titleCol = columns.find((c) => c.key === (mobileTitleKey ?? columns[0]?.key)) ?? columns[0];
+  const actionsCol = columns.find((c) => c.key === mobileActionsKey);
+  const subtitleCol = mobileSubtitleKey ? columns.find((c) => c.key === mobileSubtitleKey) : undefined;
+  const bodyCols = columns.filter(
+    (c) => c.key !== titleCol?.key && c.key !== actionsCol?.key && c.key !== subtitleCol?.key,
+  );
+
+  const emptyStateEl = (
+    <EmptyState
+      icon={emptyIcon}
+      title={query.trim() ? 'Tidak ada hasil yang cocok' : emptyMessage}
+      description={query.trim() ? `Coba kata kunci lain selain "${query.trim()}".` : undefined}
+      actionLabel={!query.trim() ? emptyActionLabel : undefined}
+      onAction={!query.trim() ? onEmptyAction : undefined}
+      compact
+    />
+  );
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
@@ -114,10 +141,10 @@ export function DataTable<T extends { id: string }>({
         {filters && <div className="flex flex-wrap gap-2">{filters}</div>}
       </div>
 
-      <div className="overflow-x-auto rounded-[24px] border border-emerald-100/80 bg-white/80 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/80">
+      <div className="soft-panel hidden overflow-x-auto sm:block">
         <div className="max-h-[65vh] overflow-auto">
           <table className="w-full text-sm">
-            <thead className="sticky top-0 z-10 bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
+            <thead className="sticky top-0 z-10 brand-solid text-white">
               <tr>
                 {columns.map((c) => (
                   <th
@@ -146,14 +173,7 @@ export function DataTable<T extends { id: string }>({
               {pageRows.length === 0 ? (
                 <tr>
                   <td colSpan={columns.length} className="px-4 py-4">
-                    <EmptyState
-                      icon={emptyIcon}
-                      title={query.trim() ? 'Tidak ada hasil yang cocok' : emptyMessage}
-                      description={query.trim() ? `Coba kata kunci lain selain "${query.trim()}".` : undefined}
-                      actionLabel={!query.trim() ? emptyActionLabel : undefined}
-                      onAction={!query.trim() ? onEmptyAction : undefined}
-                      compact
-                    />
+                    {emptyStateEl}
                   </td>
                 </tr>
               ) : (
@@ -174,6 +194,58 @@ export function DataTable<T extends { id: string }>({
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Mobile card list — avoids sideways-scrolling a wide table on small screens */}
+      <div className="flex flex-col gap-2 sm:hidden">
+        {pageRows.length === 0 ? (
+          <div className="soft-panel">
+            {emptyStateEl}
+          </div>
+        ) : (
+          pageRows.map((row) => (
+            <div
+              key={row.id}
+              onClick={() => onRowClick?.(row)}
+              className={`rounded-2xl border border-emerald-100/80 bg-white dark:border-slate-700 dark:bg-slate-800/90 p-4 shadow-sm ${onRowClick ? 'cursor-pointer active:bg-emerald-50/70 dark:active:bg-slate-700/40' : ''}`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  {titleCol && (
+                    <div className="truncate font-semibold text-office-text dark:text-slate-100">
+                      {titleCol.render ? titleCol.render(row) : (row as Record<string, ReactNode>)[titleCol.key]}
+                    </div>
+                  )}
+                  {subtitleCol && (
+                    <div className="mt-0.5 truncate text-xs text-office-subtext dark:text-slate-400">
+                      {subtitleCol.render ? subtitleCol.render(row) : (row as Record<string, ReactNode>)[subtitleCol.key]}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
+                {bodyCols.map((c) => (
+                  <div key={c.key} className="min-w-0">
+                    <dt className="text-[11px] uppercase tracking-wide text-office-subtext/80 dark:text-slate-500">{c.header}</dt>
+                    <dd className="truncate text-sm text-slate-700 dark:text-slate-200">
+                      {c.render ? c.render(row) : (row as Record<string, ReactNode>)[c.key]}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+
+              {actionsCol && (
+                <div
+                  className="mt-3 flex justify-end border-t border-emerald-100/70 pt-2 dark:border-slate-700/60"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {actionsCol.render ? actionsCol.render(row) : (row as Record<string, ReactNode>)[actionsCol.key]}
+                </div>
+              )}
+            </div>
+          ))
+        )}
       </div>
 
       {filtered.length > 0 && (

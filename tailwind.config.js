@@ -10,12 +10,15 @@ export default {
       colors: {
         office: {
           bg: '#F8FAFC',
-          sidebar: '#1E293B',
-          sidebarHover: '#334155',
-          sidebarActive: '#2563EB',
+          // Sidebar gradient endpoints (matches the diagonal gradient used in Layout.tsx)
+          sidebar: '#0F172A',
+          sidebarAccent: '#166534',
           header: '#FFFFFF',
-          primary: '#2563EB',
-          primaryHover: '#1D4ED8',
+          // Brand gradient endpoints — used for primary buttons, table headers, the FAB
+          primary: '#059669',
+          primaryHover: '#047857',
+          accent: '#0D9488',
+          accentHover: '#0F766E',
           secondary: '#E5E7EB',
           text: '#1F2937',
           subtext: '#6B7280',

@@ -64,13 +64,13 @@ export function ExportPage({ suratMasuk, suratKeluar, agendaPimpinan }: Props) {
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div className="rounded-[24px] border border-emerald-100/80 bg-white/70 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/70">
+      <div className="soft-panel p-4">
         <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Export Data</h2>
         <p className="text-sm text-slate-500 dark:text-slate-400">Unduh data disposisi dalam format Excel atau Word dengan tampilan yang lebih rapi.</p>
       </div>
 
       {/* Scope */}
-      <div className="space-y-4 rounded-[24px] border border-emerald-100/80 bg-white/80 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/80">
+      <div className="space-y-4 soft-panel p-5">
         <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Pilih Data</h3>
         <div className="grid sm:grid-cols-2 gap-3">
           {scopeOptions.map((opt) => {
@@ -122,7 +122,7 @@ export function ExportPage({ suratMasuk, suratKeluar, agendaPimpinan }: Props) {
       </div>
 
       {/* Format */}
-      <div className="space-y-4 rounded-[24px] border border-emerald-100/80 bg-white/80 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/80">
+      <div className="space-y-4 soft-panel p-5">
         <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Pilih Format</h3>
         <div className="grid sm:grid-cols-2 gap-3">
           <button

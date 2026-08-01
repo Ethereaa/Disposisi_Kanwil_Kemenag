@@ -39,7 +39,7 @@ export function AgendaPimpinanPreview({ agendaId, onClose }: Props) {
   if (!agenda) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_35%),linear-gradient(135deg,#f7fcf8,#eef6f2)] p-4 text-center dark:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_35%),linear-gradient(135deg,#020617,#0f172a)]">
-        <div className="w-full max-w-md rounded-[28px] border border-emerald-100/80 bg-white/80 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/80">
+        <div className="glass-card w-full max-w-md p-6">
           <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Agenda tidak ditemukan</p>
           <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Tautan preview ini sudah tidak aktif atau agenda telah dihapus.</p>
           <Button className="mt-5" onClick={onClose}>Kembali</Button>
@@ -78,8 +78,8 @@ export function AgendaPimpinanPreview({ agendaId, onClose }: Props) {
           </Button>
         </div>
 
-        <div className="overflow-hidden rounded-[32px] border border-emerald-100/80 bg-white/85 shadow-[0_26px_80px_rgba(15,23,42,0.12)] backdrop-blur-xl dark:border-slate-700 dark:bg-slate-800/85">
-          <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 px-5 py-6 text-white sm:px-8">
+        <div className="glass-card overflow-hidden">
+          <div className="brand-gradient-hero px-5 py-6 text-white sm:px-8">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-100">Preview Agenda Pimpinan</p>
             <h1 className="mt-2 text-2xl font-semibold leading-snug sm:text-3xl">{agenda.namaKegiatan || 'Agenda Pimpinan'}</h1>
             <p className="mt-2 text-sm text-emerald-50/90">Tampilan ringkas untuk dibuka di ponsel atau dibagikan ke rekan kerja.</p>

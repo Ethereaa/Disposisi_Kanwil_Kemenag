@@ -1,3 +1,4 @@
+import { CheckCircle2, XCircle } from 'lucide-react';
 import { todayISO } from '@/lib/date';
 
 /**
@@ -24,6 +25,47 @@ export function AgendaStatusBadge({ value }: { value: string }) {
   return (
     <span className={`inline-flex max-w-[200px] items-center truncate rounded-md px-2 py-0.5 text-xs font-medium ${classes}`}>
       {value}
+    </span>
+  );
+}
+
+/**
+ * Renders the Surat Keluar tanda tangan status ("Sudah TTD" / "Belum TTD")
+ * with a consistent color + icon everywhere it appears (table cell, mobile
+ * card, detail modal, dashboard, etc.) instead of ad hoc inline markup.
+ *
+ * - `variant="pill"` (default)  -> rounded chip with background, used in tables/cards/detail.
+ * - `variant="plain"`           -> icon + text only, no background, for tighter inline spots
+ *   like the Dashboard's recent-activity list.
+ */
+export function SuratKeluarStatusBadge({
+  value,
+  variant = 'pill',
+}: {
+  value: boolean;
+  variant?: 'pill' | 'plain';
+}) {
+  const Icon = value ? CheckCircle2 : XCircle;
+  const label = value ? 'Sudah TTD' : 'Belum TTD';
+  const textColor = value
+    ? 'text-emerald-700 dark:text-emerald-300'
+    : 'text-amber-700 dark:text-amber-300';
+
+  if (variant === 'plain') {
+    return (
+      <span className={`inline-flex items-center gap-1 text-xs font-medium ${textColor}`}>
+        <Icon size={12} /> {label}
+      </span>
+    );
+  }
+
+  const bg = value
+    ? 'bg-emerald-50 dark:bg-emerald-950/50'
+    : 'bg-amber-50 dark:bg-amber-950/50';
+
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ${bg} ${textColor}`}>
+      <Icon size={13} /> {label}
     </span>
   );
 }

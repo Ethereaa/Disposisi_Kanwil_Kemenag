@@ -152,7 +152,7 @@ export function AgendaPimpinanPage({ rows, onRefresh, canDelete = true, quickAdd
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 rounded-[24px] border border-emerald-100/80 bg-white/70 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur sm:flex-row sm:items-center sm:justify-between dark:border-slate-700 dark:bg-slate-800/70">
+      <div className="soft-panel flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Agenda Pimpinan</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">{rows.length} agenda tercatat</p>
@@ -177,6 +177,8 @@ export function AgendaPimpinanPage({ rows, onRefresh, canDelete = true, quickAdd
         emptyActionLabel="Tambah Agenda"
         onEmptyAction={() => { setEditing(null); setView('form'); }}
         initialSort={{ key: 'nomorUrut', dir: 'asc' }}
+        mobileTitleKey="namaKegiatan"
+        mobileSubtitleKey="tanggalKegiatan"
         pageSize={10}
         onRowClick={(r) => setDetail(r)}
       />

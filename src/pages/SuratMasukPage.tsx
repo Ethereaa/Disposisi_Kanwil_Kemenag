@@ -162,7 +162,7 @@ export function SuratMasukPage({ rows, onRefresh, canDelete = true, quickAddSign
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 rounded-[24px] border border-emerald-100/80 bg-white/70 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur sm:flex-row sm:items-center sm:justify-between dark:border-slate-700 dark:bg-slate-800/70">
+      <div className="soft-panel flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-office-text dark:text-slate-100">Daftar Surat Masuk</h2>
           <p className="text-sm text-office-subtext dark:text-slate-400">{filteredRows.length} surat tercatat</p>
@@ -182,6 +182,8 @@ export function SuratMasukPage({ rows, onRefresh, canDelete = true, quickAddSign
         emptyActionLabel="Tambah Surat"
         onEmptyAction={() => { setEditing(null); setView('form'); }}
         initialSort={{ key: 'nomorUrut', dir: 'asc' }}
+        mobileTitleKey="perihal"
+        mobileSubtitleKey="tujuanDisposisi"
         filters={
           <div className="flex flex-wrap items-center gap-2">
             <Filter size={14} className="text-office-subtext dark:text-slate-400" />

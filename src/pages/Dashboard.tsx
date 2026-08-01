@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
-import { Inbox, Send, CalendarCheck, Database, TrendingUp, Clock, CheckCircle2, BarChart3, PieChart, Paperclip } from 'lucide-react';
+import { Inbox, Send, CalendarCheck, Database, ArrowRight, Clock, BarChart3, PieChart, Paperclip } from 'lucide-react';
 import type { SuratMasuk, SuratKeluar, AgendaPimpinan, PageKey } from '@/types';
 import { isoToDisplay, isToday, isThisMonth, todayISO } from '@/lib/date';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { MiniBarChart, DualTrendChart } from '@/components/ui/MiniBarChart';
+import { SuratKeluarStatusBadge } from '@/components/ui/StatusBadge';
 
 interface DashboardProps {
   suratMasuk: SuratMasuk[];
@@ -89,7 +90,7 @@ export function Dashboard({ suratMasuk, suratKeluar, onNavigate }: DashboardProp
 
   return (
     <div className="space-y-6">
-      <div className="rounded-[28px] border border-emerald-100/80 bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-700 p-5 text-white shadow-[0_20px_45px_rgba(16,185,129,0.18)] sm:p-6">
+      <div className="rounded-2xl border border-emerald-100/80 brand-gradient-hero p-5 text-white shadow-[0_10px_30px_rgba(16,185,129,0.15)] sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-emerald-100">Ringkasan kerja</p>
@@ -110,13 +111,15 @@ export function Dashboard({ suratMasuk, suratKeluar, onNavigate }: DashboardProp
             <button
               key={c.label}
               onClick={() => onNavigate(c.page)}
-              className="group bg-white dark:bg-slate-800 rounded-2xl p-5 border border-office-border dark:border-slate-700 shadow-sm hover:shadow-md hover:border-office-primary/30 transition-all text-left animate-slide-up"
+              className="group bg-white dark:bg-slate-800 rounded-2xl p-5 border border-office-border dark:border-slate-700 shadow-sm hover:shadow-md hover:border-office-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-office-primary/40 transition-all text-left animate-slide-up"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className={`h-11 w-11 rounded-xl ${c.bg} flex items-center justify-center`}>
                   <Icon size={22} className={c.color} />
                 </div>
-                <TrendingUp size={16} className="text-office-subtext/40 dark:text-slate-600 group-hover:text-office-primary/50 transition-colors" />
+                <span className="flex items-center gap-1 text-xs font-medium text-office-primary dark:text-emerald-400 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 group-focus-visible:opacity-100 group-focus-visible:translate-x-0 transition-all">
+                  Lihat semua <ArrowRight size={13} />
+                </span>
               </div>
               <p className="text-3xl font-bold text-office-text dark:text-slate-100 tabular-nums">{c.value}</p>
               <p className="text-sm text-office-subtext dark:text-slate-400 mt-0.5">{c.label}</p>
@@ -277,9 +280,7 @@ export function Dashboard({ suratMasuk, suratKeluar, onNavigate }: DashboardProp
                 <div key={s.id} className="px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <span className="text-xs font-medium text-office-subtext dark:text-slate-400">No. {s.nomorUrut}</span>
-                    <span className={`inline-flex items-center gap-1 text-xs ${s.ditandatangani ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                      <CheckCircle2 size={12} /> {s.ditandatangani ? 'Sudah TTD' : 'Belum TTD'}
-                    </span>
+                    <SuratKeluarStatusBadge value={s.ditandatangani} variant="plain" />
                   </div>
                   <p className="text-sm font-medium text-office-text dark:text-slate-200 truncate">{s.perihal || '(tanpa perihal)'}</p>
                   <p className="text-xs text-office-subtext dark:text-slate-400 truncate">dari {s.pengirim || '-'} · {isoToDisplay(s.tanggalSurat)}</p>

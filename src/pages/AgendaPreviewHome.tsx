@@ -32,7 +32,7 @@ export function AgendaPreviewHome() {
   return (
     <div className="min-h-dvh bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_35%),linear-gradient(135deg,#f7fcf8,#eef6f2)] p-4 text-slate-800 dark:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_35%),linear-gradient(135deg,#020617,#0f172a)] dark:text-slate-100 sm:p-6">
       <div className="mx-auto flex max-w-3xl flex-col gap-4">
-        <div className="rounded-[32px] border border-emerald-100/80 bg-white/85 p-5 shadow-[0_24px_70px_rgba(15,23,42,0.12)] backdrop-blur-xl dark:border-slate-700 dark:bg-slate-800/85">
+        <div className="glass-card p-5">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 text-white">
               <Sparkles size={20} />
@@ -46,13 +46,13 @@ export function AgendaPreviewHome() {
         </div>
 
         {loading ? (
-          <div className="rounded-[24px] border border-emerald-100/70 bg-white/70 p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800/70">Memuat agenda...</div>
+          <div className="soft-panel p-6 text-center text-sm text-slate-500 dark:text-slate-400">Memuat agenda...</div>
         ) : sortedRows.length === 0 ? (
-          <div className="rounded-[24px] border border-emerald-100/70 bg-white/70 p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800/70">Belum ada agenda pimpinan yang tersimpan.</div>
+          <div className="soft-panel p-6 text-center text-sm text-slate-500 dark:text-slate-400">Belum ada agenda pimpinan yang tersimpan.</div>
         ) : (
           <div className="space-y-3">
             {sortedRows.map((item) => (
-              <div key={item.id} className="rounded-[24px] border border-emerald-100/70 bg-white/80 p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
+              <div key={item.id} className="soft-panel p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">

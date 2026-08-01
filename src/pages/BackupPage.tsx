@@ -81,13 +81,13 @@ export function BackupPage({ suratMasuk, suratKeluar, agendaPimpinan, onRefresh 
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div className="rounded-[24px] border border-emerald-100/80 bg-white/70 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/70">
+      <div className="soft-panel p-4">
         <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Backup Data</h2>
         <p className="text-sm text-slate-500 dark:text-slate-400">Cadangkan dan pulihkan data dari server cloud dengan pengalaman yang lebih bersih.</p>
       </div>
 
       {/* Stats */}
-      <div className="rounded-[24px] border border-emerald-100/80 bg-white/80 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.05)] backdrop-blur dark:border-slate-700 dark:bg-slate-800/80">
+      <div className="soft-panel p-5">
         <div className="flex items-center gap-3 mb-4">
           <div className="h-10 w-10 rounded-lg bg-office-primary/10 flex items-center justify-center">
             <DatabaseBackup size={20} className="text-office-primary" />

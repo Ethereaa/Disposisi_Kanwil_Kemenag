@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, lazy, Suspense } from 'react';
-import { Sidebar, Header } from '@/components/Layout';
+import { Sidebar, Header, BottomNav } from '@/components/Layout';
 import { AuthScreen } from '@/components/AuthScreen';
 import { QuickAddFab, type QuickAddTarget } from '@/components/QuickAddFab';
 import { ToastProvider, useToast } from '@/components/ui/Toast';
@@ -350,6 +350,12 @@ function Root() {
         suratKeluarBadge={unsignedCount}
       />
       <QuickAddFab onSelect={handleQuickAdd} />
+      <BottomNav
+        active={page}
+        onNavigate={handleNavigate}
+        onMore={() => setSidebarOpen(true)}
+        suratKeluarBadge={unsignedCount}
+      />
 
       <div className="flex-1 min-w-0 flex flex-col">
         <Header
@@ -357,7 +363,7 @@ function Root() {
           subtitle={meta.subtitle}
           onMenuClick={() => setSidebarOpen(true)}
         />
-        <main className="flex-1 w-full max-w-7xl mx-auto p-3 sm:p-6">
+        <main className="flex-1 w-full max-w-7xl mx-auto p-3 pb-24 sm:p-6 lg:pb-6">
           {showMigration && (
             <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 rounded-xl p-4 animate-slide-up">
               <div className="h-10 w-10 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
@@ -396,7 +402,7 @@ function Root() {
             </Suspense>
           )}
         </main>
-        <footer className="border-t border-office-border px-4 py-3 text-center text-[11px] text-office-subtext dark:border-slate-700 dark:text-slate-500 sm:px-6">
+        <footer className="border-t border-office-border px-4 py-3 pb-[calc(0.75rem+64px+env(safe-area-inset-bottom))] text-center text-[11px] text-office-subtext dark:border-slate-700 dark:text-slate-500 sm:px-6 lg:pb-3">
           {APP_TITLE}
         </footer>
       </div>

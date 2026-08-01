@@ -58,9 +58,9 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
       <div className="absolute left-[-5%] top-[-10%] h-56 w-56 rounded-full bg-emerald-300/30 blur-3xl" />
       <div className="absolute bottom-[-5%] right-[-5%] h-64 w-64 rounded-full bg-teal-300/25 blur-3xl" />
 
-      <div className="relative w-full max-w-5xl rounded-[36px] border border-white/70 bg-white/70 p-3 shadow-[0_30px_90px_rgba(15,23,42,0.12)] backdrop-blur-xl dark:border-slate-700 dark:bg-slate-800/70">
-        <div className="grid overflow-hidden rounded-[30px] lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="flex flex-col justify-center bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-700 p-8 text-white sm:p-10">
+      <div className="glass-card relative w-full max-w-5xl p-3">
+        <div className="grid overflow-hidden rounded-xl lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="flex flex-col justify-center brand-gradient-hero p-8 text-white sm:p-10">
             <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur">
               <Logo size={44} />
             </div>
