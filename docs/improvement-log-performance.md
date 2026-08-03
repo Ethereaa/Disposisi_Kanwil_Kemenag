@@ -237,3 +237,64 @@ view/RPC, §3), and `DataTable.tsx`'s public props / header markup (kept
 stable — real server-side pagination is future work per the migration
 path in §1, and another change may be touching the header markup in
 parallel).
+
+## 6. `backdrop-filter: blur()` across the UI — input lag on low-end GPUs (2026-08-03)
+
+**Confirmed root cause:** the "frosted glass" look (`backdrop-blur-sm` /
+`backdrop-blur` / `backdrop-blur-xl`) was applied to several stacked,
+often full-viewport elements — a modal overlay plus a `.glass-card` on top
+of it, a sticky header, a mobile bottom nav, a sidebar overlay, a FAB
+menu. On a weak/integrated GPU (or with hardware acceleration falling
+back to software rendering), every keystroke's repaint had to
+recomposite each of those blur layers, which showed up as a visible
+delay before typed characters appeared in any modal text field.
+Confirmed via DevTools: forcing `backdrop-filter: none !important` on
+every element made typing instant; re-enabling any of it brought the lag
+back. Not a React re-render issue — component logic and state updates
+were already checked and are unaffected by this change.
+
+**Found — every `backdrop-blur` call site** (via `grep -rn
+"backdrop-blur" src/`): the `.glass-card` and `.soft-panel` component
+classes in `src/index.css` (used by `Modal`, `AuthScreen`, and toolbar/
+filter cards throughout the app); the modal overlay in `Modal.tsx`; the
+mobile sidebar overlay, bottom nav bar, and sticky header in
+`Layout.tsx`; the FAB expanded menu in `QuickAddFab.tsx`; the two hero
+panels in `AuthScreen.tsx`; and the dashboard stat pill in
+`Dashboard.tsx`.
+
+**Changed:** removed `backdrop-filter` from all nine call sites above and
+raised each element's background opacity to keep the glass look intact
+without the recomposite cost — borders and box-shadows were left as-is
+since DevTools testing confirmed only `backdrop-filter` was implicated:
+
+- `.glass-card` / `.soft-panel` (`src/index.css`): `bg-white/70` →
+  `bg-white/90`, `dark:bg-slate-800/70` → `dark:bg-slate-800/90` (glass-card);
+  `bg-white/80` → `bg-white/92`, `dark:bg-slate-800/80` →
+  `dark:bg-slate-800/92` (soft-panel).
+- `Modal.tsx` overlay: `bg-slate-900/55` → `bg-slate-900/70`.
+- `Layout.tsx`: mobile sidebar overlay `bg-slate-900/60` →
+  `bg-slate-900/75`; bottom nav `bg-white/95`/`dark:bg-slate-800/95` →
+  `/98` each (already near-opaque, so only a small bump was needed);
+  sticky header `bg-white/70`/`dark:bg-slate-800/70` → `/92` each.
+- `QuickAddFab.tsx` menu buttons: `bg-white/95`/`dark:bg-slate-800/95` →
+  `/98` each.
+- `AuthScreen.tsx` hero-panel badges: `bg-white/15` → `bg-white/25`;
+  `bg-white/10` → `bg-white/20` (no `dark:` variant needed — both sit on
+  the brand gradient, not a themed surface).
+- `Dashboard.tsx` stat pill: `bg-white/10` → `bg-white/20` (same
+  gradient-hero context, no `dark:` variant).
+
+**Not changed:** the two decorative glow blobs in `AuthScreen.tsx`
+(`bg-emerald-300/30 blur-3xl` and `bg-teal-300/25 blur-3xl`) use the
+regular CSS `filter` property, not `backdrop-filter` — they're static,
+absolutely-positioned decorations, not layers stacked behind a text
+field being recomposited on keystroke, so they were outside the
+confirmed regression and out of scope for this fix.
+
+No component logic, state, or props were touched — CSS only. Verified
+with `grep -rn "backdrop-blur\|backdrop-filter" src/` (no remaining
+matches) and an esbuild syntax pass over every edited `.tsx` file.
+
+**Files changed:** `src/index.css`, `src/components/ui/Modal.tsx`,
+`src/components/Layout.tsx`, `src/components/QuickAddFab.tsx`,
+`src/components/AuthScreen.tsx`, `src/pages/Dashboard.tsx`.

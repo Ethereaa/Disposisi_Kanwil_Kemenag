@@ -45,7 +45,7 @@ export function Sidebar({ active, onNavigate, open, onToggle, theme, onToggleThe
   return (
     <>
       {open && (
-        <div className="fixed inset-0 z-30 bg-slate-900/60 backdrop-blur-sm lg:hidden" onClick={onToggle} />
+        <div className="fixed inset-0 z-30 bg-slate-900/75 lg:hidden" onClick={onToggle} />
       )}
       <aside
         className={`fixed lg:sticky top-0 left-0 z-40 h-screen w-64 shrink-0 flex flex-col overflow-hidden border-r border-white/10 sidebar-gradient text-slate-100 transition-transform duration-300 lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
@@ -137,7 +137,7 @@ export function BottomNav({ active, onNavigate, onMore, suratKeluarBadge = 0 }: 
   const moreActive = active === 'export' || active === 'backup' || active === 'settings';
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-30 flex border-t border-office-border bg-white/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom)] dark:border-slate-700 dark:bg-slate-800/95 lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 flex border-t border-office-border bg-white/98 pb-[env(safe-area-inset-bottom)] dark:border-slate-700 dark:bg-slate-800/98 lg:hidden"
       aria-label="Navigasi utama"
     >
       {bottomNavItems.map((m) => {
@@ -182,7 +182,7 @@ interface HeaderProps {
 
 export function Header({ title, subtitle, onMenuClick, actions }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-20 border-b border-emerald-100/80 bg-white/70 backdrop-blur-xl dark:border-slate-700 dark:bg-slate-800/70">
+    <header className="sticky top-0 z-20 border-b border-emerald-100/80 bg-white/92 dark:border-slate-700 dark:bg-slate-800/92">
       <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
         <button onClick={onMenuClick} className="rounded-full p-2 text-slate-700 transition-colors hover:bg-emerald-50 lg:hidden dark:text-slate-200 dark:hover:bg-slate-700">
           <Menu size={20} />

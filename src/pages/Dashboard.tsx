@@ -97,7 +97,7 @@ export function Dashboard({ suratMasuk, suratKeluar, onNavigate }: DashboardProp
             <h2 className="mt-1 text-2xl font-semibold">Daftar Disposisi Surat</h2>
             <p className="mt-2 max-w-2xl text-sm text-emerald-50/90">Ringkasan Surat Masuk & Surat Keluar.</p>
           </div>
-          <div className="rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-sm backdrop-blur">
+          <div className="rounded-2xl border border-white/20 bg-white/20 px-3 py-2 text-sm">
             Total data: <span className="font-semibold">{stats.total}</span>
           </div>
         </div>

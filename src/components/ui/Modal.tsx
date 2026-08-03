@@ -42,7 +42,7 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: M
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-900/55 backdrop-blur-sm animate-fade-in" onClick={onClose} />
+      <div className="absolute inset-0 bg-slate-900/70 animate-fade-in" onClick={onClose} />
       <div className={`glass-card relative w-full ${sizes[size]} max-h-[90vh] overflow-hidden animate-scale-in flex flex-col`}>
         {title && (
           <div className="flex items-center justify-between border-b border-emerald-100/80 px-5 py-4 dark:border-slate-700">
