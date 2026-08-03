@@ -137,7 +137,7 @@ export function BottomNav({ active, onNavigate, onMore, suratKeluarBadge = 0 }: 
   const moreActive = active === 'export' || active === 'backup' || active === 'settings';
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-30 flex border-t border-office-border bg-white/98 pb-[env(safe-area-inset-bottom)] dark:border-slate-700 dark:bg-slate-800/98 lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 flex border-t border-office-border bg-white/100 pb-[env(safe-area-inset-bottom)] dark:border-slate-700 dark:bg-slate-800/100 lg:hidden"
       aria-label="Navigasi utama"
     >
       {bottomNavItems.map((m) => {
@@ -182,7 +182,7 @@ interface HeaderProps {
 
 export function Header({ title, subtitle, onMenuClick, actions }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-20 border-b border-emerald-100/80 bg-white/92 dark:border-slate-700 dark:bg-slate-800/92">
+    <header className="sticky top-0 z-20 border-b border-emerald-100/80 bg-white/95 dark:border-slate-700 dark:bg-slate-800/95">
       <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
         <button onClick={onMenuClick} className="rounded-full p-2 text-slate-700 transition-colors hover:bg-emerald-50 lg:hidden dark:text-slate-200 dark:hover:bg-slate-700">
           <Menu size={20} />

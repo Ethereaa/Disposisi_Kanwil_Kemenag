@@ -269,15 +269,15 @@ since DevTools testing confirmed only `backdrop-filter` was implicated:
 
 - `.glass-card` / `.soft-panel` (`src/index.css`): `bg-white/70` →
   `bg-white/90`, `dark:bg-slate-800/70` → `dark:bg-slate-800/90` (glass-card);
-  `bg-white/80` → `bg-white/92`, `dark:bg-slate-800/80` →
-  `dark:bg-slate-800/92` (soft-panel).
+  `bg-white/80` → `bg-white/95`, `dark:bg-slate-800/80` →
+  `dark:bg-slate-800/95` (soft-panel).
 - `Modal.tsx` overlay: `bg-slate-900/55` → `bg-slate-900/70`.
 - `Layout.tsx`: mobile sidebar overlay `bg-slate-900/60` →
   `bg-slate-900/75`; bottom nav `bg-white/95`/`dark:bg-slate-800/95` →
-  `/98` each (already near-opaque, so only a small bump was needed);
-  sticky header `bg-white/70`/`dark:bg-slate-800/70` → `/92` each.
+  `/100` each (already near-opaque, so this just makes it fully solid);
+  sticky header `bg-white/70`/`dark:bg-slate-800/70` → `/95` each.
 - `QuickAddFab.tsx` menu buttons: `bg-white/95`/`dark:bg-slate-800/95` →
-  `/98` each.
+  `/100` each.
 - `AuthScreen.tsx` hero-panel badges: `bg-white/15` → `bg-white/25`;
   `bg-white/10` → `bg-white/20` (no `dark:` variant needed — both sit on
   the brand gradient, not a themed surface).
@@ -294,6 +294,20 @@ confirmed regression and out of scope for this fix.
 No component logic, state, or props were touched — CSS only. Verified
 with `grep -rn "backdrop-blur\|backdrop-filter" src/` (no remaining
 matches) and an esbuild syntax pass over every edited `.tsx` file.
+
+**Post-deploy fix:** the first version of this change used `bg-white/92`
+and `bg-white/98` in a couple of spots, which broke the Vercel build —
+`[postcss] The bg-white/92 class does not exist` — because bare
+(non-bracketed) opacity modifiers used inside an `@apply` rule are only
+resolved against Tailwind's default `theme.opacity` scale (`0, 5, 10,
+20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 95, 100`); values outside that
+scale need bracket syntax (`bg-white/[92%]`) to work in `@apply`, and
+this codebase doesn't otherwise use that pattern. Plain JSX
+`className` usage isn't subject to this (Tailwind's content-scanning
+JIT resolves arbitrary bare values there fine — the codebase already
+relied on this elsewhere, e.g. `bg-white/85` in `AuthScreen.tsx`), but
+every value above was moved onto the default scale anyway for
+consistency and to remove any doubt.
 
 **Files changed:** `src/index.css`, `src/components/ui/Modal.tsx`,
 `src/components/Layout.tsx`, `src/components/QuickAddFab.tsx`,
