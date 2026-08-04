@@ -1,5 +1,43 @@
-import { CheckCircle2, XCircle } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import { todayISO } from '@/lib/date';
+import type { StatusDisposisi } from '@/types';
+import { STATUS_DISPOSISI_LABEL } from '@/types';
+
+/**
+ * Renders the Surat Masuk disposisi workflow status (Baru/Diproses/Selesai)
+ * with a consistent color everywhere it appears (table, detail modal,
+ * dashboard). When `overdue` is true (status is still "Diproses" past the
+ * configured threshold — see getOverdueThresholdDays in lib/db.ts), the
+ * badge switches to a red "Terlambat" treatment regardless of the
+ * underlying status color, since that's the more urgent signal.
+ */
+export function DisposisiStatusBadge({
+  value,
+  overdue = false,
+}: {
+  value: StatusDisposisi;
+  overdue?: boolean;
+}) {
+  if (overdue) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-md bg-red-50 dark:bg-red-950/50 px-2 py-0.5 text-xs font-semibold text-red-700 dark:text-red-300">
+        <AlertTriangle size={12} /> Terlambat
+      </span>
+    );
+  }
+
+  const classes: Record<StatusDisposisi, string> = {
+    baru: 'bg-slate-100 text-slate-600 dark:bg-slate-700/50 dark:text-slate-300',
+    diproses: 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
+    selesai: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
+  };
+
+  return (
+    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${classes[value]}`}>
+      {STATUS_DISPOSISI_LABEL[value]}
+    </span>
+  );
+}
 
 /**
  * Color-codes the free-text `keterangan` field on Agenda Pimpinan:

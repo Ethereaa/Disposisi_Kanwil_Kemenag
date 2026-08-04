@@ -25,6 +25,8 @@ interface MasukRow extends DBRow {
   tujuan_disposisi: string;
   sub_disposisi: string | null;
   isi_disposisi: string;
+  status_disposisi: string;
+  status_updated_at: string;
 }
 
 interface KeluarRow extends DBRow {
@@ -61,6 +63,8 @@ function mapMasuk(r: MasukRow): SuratMasuk {
     isiDisposisi: r.isi_disposisi ?? '',
     keterangan: r.keterangan ?? '',
     lampiran: normalizeLampiran(r.lampiran),
+    statusDisposisi: (r.status_disposisi as SuratMasuk['statusDisposisi']) || 'baru',
+    statusUpdatedAt: r.status_updated_at ?? r.updated_at,
     createdByEmail: r.created_by_email || undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -252,7 +256,7 @@ export async function getNextNomorUrut(table: SuratTable | AgendaTable): Promise
   return (data as { nomor_urut: number }).nomor_urut + 1;
 }
 
-export async function insertMasuk(record: Omit<SuratMasuk, 'id' | 'createdAt' | 'updatedAt'>): Promise<SuratMasuk> {
+export async function insertMasuk(record: Omit<SuratMasuk, 'id' | 'createdAt' | 'updatedAt' | 'statusDisposisi' | 'statusUpdatedAt'>): Promise<SuratMasuk> {
   const { data: userData } = await supabase.auth.getUser();
   const email = userData.user?.email ?? '';
   const { data, error } = await supabase
@@ -284,7 +288,7 @@ export async function insertMasuk(record: Omit<SuratMasuk, 'id' | 'createdAt' | 
 // insertMasuk() so numbering always reflects Nomor Agenda rather than the
 // order things were typed in.
 export async function insertMasukSorted(
-  record: Omit<SuratMasuk, 'id' | 'createdAt' | 'updatedAt' | 'nomorUrut'>,
+  record: Omit<SuratMasuk, 'id' | 'createdAt' | 'updatedAt' | 'nomorUrut' | 'statusDisposisi' | 'statusUpdatedAt'>,
 ): Promise<SuratMasuk> {
   const { data: userData } = await supabase.auth.getUser();
   const email = userData.user?.email ?? '';
@@ -305,7 +309,7 @@ export async function insertMasukSorted(
   return mapMasuk(data as MasukRow);
 }
 
-export async function updateMasuk(id: string, record: Omit<SuratMasuk, 'id' | 'createdAt' | 'updatedAt' | 'nomorUrut'>): Promise<void> {
+export async function updateMasuk(id: string, record: Omit<SuratMasuk, 'id' | 'createdAt' | 'updatedAt' | 'nomorUrut' | 'statusDisposisi' | 'statusUpdatedAt'>): Promise<void> {
   const { error } = await supabase
     .from('surat_masuk')
     .update({
@@ -326,6 +330,23 @@ export async function updateMasuk(id: string, record: Omit<SuratMasuk, 'id' | 'c
   if (error) throw error;
   // Nomor Agenda may have changed, so re-rank every row by it.
   await resequenceSuratMasukByNomorAgenda();
+}
+
+// Changes only the disposisi workflow status (Baru/Diproses/Selesai) for a
+// Surat Masuk, independent of the full edit form. `status_updated_at` is
+// stamped automatically by a DB trigger whenever status_disposisi actually
+// changes (see migration 20260803000000), so it isn't set here — that
+// keeps every code path that touches status (this, bulk import, direct SQL)
+// consistent instead of relying on each caller to remember it.
+export async function updateStatusDisposisi(
+  id: string,
+  status: SuratMasuk['statusDisposisi'],
+): Promise<void> {
+  const { error } = await supabase
+    .from('surat_masuk')
+    .update({ status_disposisi: status })
+    .eq('id', id);
+  if (error) throw error;
 }
 
 export async function insertKeluar(record: Omit<SuratKeluar, 'id' | 'createdAt' | 'updatedAt'>): Promise<SuratKeluar> {
@@ -536,6 +557,10 @@ export async function bulkInsertMasuk(items: SuratMasuk[]): Promise<void> {
     isi_disposisi: r.isiDisposisi,
     keterangan: r.keterangan,
     lampiran: r.lampiran ?? [],
+    // Older backups made before this field existed won't have it — default
+    // to 'baru' rather than leaving it undefined, so the insert never trips
+    // the NOT NULL constraint on status_disposisi.
+    status_disposisi: r.statusDisposisi ?? 'baru',
     created_by_email: email,
   }));
   const { error } = await supabase.from('surat_masuk').insert(rows);
@@ -582,6 +607,38 @@ export async function bulkInsertKeluar(items: SuratKeluar[]): Promise<void> {
 
 export const suratMasukStore: SuratTable = 'surat_masuk';
 export const suratKeluarStore: SuratTable = 'surat_keluar';
+
+// --- Shared app settings (app_settings key/value table) ----------------
+//
+// Office-wide settings that every user sees the same value for (matching
+// this app's "everyone shares one dataset" model — see the RLS notes in
+// migration 20260728114553). Currently just the overdue-disposisi
+// threshold, but the table is a plain key/value store so more settings
+// can be added later without another migration.
+
+const OVERDUE_THRESHOLD_KEY = 'surat_overdue_threshold_days';
+const OVERDUE_THRESHOLD_DEFAULT = 3;
+
+/** Business days a Surat Masuk can sit in "Diproses" before it's flagged
+ *  overdue (in the UI and in the overdue-reminder push notification). */
+export async function getOverdueThresholdDays(): Promise<number> {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', OVERDUE_THRESHOLD_KEY)
+    .maybeSingle();
+  if (error) throw error;
+  const parsed = data ? Number.parseInt((data as { value: string }).value, 10) : NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : OVERDUE_THRESHOLD_DEFAULT;
+}
+
+export async function setOverdueThresholdDays(days: number): Promise<void> {
+  const safe = Math.max(1, Math.round(days));
+  const { error } = await supabase
+    .from('app_settings')
+    .upsert({ key: OVERDUE_THRESHOLD_KEY, value: String(safe), updated_at: new Date().toISOString() }, { onConflict: 'key' });
+  if (error) throw error;
+}
 
 export interface DuplicateMatch {
   id: string;

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Mail, Lock, Moon, Sun, Save, ShieldCheck, RotateCcw, Upload, User, Smartphone, History, ShieldAlert, BellRing, BellOff } from 'lucide-react';
+import { Mail, Lock, Moon, Sun, Save, ShieldCheck, RotateCcw, Upload, User, Smartphone, History, ShieldAlert, BellRing, BellOff, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Field, Input } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { getCurrentUser, changePassword, updateUsername } from '@/lib/storage';
 import { setCustomLogo, clearCustomLogo, getLogoSrc, getLogoSize, setLogoSize } from '@/lib/logo';
 import { formatDateTime } from '@/lib/date';
+import { getOverdueThresholdDays, setOverdueThresholdDays } from '@/lib/db';
 import {
   isPushSupported,
   getNotificationPermission,
@@ -47,6 +48,9 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
   const [alreadyInstalled, setAlreadyInstalled] = useState(false);
   const [reminderSubscribed, setReminderSubscribed] = useState(false);
   const [reminderBusy, setReminderBusy] = useState(false);
+  const [overdueThreshold, setOverdueThresholdState] = useState(3);
+  const [overdueThresholdInput, setOverdueThresholdInput] = useState('3');
+  const [savingThreshold, setSavingThreshold] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -92,6 +96,17 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
       setUser(u);
       setUsernameEdit(u?.username ?? '');
     });
+  }, []);
+
+  useEffect(() => {
+    getOverdueThresholdDays()
+      .then((days) => {
+        setOverdueThresholdState(days);
+        setOverdueThresholdInput(String(days));
+      })
+      .catch(() => {
+        // Non-critical — the input just falls back to the component default of 3.
+      });
   }, []);
 
   const recentActivity = useMemo<ActivityItem[]>(() => {
@@ -227,16 +242,35 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
       if (reminderSubscribed) {
         await unsubscribeFromAgendaReminders();
         setReminderSubscribed(false);
-        toast('Reminder agenda dinonaktifkan di perangkat ini.', 'info');
+        toast('Reminder dinonaktifkan di perangkat ini.', 'info');
       } else {
         await subscribeToAgendaReminders();
         setReminderSubscribed(true);
-        toast('Reminder agenda diaktifkan. Anda akan diingatkan H-1 dan hari-H.', 'success');
+        toast('Reminder diaktifkan. Anda akan diingatkan untuk agenda pimpinan (H-1 & hari-H) dan surat masuk yang terlambat diproses.', 'success');
       }
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Gagal mengubah pengaturan reminder.', 'error');
     } finally {
       setReminderBusy(false);
+    }
+  }
+
+  async function handleSaveThreshold() {
+    const days = Number.parseInt(overdueThresholdInput, 10);
+    if (!Number.isFinite(days) || days < 1) {
+      toast('Masukkan jumlah hari yang valid (minimal 1).', 'error');
+      return;
+    }
+    setSavingThreshold(true);
+    try {
+      await setOverdueThresholdDays(days);
+      setOverdueThresholdState(days);
+      setOverdueThresholdInput(String(days));
+      toast('Ambang waktu terlambat disimpan.', 'success');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Gagal menyimpan ambang waktu.', 'error');
+    } finally {
+      setSavingThreshold(false);
     }
   }
 
@@ -389,14 +423,14 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
         </div>
       </section>
 
-      {/* Reminder Agenda Pimpinan (Web Push) */}
+      {/* Reminder (Web Push): Agenda Pimpinan + Surat Masuk terlambat */}
       <section className="soft-panel p-5 space-y-4">
         <h3 className="text-sm font-semibold text-office-text dark:text-slate-200 flex items-center gap-2">
-          <BellRing size={16} className="text-emerald-600" /> Reminder Agenda Pimpinan
+          <BellRing size={16} className="text-emerald-600" /> Reminder Agenda & Surat Masuk
         </h3>
         <div className="rounded-xl border border-emerald-100/70 bg-emerald-50/70 p-4 dark:border-slate-700 dark:bg-emerald-950/20">
           <p className="text-sm text-slate-700 dark:text-slate-200">
-            Dapatkan notifikasi otomatis di perangkat ini untuk agenda pimpinan yang jadwalnya <span className="font-semibold">besok (H-1)</span> dan <span className="font-semibold">hari ini (hari-H)</span>.
+            Dapatkan notifikasi otomatis di perangkat ini untuk agenda pimpinan yang jadwalnya <span className="font-semibold">besok (H-1)</span> dan <span className="font-semibold">hari ini (hari-H)</span>, serta surat masuk yang <span className="font-semibold">terlambat diproses</span>.
           </p>
 
           {notifPermission === 'unsupported' ? (
@@ -418,6 +452,28 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
               </span>
             </div>
           )}
+        </div>
+
+        <div className="rounded-xl border border-office-border bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/30">
+          <p className="text-sm font-medium text-office-text dark:text-slate-200 flex items-center gap-2">
+            <Timer size={15} className="text-office-primary dark:text-emerald-400" /> Ambang Waktu Terlambat
+          </p>
+          <p className="mt-1 text-xs text-office-subtext dark:text-slate-400">
+            Surat masuk yang berstatus "Diproses" lebih dari sekian hari kerja (Senin-Jumat, tidak termasuk akhir pekan) akan ditandai terlambat di halaman Surat Masuk, Dashboard, dan lewat notifikasi. Berlaku untuk seluruh kantor.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Input
+              type="number"
+              min={1}
+              value={overdueThresholdInput}
+              onChange={(e) => setOverdueThresholdInput(e.target.value)}
+              className="w-24"
+            />
+            <span className="text-sm text-office-subtext dark:text-slate-400">hari kerja</span>
+            <Button size="sm" variant="outline" onClick={handleSaveThreshold} disabled={savingThreshold || overdueThresholdInput === String(overdueThreshold)}>
+              <Save size={14} /> Simpan
+            </Button>
+          </div>
         </div>
       </section>
 

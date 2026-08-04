@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Eye, Pencil, Trash2, Inbox, Filter, Printer } from 'lucide-react';
+import { Plus, Eye, Pencil, Trash2, Inbox, Filter, Printer, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Select } from '@/components/ui/Form';
 import { AttachmentField } from '@/components/ui/AttachmentField';
 import { LampiranCell } from '@/components/ui/LampiranCell';
+import { DisposisiStatusBadge } from '@/components/ui/StatusBadge';
 import { useToast } from '@/components/ui/Toast';
-import type { SuratMasuk } from '@/types';
-import { TUJUAN_DISPOSISI } from '@/types';
-import { isoToDisplay, formatDateTime, isWithinRange } from '@/lib/date';
-import { deleteRow, resequenceSuratMasukByNomorAgenda } from '@/lib/db';
+import type { SuratMasuk, StatusDisposisi } from '@/types';
+import { TUJUAN_DISPOSISI, STATUS_DISPOSISI, STATUS_DISPOSISI_LABEL } from '@/types';
+import { isoToDisplay, formatDateTime, isWithinRange, businessDaysSince } from '@/lib/date';
+import { deleteRow, resequenceSuratMasukByNomorAgenda, updateStatusDisposisi, getOverdueThresholdDays } from '@/lib/db';
 import { getErrorMessage } from '@/lib/error';
 import { SuratMasukForm } from './SuratMasukForm';
 import { DateRangeFilter } from '@/components/ui/DateRangeFilter';
@@ -32,9 +33,11 @@ export function SuratMasukPage({ rows, onRefresh, canDelete = true, quickAddSign
   const [detail, setDetail] = useState<SuratMasuk | null>(null);
   const [toDelete, setToDelete] = useState<SuratMasuk | null>(null);
   const [tujuanFilter, setTujuanFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
+  const [overdueThreshold, setOverdueThreshold] = useState(3);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -44,12 +47,42 @@ export function SuratMasukPage({ rows, onRefresh, canDelete = true, quickAddSign
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quickAddSignal]);
 
+  useEffect(() => {
+    getOverdueThresholdDays().then(setOverdueThreshold).catch(() => {
+      // Non-critical — falls back to the component's default of 3.
+    });
+  }, []);
+
+  function isOverdue(r: SuratMasuk): boolean {
+    return r.statusDisposisi === 'diproses' && businessDaysSince(r.statusUpdatedAt) >= overdueThreshold;
+  }
+
+  async function handleStatusChange(r: SuratMasuk, next: StatusDisposisi) {
+    if (next === r.statusDisposisi) return;
+    try {
+      await updateStatusDisposisi(r.id, next);
+      toast(`Status disposisi diubah ke "${STATUS_DISPOSISI_LABEL[next]}".`, 'success');
+      onRefresh();
+    } catch (err) {
+      toast(getErrorMessage(err, 'Gagal mengubah status disposisi.'), 'error');
+    }
+  }
+
   const filteredRows = useMemo(() => {
     let out = rows.filter((r) => !removedIds.has(r.id));
     if (tujuanFilter) out = out.filter((r) => r.tujuanDisposisi === tujuanFilter);
+    if (statusFilter === 'terlambat') out = out.filter((r) => isOverdue(r));
+    else if (statusFilter) out = out.filter((r) => r.statusDisposisi === statusFilter);
     if (dateStart || dateEnd) out = out.filter((r) => isWithinRange(r.tanggalDiterima, dateStart, dateEnd));
     return out;
-  }, [rows, tujuanFilter, dateStart, dateEnd, removedIds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, tujuanFilter, statusFilter, dateStart, dateEnd, removedIds, overdueThreshold]);
+
+  const overdueCount = useMemo(
+    () => rows.filter((r) => !removedIds.has(r.id) && isOverdue(r)).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, removedIds, overdueThreshold],
+  );
 
   const columns: Column<SuratMasuk>[] = [
     {
@@ -110,6 +143,42 @@ export function SuratMasukPage({ rows, onRefresh, canDelete = true, quickAddSign
       sortValue: (r) => r.tanggalDiterima ?? '',
     },
     {
+      key: 'statusDisposisi',
+      header: 'Status',
+      width: '150px',
+      sortable: true,
+      sortValue: (r) => r.statusDisposisi,
+      render: (r) => {
+        const overdue = isOverdue(r);
+        return (
+          <div onClick={(e) => e.stopPropagation()} className="flex flex-col items-start gap-1">
+            <select
+              value={r.statusDisposisi}
+              onChange={(e) => handleStatusChange(r, e.target.value as StatusDisposisi)}
+              className={`rounded-md border px-2 py-1 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-office-primary/30 dark:bg-slate-800 ${
+                overdue
+                  ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300'
+                  : r.statusDisposisi === 'selesai'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                    : r.statusDisposisi === 'diproses'
+                      ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+                      : 'border-office-border bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-700/40 dark:text-slate-300'
+              }`}
+            >
+              {STATUS_DISPOSISI.map((s) => (
+                <option key={s} value={s}>{STATUS_DISPOSISI_LABEL[s]}</option>
+              ))}
+            </select>
+            {overdue && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 dark:text-red-400">
+                <AlertTriangle size={11} /> Terlambat
+              </span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
       key: 'lampiran',
       header: 'Lampiran',
       width: '90px',
@@ -165,7 +234,14 @@ export function SuratMasukPage({ rows, onRefresh, canDelete = true, quickAddSign
       <div className="soft-panel flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-office-text dark:text-slate-100">Daftar Surat Masuk</h2>
-          <p className="text-sm text-office-subtext dark:text-slate-400">{filteredRows.length} surat tercatat</p>
+          <p className="text-sm text-office-subtext dark:text-slate-400">
+            {filteredRows.length} surat tercatat
+            {overdueCount > 0 && (
+              <span className="ml-2 inline-flex items-center gap-1 font-medium text-red-600 dark:text-red-400">
+                <AlertTriangle size={12} /> {overdueCount} terlambat diproses
+              </span>
+            )}
+          </p>
         </div>
         <Button onClick={() => { setEditing(null); setView('form'); }}>
           <Plus size={16} /> Tambah Surat
@@ -194,10 +270,21 @@ export function SuratMasukPage({ rows, onRefresh, canDelete = true, quickAddSign
               options={TUJUAN_DISPOSISI.map((t) => ({ value: t, label: t }))}
               className="w-44"
             />
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              placeholder="Semua Status"
+              options={[
+                ...STATUS_DISPOSISI.map((s) => ({ value: s, label: STATUS_DISPOSISI_LABEL[s] })),
+                { value: 'terlambat', label: 'Terlambat' },
+              ]}
+              className="w-40"
+            />
             <DateRangeFilter start={dateStart} end={dateEnd} onChange={(s, e) => { setDateStart(s); setDateEnd(e); }} />
           </div>
         }
         onRowClick={(r) => setDetail(r)}
+        rowClassName={(r) => (isOverdue(r) ? 'border-l-4 border-l-red-400 dark:border-l-red-500' : '')}
       />
 
       <Modal
@@ -231,7 +318,7 @@ export function SuratMasukPage({ rows, onRefresh, canDelete = true, quickAddSign
           </>
         }
       >
-        {detail && <DetailContent s={detail} />}
+        {detail && <DetailContent s={detail} overdueThreshold={overdueThreshold} />}
       </Modal>
 
       <ConfirmModal
@@ -245,7 +332,7 @@ export function SuratMasukPage({ rows, onRefresh, canDelete = true, quickAddSign
   );
 }
 
-function DetailContent({ s }: { s: SuratMasuk }) {
+function DetailContent({ s, overdueThreshold }: { s: SuratMasuk; overdueThreshold: number }) {
   const items: { label: string; value: string }[] = [
     { label: 'Nomor Urut', value: String(s.nomorUrut) },
     { label: 'Nomor Surat', value: s.nomorSurat || '-' },
@@ -259,6 +346,12 @@ function DetailContent({ s }: { s: SuratMasuk }) {
   ];
   return (
     <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <DisposisiStatusBadge value={s.statusDisposisi} overdue={s.statusDisposisi === 'diproses' && businessDaysSince(s.statusUpdatedAt) >= overdueThreshold} />
+        <span className="text-xs text-office-subtext dark:text-slate-400">
+          Status diperbarui: {formatDateTime(s.statusUpdatedAt)}
+        </span>
+      </div>
       <div className="grid sm:grid-cols-2 gap-x-4 gap-y-3">
         {items.map((it) => (
           <div key={it.label} className="border-b border-office-border dark:border-slate-700/60 pb-2">

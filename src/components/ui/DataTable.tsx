@@ -44,6 +44,8 @@ interface DataTableProps<T> {
   mobileSubtitleKey?: string;
   /** Column key whose rendered content is pulled out into a footer action row on mobile, instead of the label/value grid. Defaults to 'actions'. */
   mobileActionsKey?: string;
+  /** Extra classes appended to each row (desktop <tr> and mobile card), e.g. to highlight overdue items. */
+  rowClassName?: (row: T) => string;
 }
 
 export function DataTable<T extends { id: string }>({
@@ -63,6 +65,7 @@ export function DataTable<T extends { id: string }>({
   mobileTitleKey,
   mobileSubtitleKey,
   mobileActionsKey = 'actions',
+  rowClassName,
 }: DataTableProps<T>) {
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounce(query, 300);
@@ -196,7 +199,7 @@ export function DataTable<T extends { id: string }>({
                   <tr
                     key={row.id}
                     onClick={() => onRowClick?.(row)}
-                    className={`border-b border-emerald-100/70 transition-colors dark:border-slate-700/60 ${onRowClick ? 'cursor-pointer hover:bg-emerald-50/70 dark:hover:bg-slate-700/40' : 'hover:bg-slate-50 dark:hover:bg-slate-700/30'} ${i % 2 === 1 ? 'bg-slate-50/60 dark:bg-slate-800/30' : ''}`}
+                    className={`border-b border-emerald-100/70 transition-colors dark:border-slate-700/60 ${onRowClick ? 'cursor-pointer hover:bg-emerald-50/70 dark:hover:bg-slate-700/40' : 'hover:bg-slate-50 dark:hover:bg-slate-700/30'} ${i % 2 === 1 ? 'bg-slate-50/60 dark:bg-slate-800/30' : ''} ${rowClassName?.(row) ?? ''}`}
                   >
                     {columns.map((c) => (
                       <td key={c.key} className={`px-4 py-3 text-slate-700 align-top dark:text-slate-200 ${c.className || ''}`}>
@@ -222,7 +225,7 @@ export function DataTable<T extends { id: string }>({
             <div
               key={row.id}
               onClick={() => onRowClick?.(row)}
-              className={`rounded-2xl border border-emerald-100/80 bg-white dark:border-slate-700 dark:bg-slate-800/90 p-4 shadow-sm ${onRowClick ? 'cursor-pointer active:bg-emerald-50/70 dark:active:bg-slate-700/40' : ''}`}
+              className={`rounded-2xl border border-emerald-100/80 bg-white dark:border-slate-700 dark:bg-slate-800/90 p-4 shadow-sm ${onRowClick ? 'cursor-pointer active:bg-emerald-50/70 dark:active:bg-slate-700/40' : ''} ${rowClassName?.(row) ?? ''}`}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">

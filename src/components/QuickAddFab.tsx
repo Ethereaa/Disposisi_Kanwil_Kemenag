@@ -56,7 +56,7 @@ export function QuickAddFab({ onSelect }: QuickAddFabProps) {
               <button
                 key={o.key}
                 onClick={() => handleSelect(o.key)}
-                className="group flex items-center gap-3 rounded-full bg-white/100 pl-4 pr-2 py-2 text-sm font-medium text-slate-700 shadow-md transition-transform hover:scale-[1.03] dark:bg-slate-800/100 dark:text-slate-100"
+                className="group flex items-center gap-3 rounded-full bg-white/95 pl-4 pr-2 py-2 text-sm font-medium text-slate-700 shadow-md backdrop-blur transition-transform hover:scale-[1.03] dark:bg-slate-800/95 dark:text-slate-100"
               >
                 {o.label}
                 <span className={`flex h-9 w-9 items-center justify-center rounded-full ${o.color} text-white`}>

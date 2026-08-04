@@ -61,14 +61,14 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
       <div className="glass-card relative w-full max-w-5xl p-3">
         <div className="grid overflow-hidden rounded-xl lg:grid-cols-[1.1fr_0.9fr]">
           <div className="flex flex-col justify-center brand-gradient-hero p-8 text-white sm:p-10">
-            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/25">
+            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur">
               <Logo size={44} />
             </div>
             <h1 className="max-w-md text-3xl font-semibold leading-tight sm:text-4xl">{APP_SHORT}</h1>
             <p className="mt-3 max-w-md text-sm leading-6 text-emerald-50/90 sm:text-base">
               Platform Disposisi & Agenda Pimpinan.
             </p>
-            <div className="mt-8 rounded-2xl border border-white/15 bg-white/20 p-4">
+            <div className="mt-8 rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
               <div className="flex items-center gap-3">
                 <Users size={18} className="text-emerald-100" />
                 <p className="text-sm text-emerald-50/90">Kelola Surat Masuk, Surat Keluar, dan Agenda Pimpinan dengan flexibel.</p>

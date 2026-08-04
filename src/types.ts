@@ -27,6 +27,8 @@ export interface SuratMasuk {
   isiDisposisi: string;
   keterangan: string;
   lampiran: Attachment[];
+  statusDisposisi: StatusDisposisi;
+  statusUpdatedAt: string; // ISO timestamp — when statusDisposisi last changed
   createdByEmail?: string;
   createdAt: string; // ISO timestamp
   updatedAt: string; // ISO timestamp
@@ -61,6 +63,18 @@ export type SubDisposisi =
   | 'Kepegawaian'
   | 'Ortala & KUB'
   | 'Umum/Humas/PTSP';
+
+/** Workflow status of a Surat Masuk's disposisi, tracked per record from
+ *  the moment it's disposed to a bidang until it's marked done. */
+export type StatusDisposisi = 'baru' | 'diproses' | 'selesai';
+
+export const STATUS_DISPOSISI: StatusDisposisi[] = ['baru', 'diproses', 'selesai'];
+
+export const STATUS_DISPOSISI_LABEL: Record<StatusDisposisi, string> = {
+  baru: 'Baru',
+  diproses: 'Diproses',
+  selesai: 'Selesai',
+};
 
 export type AppRole = 'admin' | 'staf';
 

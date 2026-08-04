@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
-import { Inbox, Send, CalendarCheck, Database, ArrowRight, Clock, BarChart3, PieChart, Paperclip } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Inbox, Send, CalendarCheck, Database, ArrowRight, Clock, BarChart3, PieChart, Paperclip, AlertTriangle } from 'lucide-react';
 import type { SuratMasuk, SuratKeluar, AgendaPimpinan, PageKey } from '@/types';
-import { isoToDisplay, isToday, isThisMonth, todayISO } from '@/lib/date';
+import { isoToDisplay, isToday, isThisMonth, todayISO, businessDaysSince } from '@/lib/date';
+import { getOverdueThresholdDays } from '@/lib/db';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { MiniBarChart, DualTrendChart } from '@/components/ui/MiniBarChart';
@@ -17,6 +18,14 @@ interface DashboardProps {
 const HARI_SINGKAT = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 
 export function Dashboard({ suratMasuk, suratKeluar, onNavigate }: DashboardProps) {
+  const [overdueThreshold, setOverdueThreshold] = useState(3);
+
+  useEffect(() => {
+    getOverdueThresholdDays().then(setOverdueThreshold).catch(() => {
+      // Non-critical — falls back to the component's default of 3.
+    });
+  }, []);
+
   const stats = useMemo(() => {
     const masukToday = suratMasuk.filter((s) => isToday(s.tanggalDiterima)).length;
     const keluarToday = suratKeluar.filter((s) => isToday(s.tanggalSurat)).length;
@@ -29,6 +38,20 @@ export function Dashboard({ suratMasuk, suratKeluar, onNavigate }: DashboardProp
       unsigned,
     };
   }, [suratMasuk, suratKeluar]);
+
+  // Disposisi workflow breakdown (Baru/Diproses/Selesai) for Surat Masuk,
+  // plus how many "Diproses" records have sat past the overdue threshold —
+  // mirrors the isOverdue() logic in SuratMasukPage so the two screens
+  // never disagree about what counts as overdue.
+  const statusStats = useMemo(() => {
+    const baru = suratMasuk.filter((s) => s.statusDisposisi === 'baru').length;
+    const diproses = suratMasuk.filter((s) => s.statusDisposisi === 'diproses').length;
+    const selesai = suratMasuk.filter((s) => s.statusDisposisi === 'selesai').length;
+    const overdue = suratMasuk.filter(
+      (s) => s.statusDisposisi === 'diproses' && businessDaysSince(s.statusUpdatedAt) >= overdueThreshold,
+    ).length;
+    return { baru, diproses, selesai, overdue };
+  }, [suratMasuk, overdueThreshold]);
 
   // Last 7 days trend (surat masuk vs surat keluar), oldest first.
   const trend = useMemo(() => {
@@ -97,7 +120,7 @@ export function Dashboard({ suratMasuk, suratKeluar, onNavigate }: DashboardProp
             <h2 className="mt-1 text-2xl font-semibold">Daftar Disposisi Surat</h2>
             <p className="mt-2 max-w-2xl text-sm text-emerald-50/90">Ringkasan Surat Masuk & Surat Keluar.</p>
           </div>
-          <div className="rounded-2xl border border-white/20 bg-white/20 px-3 py-2 text-sm">
+          <div className="rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-sm backdrop-blur">
             Total data: <span className="font-semibold">{stats.total}</span>
           </div>
         </div>
@@ -127,6 +150,28 @@ export function Dashboard({ suratMasuk, suratKeluar, onNavigate }: DashboardProp
           );
         })}
       </div>
+
+      {/* Disposisi status breakdown for Surat Masuk */}
+      <button
+        onClick={() => onNavigate('surat-masuk')}
+        className="w-full flex flex-wrap items-center gap-3 bg-white dark:bg-slate-800 rounded-2xl border border-office-border dark:border-slate-700 shadow-sm px-5 py-4 text-left hover:border-office-primary/30 transition-colors"
+      >
+        <span className="text-sm font-semibold text-office-text dark:text-slate-100 mr-1">Status Disposisi Surat Masuk</span>
+        <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 dark:bg-slate-700/50 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+          {statusStats.baru} Baru
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-50 dark:bg-amber-950/50 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-300">
+          {statusStats.diproses} Diproses
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+          {statusStats.selesai} Selesai
+        </span>
+        {statusStats.overdue > 0 && (
+          <span className="inline-flex items-center gap-1.5 rounded-md bg-red-50 dark:bg-red-950/50 px-2.5 py-1 text-xs font-semibold text-red-700 dark:text-red-300">
+            <AlertTriangle size={12} /> {statusStats.overdue} Terlambat
+          </span>
+        )}
+      </button>
 
       {/* Charts */}
       <div className="grid lg:grid-cols-2 gap-4">
@@ -214,6 +259,15 @@ export function Dashboard({ suratMasuk, suratKeluar, onNavigate }: DashboardProp
       )}
 
       {/* Quick info */}
+      {statusStats.overdue > 0 && (
+        <div className="flex items-center gap-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-xl px-4 py-3">
+          <AlertTriangle size={18} className="text-red-600 dark:text-red-400 shrink-0" />
+          <p className="text-sm text-red-800 dark:text-red-200 flex-1">
+            Ada <strong>{statusStats.overdue}</strong> surat masuk yang terlambat diproses (lebih dari {overdueThreshold} hari kerja).
+          </p>
+          <Button size="sm" variant="outline" onClick={() => onNavigate('surat-masuk')}>Lihat</Button>
+        </div>
+      )}
       {stats.unsigned > 0 && (
         <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl px-4 py-3">
           <Clock size={18} className="text-amber-600 dark:text-amber-400 shrink-0" />
