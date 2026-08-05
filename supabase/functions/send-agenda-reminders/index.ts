@@ -57,7 +57,10 @@ function makassarISODate(offsetDays: number): string {
 }
 
 Deno.serve(async (req) => {
-  if (CRON_SECRET && req.headers.get('x-cron-secret') !== CRON_SECRET) {
+  if (
+    !CRON_SECRET ||
+    req.headers.get('x-cron-secret') !== CRON_SECRET
+  ) {
     return new Response('Unauthorized', { status: 401 });
   }
 
