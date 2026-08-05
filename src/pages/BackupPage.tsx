@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { exportBackup, parseBackup } from '@/lib/export';
 import { getErrorMessage } from '@/lib/error';
-import { clearTable, bulkInsertMasuk, bulkInsertKeluar } from '@/lib/db';
+import { clearTable, bulkInsertMasuk, bulkInsertKeluar, bulkInsertAgendaPimpinan } from '@/lib/db';
 import { getCurrentUser } from '@/lib/storage';
 import { formatDateTime } from '@/lib/date';
 import type { AgendaPimpinan, SuratMasuk, SuratKeluar, BackupData } from '@/types';
@@ -64,9 +64,23 @@ export function BackupPage({ suratMasuk, suratKeluar, agendaPimpinan, onRefresh 
     if (!pendingRestore) return;
     setBusy(true);
     try {
-      await Promise.all([clearTable('surat_masuk'), clearTable('surat_keluar')]);
+      // agenda_pimpinan is cleared and reinserted alongside the surat
+      // tables. Previously it took part in neither step: the backup's
+      // agenda records were counted in the confirmation modal but never
+      // written, so a restore reported success while silently discarding
+      // them. The rows already in the table were left untouched, so they
+      // stayed behind out of sync with the freshly restored surat data.
+      await Promise.all([
+        clearTable('surat_masuk'),
+        clearTable('surat_keluar'),
+        clearTable('agenda_pimpinan'),
+      ]);
       await bulkInsertMasuk(pendingRestore.suratMasuk);
       await bulkInsertKeluar(pendingRestore.suratKeluar);
+      // parseBackup() normalizes a missing agendaPimpinan to [], and the
+      // helper returns early on an empty array, so backups made before
+      // agenda support restore unchanged instead of erroring.
+      await bulkInsertAgendaPimpinan(pendingRestore.agendaPimpinan);
       toast('Data berhasil dipulihkan.', 'success');
       onRefresh();
     } catch (err) {

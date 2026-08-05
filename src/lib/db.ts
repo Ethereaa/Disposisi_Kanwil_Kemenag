@@ -535,7 +535,7 @@ export async function resequenceAgendaPimpinan(): Promise<void> {
   if (error) throw error;
 }
 
-export async function clearTable(table: SuratTable): Promise<void> {
+export async function clearTable(table: SuratTable | AgendaTable): Promise<void> {
   const { error } = await supabase.from(table).delete().neq('id', '00000000-0000-0000-0000-000000000000');
   if (error) throw error;
 }
