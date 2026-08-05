@@ -1,51 +1,35 @@
 import { useState, type FormEvent } from 'react';
-import { LogIn, UserPlus, Lock, Mail, Eye, EyeOff, Users, User, Loader2 } from 'lucide-react';
+import { Lock, Mail, Eye, EyeOff, Users, Loader2 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/Button';
 import { Field, Input } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
 import { APP_TITLE, APP_SHORT, type AppUser } from '@/types';
-import { loginUser, registerUser } from '@/lib/storage';
+import { loginUser } from '@/lib/storage';
 
 interface AuthScreenProps {
   onAuthed: (user?: AppUser) => void;
 }
 
-type Mode = 'login' | 'register';
-
+// Login only — self-service registration was removed on purpose. An
+// account grants access to every record in the system (the data policies
+// are shared-access), so accounts are provisioned by an admin in the
+// Supabase dashboard rather than claimed by whoever finds the URL. See
+// the note above updateUsername() in src/lib/storage.ts.
 export function AuthScreen({ onAuthed }: AuthScreenProps) {
-  const [mode, setMode] = useState<Mode>('login');
   const [identifier, setIdentifier] = useState('');
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
 
-  function switchMode(next: Mode) {
-    setMode(next);
-    setIdentifier('');
-    setUsername('');
-    setEmail('');
-    setPassword('');
-    setShowPw(false);
-  }
-
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     try {
-      if (mode === 'login') {
-        const user = await loginUser(identifier, password);
-        toast('Berhasil login. Selamat datang!', 'success');
-        onAuthed(user);
-      } else {
-        await registerUser(username, email, password);
-        toast('Registrasi berhasil, silakan login.', 'success');
-        switchMode('login');
-        setIdentifier(email.trim());
-      }
+      const user = await loginUser(identifier, password);
+      toast('Berhasil login. Selamat datang!', 'success');
+      onAuthed(user);
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Terjadi kesalahan.', 'error');
     } finally {
@@ -79,74 +63,26 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
           <div className="bg-white/85 p-6 sm:p-8 dark:bg-slate-900/70">
             <div className="mb-6 flex flex-col items-start gap-2">
               <p className="text-sm font-semibold uppercase tracking-[0.24em] text-emerald-600 dark:text-emerald-400">Akses sistem</p>
-              <h2 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">{mode === 'login' ? 'Masuk ke akun' : 'Buat akun baru'}</h2>
-            </div>
-
-            <div className="mb-5 flex gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-slate-800">
-              <button
-                onClick={() => switchMode('login')}
-                className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium transition-all ${mode === 'login' ? 'bg-white text-emerald-700 shadow-sm dark:bg-slate-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}
-              >
-                <span className="flex items-center justify-center gap-2"><LogIn size={16} /> Masuk</span>
-              </button>
-              <button
-                onClick={() => switchMode('register')}
-                className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium transition-all ${mode === 'register' ? 'bg-white text-emerald-700 shadow-sm dark:bg-slate-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}
-              >
-                <span className="flex items-center justify-center gap-2"><UserPlus size={16} /> Daftar</span>
-              </button>
+              <h2 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">Masuk ke akun</h2>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {mode === 'register' && (
-                <Field label="Username" required>
-                  <div className="relative">
-                    <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
-                    <Input
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      placeholder="nama panggilan"
-                      className="pl-9"
-                      autoFocus
-                      required
-                    />
-                  </div>
-                </Field>
-              )}
+              <Field label="Email atau Username" required>
+                <div className="relative">
+                  <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
+                  <Input
+                    type="text"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    placeholder="email@contoh.com atau username"
+                    className="pl-9"
+                    autoFocus
+                    required
+                  />
+                </div>
+              </Field>
 
-              {mode === 'register' ? (
-                <Field label="Email" required>
-                  <div className="relative">
-                    <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
-                    <Input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="nama@email.com"
-                      className="pl-9"
-                      required
-                    />
-                  </div>
-                </Field>
-              ) : (
-                <Field label="Email atau Username" required>
-                  <div className="relative">
-                    <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
-                    <Input
-                      type="text"
-                      value={identifier}
-                      onChange={(e) => setIdentifier(e.target.value)}
-                      placeholder="email@contoh.com atau username"
-                      className="pl-9"
-                      autoFocus
-                      required
-                    />
-                  </div>
-                </Field>
-              )}
-
-              <Field label="Password" required hint={mode === 'register' ? 'Minimal 6 karakter' : undefined}>
+              <Field label="Password" required>
                 <div className="relative">
                   <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
                   <Input
@@ -166,16 +102,14 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
               <Button type="submit" size="lg" className="w-full" disabled={busy}>
                 {busy ? (
                   <><Loader2 size={18} className="animate-spin" /> Memproses...</>
-                ) : mode === 'login' ? 'Masuk' : 'Daftar Sekarang'}
+                ) : 'Masuk'}
               </Button>
             </form>
 
             <div className="mt-4 flex items-start gap-2 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
               <Users size={16} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
               <p className="text-xs leading-5 text-emerald-800 dark:text-emerald-200">
-                {mode === 'register'
-                  ? 'Setelah daftar, silakan login.'
-                  : 'Masuk dengan email atau username yang Anda daftarkan.'}
+                Akun dibuat oleh admin. Hubungi admin jika Anda belum memiliki akses.
               </p>
             </div>
           </div>

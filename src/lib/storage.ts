@@ -52,9 +52,12 @@ async function fetchProfile(userId: string): Promise<{ username: string; email: 
     .maybeSingle();
   if (error) return null;
   if (!data) return null;
-  // `role` may not exist yet on installs that haven't run the role migration —
-  // default to 'admin' so behavior is unchanged (no one loses access unexpectedly).
-  const role: AppUser['role'] = data.role === 'staf' ? 'staf' : 'admin';
+  // Fail closed: anything that is not exactly 'admin' is treated as 'staf'.
+  // This only decides which controls the UI offers — the database is the
+  // real boundary (RLS + the role-change trigger in migration
+  // 20260805000000) — but an unrecognised value defaulting to 'admin'
+  // pointed the wrong way.
+  const role: AppUser['role'] = data.role === 'admin' ? 'admin' : 'staf';
   return { username: data.username, email: data.email, role };
 }
 
@@ -86,34 +89,23 @@ export async function getCurrentUser(): Promise<AppUser | null> {
   };
 }
 
-export async function registerUser(username: string, email: string, password: string): Promise<void> {
-  const trimmedUsername = username.trim();
-  const trimmedEmail = email.trim();
-  if (!trimmedUsername) throw new Error('Username wajib diisi.');
-  if (!trimmedEmail) throw new Error('Email wajib diisi.');
-  if (password.length < 6) throw new Error('Password minimal 6 karakter.');
-
-  // Check username uniqueness before signing up (profiles is readable by anon)
-  const { data: existing } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('username', trimmedUsername)
-    .maybeSingle();
-  if (existing) throw new Error('Username sudah digunakan. Pilih username lain.');
-
-  // Pass username in user metadata — the database trigger (handle_new_user)
-  // reads it and auto-inserts the profile row server-side.
-  const { data, error } = await supabase.auth.signUp({
-    email: trimmedEmail,
-    password,
-    options: { data: { username: trimmedUsername } },
-  });
-  if (error) throw new Error(translateAuthError(error.message));
-  if (!data.user) throw new Error('Pendaftaran gagal.');
-
-  // Sign out immediately — user must log in explicitly
-  await supabase.auth.signOut();
-}
+// Self-service registration was removed deliberately. This app holds
+// official correspondence for a government office, but every data policy
+// is shared-access ("any authenticated user may read/write every record" —
+// see migration 20260728114553), so an account is full access to all
+// records. Public signup therefore meant anyone on the internet could
+// grant themselves that.
+//
+// Accounts are now provisioned by an admin: create the user in the
+// Supabase dashboard (Authentication -> Users -> Add user). The
+// handle_new_user trigger (migration 20260728130405) creates the matching
+// profiles row automatically, defaulting role to 'staf'. Promote with:
+//   update profiles set role = 'admin' where username = '<username>';
+//
+// Signups must ALSO be disabled in the dashboard (Authentication ->
+// Providers -> Email -> "Allow new users to sign up"). Removing this
+// function only closes the app's own door — the endpoint stays reachable
+// with the public anon key until that toggle is off.
 
 export async function updateUsername(newUsername: string): Promise<void> {
   const trimmed = newUsername.trim();
