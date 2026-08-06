@@ -59,22 +59,26 @@ export function isThisMonth(iso: string | null): boolean {
   return !!iso && iso.slice(0, 7) === todayISO().slice(0, 7);
 }
 
-// Counts full weekdays (Mon-Fri) between an ISO timestamp and now, used to
-// flag a Surat Masuk as overdue without counting weekends against it. Walks
-// day-by-day rather than doing calendar math, which is plenty fast for the
-// handful of "Diproses" records this ever runs against.
+// WITA (Asia/Makassar) is UTC+8 throughout the year.
+const WITA_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+// Counts elapsed weekdays using WITA calendar-day boundaries.
+// Keep this logic synchronized with send-surat-overdue-reminders.
 export function businessDaysSince(iso: string | null | undefined): number {
   if (!iso) return 0;
   const from = new Date(iso);
   if (Number.isNaN(from.getTime())) return 0;
-  const cursor = new Date(from);
-  cursor.setHours(0, 0, 0, 0);
-  const end = new Date();
-  end.setHours(0, 0, 0, 0);
+
+  const cursor = new Date(from.getTime() + WITA_OFFSET_MS);
+  cursor.setUTCHours(0, 0, 0, 0);
+
+  const end = new Date(Date.now() + WITA_OFFSET_MS);
+  end.setUTCHours(0, 0, 0, 0);
+
   let count = 0;
   while (cursor < end) {
-    cursor.setDate(cursor.getDate() + 1);
-    const day = cursor.getDay(); // 0 = Sun, 6 = Sat
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+    const day = cursor.getUTCDay(); // 0 = Sun, 6 = Sat
     if (day !== 0 && day !== 6) count++;
   }
   return count;

@@ -56,19 +56,26 @@ interface SubscriptionRow {
   auth_key: string;
 }
 
-// Business days (Mon-Fri) between an ISO timestamp and now — mirrors
-// src/lib/date.ts's businessDaysSince() so the app and this function
-// agree on what "overdue" means.
-function businessDaysSince(iso: string): number {
+// WITA (Asia/Makassar) is UTC+8 throughout the year.
+const WITA_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+// Counts elapsed weekdays using WITA calendar-day boundaries.
+// Keep this logic synchronized with src/lib/date.ts.
+function businessDaysSince(iso: string | null | undefined): number {
+  if (!iso) return 0;
   const from = new Date(iso);
-  const cursor = new Date(from);
+  if (Number.isNaN(from.getTime())) return 0;
+
+  const cursor = new Date(from.getTime() + WITA_OFFSET_MS);
   cursor.setUTCHours(0, 0, 0, 0);
-  const end = new Date();
+
+  const end = new Date(Date.now() + WITA_OFFSET_MS);
   end.setUTCHours(0, 0, 0, 0);
+
   let count = 0;
   while (cursor < end) {
     cursor.setUTCDate(cursor.getUTCDate() + 1);
-    const day = cursor.getUTCDay();
+    const day = cursor.getUTCDay(); // 0 = Sun, 6 = Sat
     if (day !== 0 && day !== 6) count++;
   }
   return count;
