@@ -368,7 +368,7 @@ export function AttachmentField({ value, onChange, folder, disabled, readOnly }:
   function handleDragStart(index: number) {
     setDragIndex(index);
   }
-  function handleDragOver(e: DragEvent<HTMLLIElement>) {
+  function handleDragOver(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
   }
   function handleDrop(index: number) {

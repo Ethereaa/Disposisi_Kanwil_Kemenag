@@ -74,7 +74,7 @@ export function AgendaPimpinanPreview({ agendaId, onClose }: Props) {
             <ArrowLeft size={16} /> Kembali
           </Button>
           <Button variant="outline" size="sm" onClick={handleShare}>
-            {navigator.share ? <Share2 size={16} /> : <Copy size={16} />} {navigator.share ? 'Bagikan' : 'Salin link'}
+            {typeof navigator.share === 'function' ? <Share2 size={16} /> : <Copy size={16} />} {typeof navigator.share === 'function' ? 'Bagikan' : 'Salin link'}
           </Button>
         </div>
 

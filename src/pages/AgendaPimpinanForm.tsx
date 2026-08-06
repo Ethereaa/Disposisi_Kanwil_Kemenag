@@ -123,7 +123,7 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
             options={AGENDA_KETERANGAN_OPTIONS.map((opt) => ({ value: opt, label: opt }))}
           />
         </Field>
-        <Field label="Disposisi Pegawai" required className="sm:col-span-2">
+        <Field label="Disposisi Pegawai" required>
           <Input value={form.disposisiPegawai} onChange={(e) => update('disposisiPegawai', e.target.value)} placeholder="Nama pegawai / disposisi" />
         </Field>
       </div>
