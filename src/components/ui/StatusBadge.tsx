@@ -1,5 +1,5 @@
 import { CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
-import { todayISO } from '@/lib/date';
+import { dateProximityLabel, todayISO } from '@/lib/date';
 import type { StatusDisposisi } from '@/types';
 import { STATUS_DISPOSISI_LABEL } from '@/types';
 
@@ -108,38 +108,38 @@ export function SuratKeluarStatusBadge({
   );
 }
 
-/** Shows a small "Hari Ini" / "Besok" / "Lusa" chip next to a date, computed from ISO yyyy-mm-dd. */
-export function DateProximityBadge({ iso }: { iso: string | null | undefined }) {
-  if (!iso) return null;
-  const today = todayISO();
+/**
+ * Shows a small "Hari Ini" / "Besok" / "Lusa" chip next to a date, computed
+ * from ISO yyyy-mm-dd. The day arithmetic lives in lib/date.ts as
+ * dateProximityLabel().
+ *
+ * `referenceISO` overrides which day counts as today. Omit it and the badge
+ * uses the browser's local day exactly as it always has, which is what the
+ * authenticated Agenda Pimpinan page wants (office machines are on WITA
+ * already). The public preview passes witaTodayISO() instead, so the chip
+ * agrees with the WITA-based selection even when the visitor's phone is on
+ * another timezone — otherwise a device in, say, New York could label a row
+ * "Besok" that the preview selected as Hari ini.
+ */
+export function DateProximityBadge({
+  iso,
+  referenceISO,
+}: {
+  iso: string | null | undefined;
+  referenceISO?: string;
+}) {
+  const label = dateProximityLabel(iso, referenceISO ?? todayISO());
+  if (!label) return null;
 
-  const addDaysISO = (days: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() + days);
-    const tz = d.getTimezoneOffset() * 60000;
-    return new Date(d.getTime() - tz).toISOString().slice(0, 10);
+  const classes: Record<NonNullable<typeof label>, string> = {
+    'Hari Ini': 'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300',
+    Besok: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
+    Lusa: 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300',
   };
 
-  if (iso === today) {
-    return (
-      <span className="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-700 dark:bg-rose-900/50 dark:text-rose-300">
-        Hari Ini
-      </span>
-    );
-  }
-  if (iso === addDaysISO(1)) {
-    return (
-      <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
-        Besok
-      </span>
-    );
-  }
-  if (iso === addDaysISO(2)) {
-    return (
-      <span className="inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-700 dark:bg-sky-900/50 dark:text-sky-300">
-        Lusa
-      </span>
-    );
-  }
-  return null;
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${classes[label]}`}>
+      {label}
+    </span>
+  );
 }

@@ -1,19 +1,28 @@
 import { useEffect, useState } from 'react';
 import { MapPin, Users, Sparkles } from 'lucide-react';
-import { getTopAgendaPimpinan } from '@/lib/db';
+import { runAgendaPreviewQuery } from '@/lib/db';
 import type { AgendaPimpinan } from '@/types';
-import { isoToDisplayWithDay } from '@/lib/date';
+import { isoToDisplayWithDay, witaTodayISO } from '@/lib/date';
+import { loadPreviewAgendas, selectPreviewAgendas } from '@/lib/agendaPreview';
 import { AgendaStatusBadge, DateProximityBadge } from '@/components/ui/StatusBadge';
 
 export function AgendaPreviewHome() {
   const [rows, setRows] = useState<AgendaPimpinan[]>([]);
   const [loading, setLoading] = useState(true);
+  // Pinned once per mount so the fetch, the selection and the badges all
+  // classify days against the same instant. Recomputing witaTodayISO() at
+  // render time could straddle WITA midnight and label a row differently
+  // from how it was selected.
+  const [nowMs] = useState(() => Date.now());
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        const data = await getTopAgendaPimpinan(10);
+        // Several small bounded queries, one per protected WITA day plus one
+        // filler — see lib/agendaPreview.ts for why a single windowed query
+        // cannot guarantee Besok/Lusa are reachable.
+        const data = await loadPreviewAgendas(runAgendaPreviewQuery, nowMs);
         if (mounted) setRows(data);
       } catch {
         if (mounted) setRows([]);
@@ -22,12 +31,16 @@ export function AgendaPreviewHome() {
       }
     })();
     return () => { mounted = false; };
-  }, []);
+  }, [nowMs]);
 
-  // rows already come back ordered by nomorUrut, capped to 10 server-side
-  // (see getTopAgendaPimpinan() — the DB is the single source of truth for
-  // ordering), so there's nothing left to slice client-side.
-  const sortedRows = rows;
+  // Applies the display rule to the fetched rows: drop today's agendas whose
+  // time has passed, guarantee Hari ini / Besok / Lusa each keep a slot, then
+  // fill the rest chronologically up to a hard maximum of 15.
+  const sortedRows = selectPreviewAgendas(rows, nowMs);
+
+  // The same WITA day the selection used, so a chip can never disagree with
+  // it on a device that is not set to WITA.
+  const todayWITA = witaTodayISO(nowMs);
 
   return (
     <div className="min-h-dvh bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_35%),linear-gradient(135deg,#f7fcf8,#eef6f2)] p-4 text-slate-800 dark:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_35%),linear-gradient(135deg,#020617,#0f172a)] dark:text-slate-100 sm:p-6">
@@ -57,7 +70,7 @@ export function AgendaPreviewHome() {
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-600 dark:text-emerald-300">{isoToDisplayWithDay(item.tanggalKegiatan) || '-'}</p>
-                      <DateProximityBadge iso={item.tanggalKegiatan} />
+                      <DateProximityBadge iso={item.tanggalKegiatan} referenceISO={todayWITA} />
                     </div>
                     <h2 className="mt-1 text-base font-semibold text-slate-800 dark:text-slate-100">{item.namaKegiatan || 'Agenda'}</h2>
                   </div>

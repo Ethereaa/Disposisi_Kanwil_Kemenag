@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import type { AgendaPimpinan, SuratMasuk, SuratKeluar, Attachment } from '@/types';
 import { normalizeLampiran } from './attachments';
+import type { PreviewQuery } from './agendaPreview';
 
 export type SuratTable = 'surat_masuk' | 'surat_keluar';
 export type AgendaTable = 'agenda_pimpinan';
@@ -216,17 +217,48 @@ export async function getAllAgendaPimpinan(): Promise<AgendaPimpinan[]> {
 }
 
 // Used by the standalone, unauthenticated Preview Agenda Pimpinan *list*
-// screen (AgendaPreviewHome), which only ever displays the first 10
-// entries. It used to call getAllAgendaPimpinan() and slice(0, 10)
-// client-side — fetching the entire table on every visit of a public,
-// unauthenticated route just to show 10 rows. This fetches only what's
-// shown, server-side.
-export async function getTopAgendaPimpinan(limit: number): Promise<AgendaPimpinan[]> {
-  const { data, error } = await supabase
+// screen (AgendaPreviewHome). It used to call getAllAgendaPimpinan() and
+// slice(0, 10) client-side — fetching the entire table on every visit of a
+// public, unauthenticated route just to show 10 rows.
+//
+// It deliberately does NOT order by nomor_urut. That column is assigned by
+// resequence_agenda_pimpinan_by_date() as `tanggal_kegiatan DESC NULLS
+// LAST, entry_seq DESC`, so nomor_urut = 1 is the agenda furthest in the
+// future and `nomor_urut ASC LIMIT n` returns the n most DISTANT agendas —
+// which silently excluded Hari ini / Besok / Lusa from the preview as soon
+// as the table held more than n rows.
+//
+// This runs ONE query of the plan built by buildPreviewQueries(): either an
+// exact WITA calendar day (optionally restricted to before/from a clock
+// time) or everything strictly after Lusa. Each is independently bounded by
+// `query.limit`, which is what makes the near days impossible to crowd out —
+// a day with thousands of rows cannot consume another day's budget, because
+// the filter pins the date. See lib/agendaPreview.ts for the full argument.
+//
+// The caller supplies the dates and times, already resolved in WITA, so the
+// day boundary follows the office rather than the visitor's device.
+export async function runAgendaPreviewQuery(query: PreviewQuery): Promise<AgendaPimpinan[]> {
+  let q = supabase
     .from('agenda_pimpinan')
     .select('*')
-    .order('nomor_urut', { ascending: true })
-    .range(0, limit - 1);
+    .not('tanggal_kegiatan', 'is', null);
+
+  if (query.kind === 'day') {
+    q = q.eq('tanggal_kegiatan', query.date);
+    // waktu_kegiatan is text 'HH:MM', so lexicographic compares match clock
+    // order. Half-open on purpose: `timeFrom` is inclusive and `timeBefore`
+    // exclusive, so the two halves of today partition it with no overlap and
+    // no gap at the current minute.
+    if (query.timeFrom !== undefined) q = q.gte('waktu_kegiatan', query.timeFrom);
+    if (query.timeBefore !== undefined) q = q.lt('waktu_kegiatan', query.timeBefore);
+  } else {
+    q = q.gt('tanggal_kegiatan', query.date);
+  }
+
+  const { data, error } = await q
+    .order('tanggal_kegiatan', { ascending: true })
+    .order('waktu_kegiatan', { ascending: true })
+    .range(0, query.limit - 1);
   if (error) throw error;
   return (data as AgendaRow[]).map(mapAgenda);
 }
