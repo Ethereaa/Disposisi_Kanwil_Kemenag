@@ -3,7 +3,7 @@ import { ArrowLeft, Copy, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { isoToDisplayWithDay } from '@/lib/date';
 import { getAgendaPimpinanById } from '@/lib/db';
-import type { AgendaPimpinanPublic } from '@/types';
+import type { AgendaPimpinan } from '@/types';
 
 interface Props {
   agendaId: string;
@@ -15,7 +15,7 @@ interface Props {
 // "Kembali" and "Bagikan": it is read-only by design, never a click-through
 // into the rest of the app.
 export function AgendaPimpinanPreview({ agendaId, onClose }: Props) {
-  const [agenda, setAgenda] = useState<AgendaPimpinanPublic | null>(null);
+  const [agenda, setAgenda] = useState<AgendaPimpinan | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

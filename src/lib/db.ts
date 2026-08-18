@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { AgendaPimpinan, AgendaPimpinanPublic, SuratMasuk, SuratKeluar, Attachment } from '@/types';
+import type { AgendaPimpinan, SuratMasuk, SuratKeluar, Attachment } from '@/types';
 import { normalizeLampiran } from './attachments';
 import type { PreviewQuery } from './agendaPreview';
 
@@ -48,32 +48,6 @@ interface AgendaRow {
   created_at: string;
   updated_at: string;
 }
-
-// Rows from public.agenda_pimpinan_public, the restricted view the two
-// no-login routes read. Deliberately NOT AgendaRow: the view exposes 8 of
-// agenda_pimpinan's 16 columns, so `data as AgendaRow` would type lampiran,
-// created_by_email, created_at and updated_at as present when they are
-// `undefined` at runtime — the compiler would then wave through
-// `row.created_at.slice(...)` and it would throw in the browser.
-interface PublicAgendaRow {
-  id: string;
-  nomor_urut: number;
-  tanggal_kegiatan: string | null;
-  waktu_kegiatan: string | null;
-  nama_kegiatan: string;
-  tempat_kegiatan: string;
-  keterangan: string;
-  disposisi_pegawai: string;
-}
-
-// The exact projection the view exposes, and the only columns the public
-// helpers may request. One constant so the two anonymous readers cannot drift
-// apart, and so this stays checkable against the view definition in
-// supabase/migrations/20260818000000_create_agenda_pimpinan_public_view.sql.
-// Never `select('*')` on a public path: it would silently start shipping any
-// column a future migration adds to the view.
-const PUBLIC_AGENDA_COLUMNS =
-  'id, nomor_urut, tanggal_kegiatan, waktu_kegiatan, nama_kegiatan, tempat_kegiatan, keterangan, disposisi_pegawai';
 
 function mapMasuk(r: MasukRow): SuratMasuk {
   return {
@@ -129,24 +103,6 @@ function mapAgenda(r: AgendaRow): AgendaPimpinan {
     createdByEmail: r.created_by_email || undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
-  };
-}
-
-// Public counterpart of mapAgenda(), for view rows. Separate on purpose:
-// mapAgenda() reads four columns the view does not expose, so reusing it on a
-// public row would hand the UI `undefined` values typed as `string`. The
-// null-coalescing mirrors mapAgenda() because the view passes the base
-// columns through unchanged.
-function mapAgendaPublic(r: PublicAgendaRow): AgendaPimpinanPublic {
-  return {
-    id: r.id,
-    nomorUrut: r.nomor_urut,
-    tanggalKegiatan: r.tanggal_kegiatan,
-    waktuKegiatan: r.waktu_kegiatan ?? '',
-    namaKegiatan: r.nama_kegiatan ?? '',
-    tempatKegiatan: r.tempat_kegiatan ?? '',
-    keterangan: r.keterangan ?? '',
-    disposisiPegawai: r.disposisi_pegawai ?? '',
   };
 }
 
@@ -281,16 +237,10 @@ export async function getAllAgendaPimpinan(): Promise<AgendaPimpinan[]> {
 //
 // The caller supplies the dates and times, already resolved in WITA, so the
 // day boundary follows the office rather than the visitor's device.
-//
-// Reads the restricted agenda_pimpinan_public view, not the base table: this
-// runs for anonymous visitors, and the base table holds staff emails and
-// attachment paths that have no business leaving the building. Filters and
-// ordering are unchanged — the view passes all 8 columns through untouched, so
-// tanggal_kegiatan/waktu_kegiatan behave exactly as before.
-export async function runAgendaPreviewQuery(query: PreviewQuery): Promise<AgendaPimpinanPublic[]> {
+export async function runAgendaPreviewQuery(query: PreviewQuery): Promise<AgendaPimpinan[]> {
   let q = supabase
-    .from('agenda_pimpinan_public')
-    .select(PUBLIC_AGENDA_COLUMNS)
+    .from('agenda_pimpinan')
+    .select('*')
     .not('tanggal_kegiatan', 'is', null);
 
   if (query.kind === 'day') {
@@ -310,23 +260,20 @@ export async function runAgendaPreviewQuery(query: PreviewQuery): Promise<Agenda
     .order('waktu_kegiatan', { ascending: true })
     .range(0, query.limit - 1);
   if (error) throw error;
-  return (data as PublicAgendaRow[]).map(mapAgendaPublic);
+  return (data as AgendaRow[]).map(mapAgenda);
 }
 
 // Used by the standalone Preview Agenda Pimpinan screen (public route,
 // works without login) to fetch a single agenda by id, instead of
 // depending on the authenticated app's already-loaded list.
-//
-// Same restricted view as runAgendaPreviewQuery(), for the same reason: this is
-// a shareable link / QR target that anyone can open.
-export async function getAgendaPimpinanById(id: string): Promise<AgendaPimpinanPublic | null> {
+export async function getAgendaPimpinanById(id: string): Promise<AgendaPimpinan | null> {
   const { data, error } = await supabase
-    .from('agenda_pimpinan_public')
-    .select(PUBLIC_AGENDA_COLUMNS)
+    .from('agenda_pimpinan')
+    .select('*')
     .eq('id', id)
     .maybeSingle();
   if (error) throw error;
-  return data ? mapAgendaPublic(data as PublicAgendaRow) : null;
+  return data ? mapAgenda(data as AgendaRow) : null;
 }
 
 export async function getNextNomorUrut(table: SuratTable | AgendaTable): Promise<number> {
