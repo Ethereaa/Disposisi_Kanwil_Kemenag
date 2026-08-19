@@ -100,6 +100,23 @@ export interface AgendaPimpinan {
   updatedAt: string; // ISO timestamp
 }
 
+// What the public, no-login Agenda Pimpinan routes are allowed to see: the 8
+// columns exposed by the public.agenda_pimpinan_public view. Deliberately a
+// standalone type rather than Pick<AgendaPimpinan, ...> — adding a field to
+// AgendaPimpinan must NOT silently widen the anonymous read surface, and this
+// type is really the contract with the view, not with the app model. Keep it in
+// step with supabase/migrations/20260818000000_create_agenda_pimpinan_public_view.sql.
+export interface AgendaPimpinanPublic {
+  id: string;
+  nomorUrut: number;
+  tanggalKegiatan: string | null; // ISO yyyy-mm-dd
+  waktuKegiatan: string; // HH:MM 24 jam
+  namaKegiatan: string;
+  tempatKegiatan: string;
+  keterangan: string;
+  disposisiPegawai: string;
+}
+
 export interface BackupData {
   version: number;
   exportedAt: string;

@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { MapPin, Users, Sparkles } from 'lucide-react';
 import { runAgendaPreviewQuery } from '@/lib/db';
-import type { AgendaPimpinan } from '@/types';
+import type { AgendaPimpinanPublic } from '@/types';
 import { isoToDisplayWithDay, witaTodayISO } from '@/lib/date';
 import { loadPreviewAgendas, selectPreviewAgendas } from '@/lib/agendaPreview';
 import { AgendaStatusBadge, DateProximityBadge } from '@/components/ui/StatusBadge';
 
 export function AgendaPreviewHome() {
-  const [rows, setRows] = useState<AgendaPimpinan[]>([]);
+  const [rows, setRows] = useState<AgendaPimpinanPublic[]>([]);
   const [loading, setLoading] = useState(true);
   // Pinned once per mount so the fetch, the selection and the badges all
   // classify days against the same instant. Recomputing witaTodayISO() at
