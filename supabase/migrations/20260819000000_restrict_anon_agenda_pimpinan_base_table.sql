@@ -1,0 +1,94 @@
+-- Fix 3, Migration 2 of 2 — remove anonymous access to the base table.
+--
+-- Migration 1 (20260818000000) created public.agenda_pimpinan_public, the
+-- 8-column read-only surface, and the frontend that reads it is now deployed
+-- (commit cd21a3d). The ordering requirement stated in Migration 1 is therefore
+-- satisfied:
+--     Migration 1  ->  frontend deploy  ->  THIS migration
+--
+-- Migration 1 fixed problem (1), column exposure. This migration fixes problem
+-- (2), excess base-table privilege on anon, and closes Fix 3.
+--
+-- LIVE STATE, re-verified against production catalogs immediately before this
+-- file was written:
+--
+--   public.agenda_pimpinan relacl:
+--     postgres=arwdDxtm  anon=arwdDxtm  authenticated=arwdDxtm  service_role=arwdDxtm
+--
+--   anon effectively holds ALL EIGHT table privileges on the base table:
+--     INSERT(a) SELECT(r) UPDATE(w) DELETE(d) TRUNCATE(D) REFERENCES(x)
+--     TRIGGER(t) MAINTAIN(m)
+--
+--   policy agenda_pimpinan_select_public: FOR SELECT TO anon USING (true)
+--
+-- REVOKE ALL, not REVOKE SELECT. That is the whole point of this migration.
+-- Dropping the policy alone would stop anonymous reads, because RLS denies any
+-- command with no matching policy — but it would leave anon holding seven other
+-- table privileges for no reason. Those are latent, not harmless:
+--
+--   * TRUNCATE is NOT subject to RLS at all. It is unreachable today only
+--     because PostgREST exposes no TRUNCATE verb — an implementation detail of
+--     the API layer, not a database guarantee.
+--   * REFERENCES and TRIGGER are likewise outside the RLS model.
+--   * Any future permissive policy added for anon on this table would silently
+--     become a write path, because the underlying grant is already there.
+--
+-- Relying on "RLS happens to block it" is relying on a second layer to excuse a
+-- first layer that is wrong. Remove the grant.
+--
+-- WHY THE PUBLIC PREVIEW KEEPS WORKING AFTER THIS RUNS. Verified, not assumed:
+--   * agenda_pimpinan_public has NO security_invoker option set, so it executes
+--     with the privileges of its owner, postgres — not the caller's.
+--   * postgres has SELECT on public.agenda_pimpinan.
+--   * agenda_pimpinan has relforcerowsecurity = false, so RLS is not applied to
+--     the table owner.
+--   * anon retains SELECT on the VIEW (see Migration 1's GRANT, untouched here).
+--   * anon is a member of no other role (pg_auth_members is empty for it), so it
+--     has no inherited path back to the base table.
+-- Anonymous reads therefore continue to resolve through the view and only
+-- through the view, restricted to the 8 approved columns.
+--
+-- A table-level REVOKE is sufficient here. REVOKE ALL PRIVILEGES ON TABLE does
+-- not clear column-level grants, so that would be a real gap if any existed —
+-- pg_attribute.attacl was checked and is null for all 16 base columns
+-- (columns_with_explicit_acl = 0), so there are none to clear.
+--
+-- DELIBERATELY OUT OF SCOPE. This project's pg_default_acl still grants
+-- anon=arwdDxtm on FUTURE tables and views in schema public. That is why
+-- Migration 1 had to REVOKE before it could GRANT. It is a real hardening item
+-- and it is tracked separately: it does not re-grant anything on this existing
+-- table, so it cannot undo the REVOKE below. This migration is scoped to
+-- public.agenda_pimpinan and its obsolete anon policy, nothing else.
+
+-- 1. Drop the obsolete anonymous SELECT policy.
+--
+-- Superseded by public.agenda_pimpinan_public. This is the only policy on this
+-- table granted TO anon; the four authenticated policies
+-- (agenda_pimpinan_select_all / _insert_all / _update_all / _delete_all) are
+-- untouched, and authenticated CRUD continues to run against the base table.
+DROP POLICY IF EXISTS agenda_pimpinan_select_public ON public.agenda_pimpinan;
+
+-- 2. Remove every direct table privilege from anon on the base table.
+--
+-- Scoped to anon only. authenticated and service_role keep their existing
+-- privileges, and the view's own ACL (anon SELECT, authenticated SELECT,
+-- PUBLIC none) is not referenced by this migration at all.
+REVOKE ALL PRIVILEGES ON TABLE public.agenda_pimpinan FROM anon;
+
+-- Those two statements are the entire migration. No COMMENT ON TABLE is set
+-- here: that would be a third executable statement outside the agreed scope,
+-- and COMMENT overwrites rather than appends, so it would silently discard any
+-- existing comment on the table.
+--
+-- Post-apply expectation, for whoever verifies this:
+--
+--   anon  ->  public.agenda_pimpinan          no privileges, no policy
+--   anon  ->  public.agenda_pimpinan_public   SELECT only
+--   authenticated, service_role, postgres     unchanged
+--
+--   relacl becomes:
+--     postgres=arwdDxtm  authenticated=arwdDxtm  service_role=arwdDxtm
+--     (anon absent)
+--
+--   Anonymous PostgREST against agenda_pimpinan        -> permission denied
+--   Anonymous PostgREST against agenda_pimpinan_public -> 200, 8 columns
