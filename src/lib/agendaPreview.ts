@@ -1,4 +1,4 @@
-import { witaDateISO, witaMinutesOfDay, witaTimeHHMM, witaTodayISO } from './date';
+import { witaDateISO, witaTodayISO } from './date';
 import type { AgendaPimpinan } from '@/types';
 
 // Fetch plan + selection rule for the public Preview Agenda Pimpinan list
@@ -48,7 +48,9 @@ export type PreviewAgenda = Pick<
  * One bounded server query. `kind: 'day'` means an exact WITA calendar day;
  * `kind: 'after'` means strictly later than `date`, used for the filler.
  * The time bounds compare `waktu_kegiatan` lexicographically, which for
- * zero-padded 'HH:MM' is the same as comparing clock times.
+ * zero-padded 'HH:MM' is the same as comparing clock times. They are
+ * optional and the current plan sets neither — a day query with no bound
+ * fetches the whole day, which is what the eligibility rule now needs.
  */
 export interface PreviewQuery {
   kind: 'day' | 'after';
@@ -64,31 +66,29 @@ export type PreviewQueryRunner<T> = (query: PreviewQuery) => Promise<T[]>;
 /**
  * The queries needed to guarantee every protected day can be represented.
  *
- * Today is split in two rather than fetched as one ordered page, because
- * `waktu_kegiatan ASC` puts the already-finished morning rows first: a day
- * with 15+ expired agendas would return nothing usable. Splitting on the
- * current WITA time gives:
+ * One query per protected day, plus one filler for the later future — four
+ * in total. Today needs no special handling: every row dated today is
+ * eligible for the whole WITA day, so a plain `tanggal_kegiatan = <today>`
+ * page ordered by `waktu_kegiatan ASC` returns today's earliest rows, which
+ * are exactly the ones selection can use.
  *
- *  - `timeFrom: now`  -> today's still-upcoming rows, nearest first. Also
- *    catches rows whose time field is malformed ('pagi', '99:99'), since
- *    letters and '9' sort after the current 'HH:MM'.
- *  - `timeBefore: now` -> the low-sorting rows, nearest first. This is how
- *    all-day agendas are collected: '' and '00:00' sort before every real
- *    clock time, so they are always inside this page's first rows. Genuinely
- *    expired rows come back too and isEligible() drops them.
+ * Today used to be split into two half-open time queries around the current
+ * WITA clock, because under the old rule `waktu_kegiatan ASC` put the
+ * already-finished morning rows first and a day with 15+ expired agendas
+ * returned nothing usable. Passed-time rows now stay eligible, so that page
+ * is usable as-is and the split has nothing left to protect against. It is
+ * deliberately gone rather than kept as a no-op: leaving `timeFrom: now` in
+ * place would still hide today's morning agendas from the fetch.
  *
  * Each limit is PREVIEW_TARGET because no single day, and no filler, can
  * ever contribute more than PREVIEW_TARGET items to a PREVIEW_TARGET-capped
  * list — so fetching more could not change the output.
  */
 export function buildPreviewQueries(nowMs: number = Date.now()): PreviewQuery[] {
-  const today = witaTodayISO(nowMs);
-  const now = witaTimeHHMM(nowMs);
   const lusa = witaDateISO(2, nowMs);
 
   return [
-    { kind: 'day', date: today, timeFrom: now, limit: PREVIEW_TARGET },
-    { kind: 'day', date: today, timeBefore: now, limit: PREVIEW_TARGET },
+    { kind: 'day', date: witaTodayISO(nowMs), limit: PREVIEW_TARGET },
     { kind: 'day', date: witaDateISO(1, nowMs), limit: PREVIEW_TARGET },
     { kind: 'day', date: lusa, limit: PREVIEW_TARGET },
     { kind: 'after', date: lusa, limit: PREVIEW_TARGET },
@@ -102,19 +102,19 @@ export function buildPreviewQueries(nowMs: number = Date.now()): PreviewQuery[] 
  *  1. Each protected day is queried by an equality filter on its own date,
  *     so rows from another day cannot consume its limit. Hari ini having
  *     10,000 rows changes nothing about what Besok's query returns.
- *  2. Within today, the two halves partition the day at the current WITA
- *     time, so a pile of expired rows cannot hide the upcoming ones.
+ *  2. Each day's page is ordered `waktu_kegiatan ASC`, and selection keeps a
+ *     day's earliest rows, so the rows a truncated page drops are exactly
+ *     the ones selection would have dropped anyway.
  *  3. A day can contribute at most PREVIEW_TARGET items to the final list,
  *     and each per-day limit is PREVIEW_TARGET, so no reachable row is lost.
  *  4. The filler is capped the same way and can only ever fill leftover
  *     slots, of which there are at most PREVIEW_TARGET.
  * Therefore if an eligible agenda exists on a protected day, at least one
  * reaches selectPreviewAgendas(). Total rows fetched is at most
- * 5 x PREVIEW_TARGET regardless of table size.
+ * 4 x PREVIEW_TARGET regardless of table size.
  *
- * The five queries partition the timeline (disjoint dates; today split on a
- * half-open time boundary), so duplicates are not possible — the dedupe is
- * an invariant guard, not load-bearing.
+ * The four queries partition the timeline by date, so duplicates are not
+ * possible — the dedupe is an invariant guard, not load-bearing.
  */
 export async function loadPreviewAgendas<T extends PreviewAgenda & { id: string }>(
   run: PreviewQueryRunner<T>,
@@ -132,10 +132,10 @@ export async function loadPreviewAgendas<T extends PreviewAgenda & { id: string 
 // --- Selection --------------------------------------------------------
 
 // waktu_kegiatan is `text NOT NULL DEFAULT '00:00'`, so it may be '', a
-// well-formed 'HH:MM', or something a hand-edited row put there. Anything
-// unparseable is treated as an all-day agenda (minute 0) rather than
-// discarded: dropping a today agenda because its time field is malformed
-// would be the same class of silent disappearance this fix is removing.
+// well-formed 'HH:MM', or something a hand-edited row put there. Now that
+// eligibility is a pure date comparison this feeds ordering only: anything
+// unparseable sorts as minute 0, alongside genuine all-day agendas, rather
+// than throwing or landing at an arbitrary point in the day.
 function minutesOfDay(waktu: string): number {
   const m = /^(\d{1,2}):(\d{2})$/.exec(waktu.trim());
   if (!m) return 0;
@@ -146,25 +146,24 @@ function minutesOfDay(waktu: string): number {
 }
 
 /**
- * True while an agenda is still upcoming in WITA terms.
+ * True while an agenda has not yet fallen behind the WITA calendar day.
  *
- * A future date is always eligible. A today agenda stays eligible until its
- * own waktu_kegiatan has passed in WITA, so a morning meeting does not
- * vanish from the preview at 00:01 just because later agendas exist. An
- * all-day agenda (no usable time) survives the entire WITA day. Past dates
- * and rows with no date at all are out.
+ * Eligibility is a pure date comparison: today and every future date are in,
+ * earlier dates and rows with no date at all are out. `waktu_kegiatan` is
+ * deliberately not consulted — an agenda dated today stays in the preview
+ * for the whole WITA day even once its scheduled time has passed, so a 07:00
+ * meeting is still listed at 16:30. It leaves the preview only when the WITA
+ * calendar date rolls over.
+ *
+ * This replaced a rule that expired today's rows at their own scheduled
+ * time. That read to the office as agendas vanishing during the working day,
+ * and keeping the day whole was approved as the intended behaviour.
  */
 export function isEligible(item: PreviewAgenda, nowMs: number = Date.now()): boolean {
   const iso = item.tanggalKegiatan;
   if (!iso) return false;
 
-  const today = witaTodayISO(nowMs);
-  if (iso < today) return false;
-  if (iso > today) return true;
-
-  const scheduled = minutesOfDay(item.waktuKegiatan);
-  if (scheduled === 0) return true; // all-day: eligible until the day ends
-  return witaMinutesOfDay(nowMs) <= scheduled;
+  return iso >= witaTodayISO(nowMs);
 }
 
 /** Chronological: date, then time of day, then nomor_urut as a stable tiebreak. */

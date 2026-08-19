@@ -21,6 +21,13 @@ import { dateProximityLabel } from './date';
 //
 // Every boundary here is expressed in WITA (UTC+8), because that is the day
 // boundary the preview follows rather than the visitor's device timezone.
+//
+// Eligibility is the WITA calendar date and nothing else: an agenda dated
+// today stays listed for the whole day even after its scheduled time, and
+// leaves only when the date rolls over. An earlier rule expired today's rows
+// at their own clock time, which the office read as agendas vanishing during
+// the working day. Several assertions below are deliberately inverted from
+// that rule and say so where they are.
 
 // Monday 10 Aug 2026, 10:00 WITA. Fixed so the suite cannot rot.
 const NOW = '2026-08-10T02:00:00Z';
@@ -29,6 +36,12 @@ const NOW_MS = new Date(NOW).getTime();
 const TODAY = '2026-08-10';
 const BESOK = '2026-08-11';
 const LUSA = '2026-08-12';
+const KEMARIN = '2026-08-09';
+
+// The same Monday at 16:30 WITA (08:30 UTC). The approved rule is about
+// agendas whose time has already gone by, so the cases that prove it need a
+// clock late enough for a normal working day to be behind it.
+const AFTERNOON_MS = new Date('2026-08-10T08:30:00Z').getTime();
 
 beforeAll(() => {
   vi.useFakeTimers();
@@ -95,11 +108,13 @@ function dayRun(iso: string, n: number, startHour: number): Array<PreviewAgenda 
 }
 
 /**
- * n agendas on `iso` that have all already finished by the 10:00 WITA clock.
- * Minute-apart from 00:15, which keeps every row strictly before 10:00 and
- * off minute 0 — minute 0 counts as all-day and would stay eligible.
+ * n agendas on `iso` whose scheduled time is already behind the 10:00 WITA
+ * clock. Minute-apart from 00:15, which keeps every row strictly before
+ * 10:00 and off minute 0, so ordering assertions can still tell these apart
+ * from genuine all-day rows. Under the approved rule they stay eligible —
+ * the name describes their clock time, not their eligibility.
  */
-function expiredRun(iso: string, n: number): Array<PreviewAgenda & { id: string }> {
+function passedTimeRun(iso: string, n: number): Array<PreviewAgenda & { id: string }> {
   return dayRunFrom(iso, n, 15, 1);
 }
 
@@ -128,39 +143,64 @@ describe('isEligible', () => {
   });
 
   it('drops a past agenda', () => {
-    expect(isEligible(agenda('2026-08-09'), NOW_MS)).toBe(false);
+    expect(isEligible(agenda(KEMARIN), NOW_MS)).toBe(false);
   });
 
   it('drops an agenda with no date', () => {
     expect(isEligible(agenda(null), NOW_MS)).toBe(false);
   });
 
-  describe("today's agendas relative to the WITA clock", () => {
-    // NOW is 10:00 WITA. Required cases 5 and 6.
-    it("keeps today's future-time agenda", () => {
-      expect(isEligible(agenda(TODAY, '14:30'), NOW_MS)).toBe(true);
+  // The approved rule: eligibility is the WITA calendar date alone. Anything
+  // dated today stays for the whole day, however long ago it was scheduled.
+  // These are the cases the office reported as agendas disappearing mid-day.
+  describe("today's agendas, whatever the clock says", () => {
+    it.each([
+      ['first thing in the morning', '07:00'],
+      ['mid-morning', '09:00'],
+      ['just before the clock', '16:29'],
+      ['early afternoon', '13:30'],
+      ['on the clock exactly', '16:30'],
+      ['later tonight', '23:00'],
+    ])('keeps one scheduled %s', (_label, waktu) => {
+      expect(isEligible(agenda(TODAY, waktu), AFTERNOON_MS)).toBe(true);
     });
 
-    it('keeps one scheduled for exactly now', () => {
+    it('still keeps upcoming ones, as it always did', () => {
+      expect(isEligible(agenda(TODAY, '14:30'), NOW_MS)).toBe(true);
       expect(isEligible(agenda(TODAY, '10:00'), NOW_MS)).toBe(true);
     });
 
-    it("drops today's passed-time agenda", () => {
-      expect(isEligible(agenda(TODAY, '09:59'), NOW_MS)).toBe(false);
+    // This assertion is inverted from the original rule, which expired a row
+    // at its own scheduled time. Kept as a named case so a future change
+    // back to time-based expiry cannot pass silently.
+    it('keeps one whose time has already gone by', () => {
+      expect(isEligible(agenda(TODAY, '09:59'), NOW_MS)).toBe(true);
     });
 
     // waktu_kegiatan is `text NOT NULL DEFAULT '00:00'`, so these are the
-    // real-world values an all-day or hand-edited row can carry. Treating
-    // them as all-day keeps them for the whole WITA day instead of hiding
-    // them, which is the failure mode this whole fix is about.
+    // real-world values an all-day or hand-edited row can carry. None of
+    // them can affect eligibility now, which is the point: a malformed time
+    // field cannot hide an agenda.
     it.each([
       ['the schema default', '00:00'],
       ['an empty string', ''],
       ['whitespace', '   '],
       ['unparseable text', 'pagi'],
       ['an impossible hour', '99:99'],
-    ])('treats %s as all-day and keeps it', (_label, waktu) => {
-      expect(isEligible(agenda(TODAY, waktu), NOW_MS)).toBe(true);
+    ])('keeps a row whose time is %s', (_label, waktu) => {
+      expect(isEligible(agenda(TODAY, waktu), AFTERNOON_MS)).toBe(true);
+    });
+  });
+
+  // The other half of the rule: the day boundary is the only thing that
+  // expires an agenda, so yesterday goes even at one minute to midnight.
+  describe('the previous calendar day', () => {
+    it.each([
+      ['last thing at night', '23:59'],
+      ['an all-day row', '00:00'],
+      ['a blank time', ''],
+    ])('drops yesterday %s', (_label, waktu) => {
+      expect(isEligible(agenda(KEMARIN, waktu), AFTERNOON_MS)).toBe(false);
     });
   });
 });
@@ -213,8 +253,8 @@ describe('selectPreviewAgendas', () => {
         ...dayRun(LUSA, 20, 8),
         ...futureRun(3, 40),
       ]],
-      ['expired today rows mixed in', () => [
-        ...expiredRun(TODAY, 30),
+      ['passed-time today rows mixed in', () => [
+        ...passedTimeRun(TODAY, 30),
         ...dayRun(TODAY, 10, 11),
         ...futureRun(3, 20),
       ]],
@@ -263,6 +303,35 @@ describe('selectPreviewAgendas', () => {
     });
   });
 
+  // The same shape as above, but every one of today's 20 rows is already
+  // behind the clock. This is the risk the approved rule introduces: those
+  // rows used to be discarded before selection ran, so they could not
+  // compete for slots. Now they can, and Besok/Lusa must still survive.
+  describe('20 passed-time hari ini + 1 besok + 1 lusa', () => {
+    // 07:00 to 11:45, all behind the 16:30 WITA clock.
+    const rows = [...dayRun(TODAY, 20, 7), agenda(BESOK, '08:00'), agenda(LUSA, '08:00')];
+
+    it('still caps at exactly 13 + 1 + 1 = 15', () => {
+      const dates = selectPreviewAgendas(rows, AFTERNOON_MS).map((r) => r.tanggalKegiatan);
+
+      expect(dates.filter((d) => d === TODAY)).toHaveLength(13);
+      expect(dates.filter((d) => d === BESOK)).toHaveLength(1);
+      expect(dates.filter((d) => d === LUSA)).toHaveLength(1);
+      expect(dates).toHaveLength(PREVIEW_TARGET);
+    });
+
+    it('keeps the earliest 13 of today, not the last 13', () => {
+      const result = selectPreviewAgendas(rows, AFTERNOON_MS);
+
+      expect(result[0].waktuKegiatan).toBe('07:00');
+      expect(result[12].waktuKegiatan).toBe('10:00');
+    });
+
+    it('renders chronologically', () => {
+      expectChronological(selectPreviewAgendas(rows, AFTERNOON_MS));
+    });
+  });
+
   it('gives every protected day a slot even at target 3', () => {
     const rows = [...dayRun(TODAY, 20, 11), agenda(BESOK, '08:00'), agenda(LUSA, '08:00')];
     const result = selectPreviewAgendas(rows, NOW_MS, 3);
@@ -281,8 +350,6 @@ describe('selectPreviewAgendas', () => {
 
   it('orders chronologically, not by nomorUrut', () => {
     // nomorUrut descending as date ascends — the production arrangement.
-    // Today's time is 14:00, still ahead of the 10:00 WITA clock, so this
-    // isolates ordering from eligibility.
     const items = [agenda(LUSA, '09:00', 1), agenda(TODAY, '14:00', 3), agenda(BESOK, '09:00', 2)];
 
     expect(selectPreviewAgendas(items, NOW_MS).map((r) => r.tanggalKegiatan))
@@ -296,10 +363,36 @@ describe('selectPreviewAgendas', () => {
       .toEqual(['11:00', '13:00', '16:00']);
   });
 
+  // Retaining passed-time rows must not reorder the day. A "finished" row
+  // keeps its clock position rather than sinking below the upcoming ones,
+  // and all-day rows still lead the day as they always have.
+  it('does not sort passed-time rows after upcoming ones', () => {
+    const items = [
+      agenda(TODAY, '18:00'),
+      agenda(TODAY, '07:00'),
+      agenda(TODAY, ''),
+      agenda(TODAY, '13:30'),
+      agenda(TODAY, '23:00'),
+      agenda(TODAY, '09:00'),
+    ];
+
+    expect(selectPreviewAgendas(items, AFTERNOON_MS).map((r) => r.waktuKegiatan))
+      .toEqual(['', '07:00', '09:00', '13:30', '18:00', '23:00']);
+  });
+
+  it('keeps the nomorUrut tiebreak for rows at the same passed time', () => {
+    const items = [agenda(TODAY, '08:00', 7), agenda(TODAY, '08:00', 3), agenda(TODAY, '08:00', 5)];
+
+    expect(selectPreviewAgendas(items, AFTERNOON_MS).map((r) => r.nomorUrut)).toEqual([3, 5, 7]);
+  });
+
   it('excludes past and dateless rows', () => {
     const items = [agenda('2026-08-01'), agenda(null), agenda(TODAY, '08:00'), agenda(BESOK)];
 
-    expect(selectPreviewAgendas(items, NOW_MS).map((r) => r.tanggalKegiatan)).toEqual([BESOK]);
+    // 08:00 is behind the 10:00 WITA clock and stays: only the earlier
+    // calendar date and the dateless row are excluded.
+    expect(selectPreviewAgendas(items, NOW_MS).map((r) => r.tanggalKegiatan))
+      .toEqual([TODAY, BESOK]);
   });
 
   // Required case 3.
@@ -352,16 +445,21 @@ describe('selectPreviewAgendas', () => {
     });
   });
 
-  it("drops today's finished agendas while keeping its upcoming ones", () => {
+  it("keeps today's finished agendas alongside its upcoming ones", () => {
+    // The whole point of the approved rule: at 16:30 WITA a 07:00 meeting is
+    // still on the list, in its own chronological place — not moved, not
+    // grouped, not dropped.
     const items = [
       agenda(TODAY, '07:00'),
       agenda(TODAY, '09:30'),
       agenda(TODAY, '11:00'),
       agenda(TODAY, '16:00'),
+      agenda(TODAY, '18:00'),
+      agenda(TODAY, '23:00'),
     ];
 
-    expect(selectPreviewAgendas(items, NOW_MS).map((r) => r.waktuKegiatan))
-      .toEqual(['11:00', '16:00']);
+    expect(selectPreviewAgendas(items, AFTERNOON_MS).map((r) => r.waktuKegiatan))
+      .toEqual(['07:00', '09:30', '11:00', '16:00', '18:00', '23:00']);
   });
 
   it('returns an empty list when nothing is eligible', () => {
@@ -382,25 +480,35 @@ describe('selectPreviewAgendas', () => {
 describe('buildPreviewQueries', () => {
   const queries = buildPreviewQueries(NOW_MS);
 
-  it('splits today at the current WITA time and covers besok, lusa and later', () => {
+  it('covers today, besok, lusa and later in four bounded queries', () => {
     expect(queries).toEqual([
-      { kind: 'day', date: TODAY, timeFrom: '10:00', limit: PREVIEW_TARGET },
-      { kind: 'day', date: TODAY, timeBefore: '10:00', limit: PREVIEW_TARGET },
+      { kind: 'day', date: TODAY, limit: PREVIEW_TARGET },
       { kind: 'day', date: BESOK, limit: PREVIEW_TARGET },
       { kind: 'day', date: LUSA, limit: PREVIEW_TARGET },
       { kind: 'after', date: LUSA, limit: PREVIEW_TARGET },
     ]);
+    expect(queries).toHaveLength(4);
+  });
+
+  // Load-bearing: today used to be fetched as two halves split on the
+  // current WITA time. A lower bound there would leave this morning's
+  // agendas on the server, so no amount of client-side eligibility could
+  // put them back. Asserted directly rather than only via toEqual above, so
+  // the reason survives if the plan is ever extended.
+  it('puts no time bound on any query, so a whole day is always fetched', () => {
+    expect(queries.some((q) => q.timeFrom !== undefined)).toBe(false);
+    expect(queries.some((q) => q.timeBefore !== undefined)).toBe(false);
   });
 
   it('bounds every query, so total rows fetched cannot grow with table size', () => {
     expect(queries.every((q) => q.limit === PREVIEW_TARGET)).toBe(true);
-    expect(queries.reduce((sum, q) => sum + q.limit, 0)).toBe(5 * PREVIEW_TARGET);
+    expect(queries.reduce((sum, q) => sum + q.limit, 0)).toBe(4 * PREVIEW_TARGET);
   });
 
   it('pins each protected day by exact date so days cannot compete for budget', () => {
     const dayQueries = queries.filter((q) => q.kind === 'day');
 
-    expect(dayQueries.map((q) => q.date)).toEqual([TODAY, TODAY, BESOK, LUSA]);
+    expect(dayQueries.map((q) => q.date)).toEqual([TODAY, BESOK, LUSA]);
   });
 });
 
@@ -428,11 +536,13 @@ describe('loadPreviewAgendas', () => {
   }
 
   // Required case 4 — the correctness hole the old single 60-row window had.
-  describe('many expired hari ini rows', () => {
-    // 200 agendas today, every one already finished by 10:00 WITA. Under the
-    // old plan these filled the whole window and besok/lusa never arrived.
+  describe('a hari ini buried under 200 passed-time rows', () => {
+    // Under the pre-fix single-window plan these 200 filled the whole budget
+    // and besok/lusa never arrived. They now stay eligible as well, so they
+    // also compete for selection slots — the per-day query and the slot
+    // reservation are what still get the other days through.
     const rows = [
-      ...expiredRun(TODAY, 200),
+      ...passedTimeRun(TODAY, 200),
       agenda(TODAY, '15:00'),
       agenda(BESOK, '08:00'),
       agenda(LUSA, '08:00'),
@@ -460,33 +570,38 @@ describe('loadPreviewAgendas', () => {
       expectChronological(result);
     });
 
-    it("keeps today's one surviving agenda", async () => {
+    it('caps today at 13 and takes its earliest rows', async () => {
       const { run } = fakeTable(rows);
       const result = selectPreviewAgendas(await loadPreviewAgendas(run, NOW_MS), NOW_MS);
+      const today = result.filter((r) => r.tanggalKegiatan === TODAY);
 
-      expect(result.filter((r) => r.tanggalKegiatan === TODAY).map((r) => r.waktuKegiatan))
-        .toEqual(['15:00']);
+      expect(today).toHaveLength(13);
+      expect(today[0].waktuKegiatan).toBe('00:15');
+      expect(result.filter((r) => r.tanggalKegiatan === BESOK)).toHaveLength(1);
+      expect(result.filter((r) => r.tanggalKegiatan === LUSA)).toHaveLength(1);
     });
 
     it('fetches a bounded number of rows regardless of table size', async () => {
-      const { run } = fakeTable([...rows, ...expiredRun(TODAY, 300)]);
+      const { run } = fakeTable([...rows, ...passedTimeRun(TODAY, 300)]);
       const fetched = await loadPreviewAgendas(run, NOW_MS);
 
-      expect(fetched.length).toBeLessThanOrEqual(5 * PREVIEW_TARGET);
+      expect(fetched.length).toBeLessThanOrEqual(4 * PREVIEW_TARGET);
     });
   });
 
-  it('collects all-day rows even when the day is otherwise full of expired ones', async () => {
-    // '' and '00:00' sort below every clock time, so they land in the
-    // timeBefore half — which is exactly why that half is ordered ascending.
+  it('collects all-day rows at the head of a day full of passed-time ones', async () => {
+    // '' and '00:00' sort below every clock time, so an ascending page always
+    // reaches them first. That is why today is fetched ascending rather than
+    // from the current clock onwards.
     const { run } = fakeTable([
       agenda(TODAY, '', 1),
       agenda(TODAY, '00:00', 2),
-      ...expiredRun(TODAY, 30),
+      ...passedTimeRun(TODAY, 30),
     ]);
     const result = selectPreviewAgendas(await loadPreviewAgendas(run, NOW_MS), NOW_MS);
 
-    expect(result.map((r) => r.waktuKegiatan)).toEqual(['', '00:00']);
+    expect(result.slice(0, 2).map((r) => r.waktuKegiatan)).toEqual(['', '00:00']);
+    expect(result).toHaveLength(PREVIEW_TARGET);
   });
 
   it('issues exactly the planned queries', async () => {
@@ -525,9 +640,9 @@ describe('WITA day boundary', () => {
 
     expect(isProtectedDay(agenda(TODAY), earlyMs)).toBe(true);
     expect(isEligible(agenda(TODAY, '09:00'), earlyMs)).toBe(true);
-    expect(isProtectedDay(agenda('2026-08-09'), earlyMs)).toBe(false);
+    expect(isProtectedDay(agenda(KEMARIN), earlyMs)).toBe(false);
     expect(buildPreviewQueries(earlyMs)[0]).toEqual({
-      kind: 'day', date: TODAY, timeFrom: '00:30', limit: PREVIEW_TARGET,
+      kind: 'day', date: TODAY, limit: PREVIEW_TARGET,
     });
   });
 
@@ -536,10 +651,21 @@ describe('WITA day boundary', () => {
     const lateMs = new Date('2026-08-10T15:30:00Z').getTime();
 
     expect(isProtectedDay(agenda(TODAY), lateMs)).toBe(true);
-    // 09:00 has long passed by 23:30 WITA.
-    expect(isEligible(agenda(TODAY, '09:00'), lateMs)).toBe(false);
-    // But an all-day agenda survives to the end of the WITA day.
+    // 09:00 has long passed by 23:30 WITA and is kept anyway — the day, not
+    // the clock, is what expires an agenda.
+    expect(isEligible(agenda(TODAY, '09:00'), lateMs)).toBe(true);
     expect(isEligible(agenda(TODAY, '00:00'), lateMs)).toBe(true);
+  });
+
+  // The last minute of the WITA day: nothing dated today has expired yet.
+  it('keeps every one of the day\'s agendas at 23:59 WITA', () => {
+    // Mon 10 Aug 23:59 WITA = Mon 10 Aug 15:59 UTC.
+    const lastMinuteMs = new Date('2026-08-10T15:59:00Z').getTime();
+    const items = ['', '00:00', '07:00', '13:30', '18:00', '23:00', '23:58']
+      .map((waktu) => agenda(TODAY, waktu));
+
+    expect(items.every((item) => isEligible(item, lastMinuteMs))).toBe(true);
+    expect(selectPreviewAgendas(items, lastMinuteMs)).toHaveLength(items.length);
   });
 
   it('rolls the protected window over at WITA midnight', () => {
@@ -550,7 +676,19 @@ describe('WITA day boundary', () => {
     expect(isProtectedDay(agenda('2026-08-13'), afterMidnightMs)).toBe(true);
     expect(isEligible(agenda(TODAY, '23:00'), afterMidnightMs)).toBe(false);
     expect(buildPreviewQueries(afterMidnightMs).map((q) => q.date))
-      .toEqual([BESOK, BESOK, LUSA, '2026-08-13', '2026-08-13']);
+      .toEqual([BESOK, LUSA, '2026-08-13', '2026-08-13']);
+  });
+
+  // The other side of the 23:59 case: one minute later the whole day goes,
+  // including the rows that were still eligible a moment before.
+  it('drops the whole previous day the instant WITA midnight passes', () => {
+    // Tue 11 Aug 00:00 WITA = Mon 10 Aug 16:00 UTC.
+    const midnightMs = new Date('2026-08-10T16:00:00Z').getTime();
+    const items = ['', '00:00', '07:00', '18:00', '23:00', '23:59']
+      .map((waktu) => agenda(TODAY, waktu));
+
+    expect(items.some((item) => isEligible(item, midnightMs))).toBe(false);
+    expect(selectPreviewAgendas(items, midnightMs)).toEqual([]);
   });
 
   it('resolves the protected window from real time when nowMs is omitted', () => {
