@@ -27,7 +27,7 @@ interface Props {
 type View = 'list' | 'form' | 'detail';
 type StatusFilter = '' | 'signed' | 'unsigned';
 
-export function SuratKeluarPage({ rows, onRefresh, canDelete = true, quickAddSignal }: Props) {
+export function SuratKeluarPage({ rows, onRefresh, canDelete = false, quickAddSignal }: Props) {
   const [view, setView] = useState<View>('list');
   const [editing, setEditing] = useState<SuratKeluar | null>(null);
   const [detail, setDetail] = useState<SuratKeluar | null>(null);

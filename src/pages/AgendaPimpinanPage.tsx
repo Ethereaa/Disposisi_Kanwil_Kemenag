@@ -23,7 +23,7 @@ interface Props {
 
 type View = 'list' | 'form' | 'detail';
 
-export function AgendaPimpinanPage({ rows, onRefresh, canDelete = true, quickAddSignal }: Props) {
+export function AgendaPimpinanPage({ rows, onRefresh, canDelete = false, quickAddSignal }: Props) {
   const [view, setView] = useState<View>('list');
   const [editing, setEditing] = useState<AgendaPimpinan | null>(null);
   const [detail, setDetail] = useState<AgendaPimpinan | null>(null);

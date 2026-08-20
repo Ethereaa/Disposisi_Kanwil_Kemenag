@@ -15,9 +15,15 @@ interface Props {
   suratKeluar: SuratKeluar[];
   agendaPimpinan: AgendaPimpinan[];
   onRefresh: () => void;
+  /**
+   * Restore replaces every record in all three tables. Only an admin may do it.
+   * Defaults to false so an omitted prop fails closed, and so a caller that has
+   * not yet resolved the signed-in user cannot open the restore path.
+   */
+  canRestore?: boolean;
 }
 
-export function BackupPage({ suratMasuk, suratKeluar, agendaPimpinan, onRefresh }: Props) {
+export function BackupPage({ suratMasuk, suratKeluar, agendaPimpinan, onRefresh, canRestore = false }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [pendingRestore, setPendingRestore] = useState<BackupData | null>(null);
   const [busy, setBusy] = useState(false);
@@ -61,7 +67,12 @@ export function BackupPage({ suratMasuk, suratKeluar, agendaPimpinan, onRefresh 
   }
 
   async function confirmRestore() {
-    if (!pendingRestore) return;
+    // Checked again at the executor, not only where the UI is rendered. A
+    // restore clears all three tables before reinserting, and RLS cannot stop
+    // a non-admin here: a DELETE policy's USING clause filters rows, it does
+    // not raise. A staf restore would find zero deletable rows, succeed with
+    // 204, then insert — duplicating the whole dataset instead of failing.
+    if (!pendingRestore || !canRestore) return;
     setBusy(true);
     try {
       await restoreBackup(pendingRestore);
@@ -127,34 +138,43 @@ export function BackupPage({ suratMasuk, suratKeluar, agendaPimpinan, onRefresh 
         </Button>
       </div>
 
-      {/* Import backup */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-office-border dark:border-slate-700 shadow-sm p-5">
-        <div className="flex items-start gap-3 mb-4">
-          <div className="h-10 w-10 rounded-lg bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center shrink-0">
-            <Upload size={20} className="text-blue-600 dark:text-blue-400" />
+      {/* Import backup — admin only. Hidden entirely rather than disabled: the
+          file input, the picker button and every path that can set
+          pendingRestore live in here, so the confirmation modal is unreachable
+          for a non-admin. Export above stays available to everyone. */}
+      {canRestore && (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-office-border dark:border-slate-700 shadow-sm p-5">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="h-10 w-10 rounded-lg bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center shrink-0">
+              <Upload size={20} className="text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-office-text dark:text-slate-100">Import / Restore Backup</h3>
+              <p className="text-xs text-office-subtext dark:text-slate-400">Pulihkan data dari file backup JSON.</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-semibold text-office-text dark:text-slate-100">Import / Restore Backup</h3>
-            <p className="text-xs text-office-subtext dark:text-slate-400">Pulihkan data dari file backup JSON.</p>
+
+          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-lg p-3 mb-4 flex items-start gap-2">
+            <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-800 dark:text-amber-200">
+              <strong>Perhatian:</strong> Memulihkan backup akan mengganti seluruh data di cloud. Semua anggota keluarga akan melihat data hasil pemulihan. Pastikan Anda sudah mencadangkan data jika diperlukan.
+            </p>
           </div>
+
+          <input ref={fileRef} type="file" accept=".json,application/json" onChange={handleFile} className="hidden" />
+          <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={busy}>
+            <FileJson size={16} /> Pilih File Backup
+          </Button>
         </div>
+      )}
 
-        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-lg p-3 mb-4 flex items-start gap-2">
-          <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-          <p className="text-xs text-amber-800 dark:text-amber-200">
-            <strong>Perhatian:</strong> Memulihkan backup akan mengganti seluruh data di cloud. Semua anggota keluarga akan melihat data hasil pemulihan. Pastikan Anda sudah mencadangkan data jika diperlukan.
-          </p>
-        </div>
-
-        <input ref={fileRef} type="file" accept=".json,application/json" onChange={handleFile} className="hidden" />
-        <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={busy}>
-          <FileJson size={16} /> Pilih File Backup
-        </Button>
-      </div>
-
-      {/* Restore preview modal */}
+      {/* Restore preview modal — also gated on canRestore, not only on
+          pendingRestore. An admin can select a file, populating pendingRestore,
+          and then have their role change before confirming; the modal must stop
+          presenting a destructive confirmation the moment that happens rather
+          than relying on confirmRestore() to reject it afterwards. */}
       <Modal
-        open={!!pendingRestore}
+        open={canRestore && !!pendingRestore}
         onClose={() => setPendingRestore(null)}
         title="Konfirmasi Pemulihan Data"
         size="md"
