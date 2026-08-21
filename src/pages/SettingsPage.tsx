@@ -54,6 +54,18 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
   const logoInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  // The overdue threshold is one office-wide value, so changing it changes what
+  // every user sees as "terlambat" — and what the overdue reminder notifies
+  // about. Reading it stays open to everyone (Dashboard and Surat Masuk both
+  // need it to render the badge correctly); only an admin may write it, which
+  // is what the app_settings RLS policies now enforce.
+  //
+  // Exact === 'admin' on purpose. `user` is null until getCurrentUser()
+  // resolves, and role is a plain string from profiles, so anything looser
+  // (role !== 'staf', a truthy check) would open the control during that first
+  // render or for an unrecognised role. This fails closed instead.
+  const canManageThreshold = user?.role === 'admin';
+
   useEffect(() => {
     if (!isPushSupported()) return;
     getExistingSubscription().then((sub) => setReminderSubscribed(!!sub));
@@ -256,6 +268,11 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
   }
 
   async function handleSaveThreshold() {
+    // Defence in depth: the Save control is only rendered for an admin, so
+    // reaching here without the capability means the gate above regressed.
+    // Return silently rather than let the request through — the database would
+    // reject it as a bare RLS violation, which is not a useful message.
+    if (!canManageThreshold) return;
     const days = Number.parseInt(overdueThresholdInput, 10);
     if (!Number.isFinite(days) || days < 1) {
       toast('Masukkan jumlah hari yang valid (minimal 1).', 'error');
@@ -462,17 +479,34 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
             Surat masuk yang berstatus "Diproses" lebih dari sekian hari kerja (Senin-Jumat, tidak termasuk akhir pekan) akan ditandai terlambat di halaman Surat Masuk, Dashboard, dan lewat notifikasi. Berlaku untuk seluruh kantor.
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Input
-              type="number"
-              min={1}
-              value={overdueThresholdInput}
-              onChange={(e) => setOverdueThresholdInput(e.target.value)}
-              className="w-24"
-            />
-            <span className="text-sm text-office-subtext dark:text-slate-400">hari kerja</span>
-            <Button size="sm" variant="outline" onClick={handleSaveThreshold} disabled={savingThreshold || overdueThresholdInput === String(overdueThreshold)}>
-              <Save size={14} /> Simpan
-            </Button>
+            {canManageThreshold ? (
+              <>
+                <Input
+                  type="number"
+                  min={1}
+                  value={overdueThresholdInput}
+                  onChange={(e) => setOverdueThresholdInput(e.target.value)}
+                  className="w-24"
+                />
+                <span className="text-sm text-office-subtext dark:text-slate-400">hari kerja</span>
+                <Button size="sm" variant="outline" onClick={handleSaveThreshold} disabled={savingThreshold || overdueThresholdInput === String(overdueThreshold)}>
+                  <Save size={14} /> Simpan
+                </Button>
+              </>
+            ) : (
+              <>
+                {/* Staf still sees the value in force — it explains the badges on
+                    Surat Masuk and the Dashboard — but gets no write control at
+                    all, rather than a control that fails on save. */}
+                <span className="rounded-lg border border-office-border bg-white px-3 py-1.5 text-sm font-semibold text-office-text dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                  {overdueThreshold}
+                </span>
+                <span className="text-sm text-office-subtext dark:text-slate-400">hari kerja</span>
+                <span className="inline-flex items-center gap-1 text-xs text-office-subtext dark:text-slate-400">
+                  <ShieldAlert size={13} /> Hanya admin yang dapat mengubah setelan kantor ini.
+                </span>
+              </>
+            )}
           </div>
         </div>
       </section>
