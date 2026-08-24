@@ -5,7 +5,7 @@ import { QuickAddFab, type QuickAddTarget } from '@/components/QuickAddFab';
 import { ToastProvider, useToast } from '@/components/ui/Toast';
 import { Button } from '@/components/ui/Button';
 import { IconButton } from '@/components/ui/IconButton';
-import { SkeletonPage } from '@/components/ui/Skeleton';
+import { SkeletonPage, SkeletonDashboard } from '@/components/ui/Skeleton';
 import { AgendaPimpinanPreview } from '@/pages/AgendaPimpinanPreview';
 import { AgendaPreviewHome } from '@/pages/AgendaPreviewHome';
 import { getAllMasuk, getAllKeluar, getAllAgendaPimpinan, consumeTruncationWarnings } from '@/lib/db';
@@ -336,6 +336,10 @@ function Root() {
 
   const showMigration = migrationInfo && !migrationDismissed;
   const unsignedCount = suratKeluar.filter((s) => !s.ditandatangani).length;
+  // The Dashboard is the one route that isn't header-plus-table, so it gets a
+  // skeleton shaped like itself. Purely which placeholder to draw — no new
+  // state, and every other route keeps the shared one.
+  const pageFallback = page === 'dashboard' ? <SkeletonDashboard /> : <SkeletonPage />;
 
   if (window.location.pathname === '/login' && !authed) {
     return <AuthScreen onAuthed={handleAuthed} />;
@@ -405,9 +409,9 @@ function Root() {
           )}
 
           {loading ? (
-            <SkeletonPage />
+            pageFallback
           ) : (
-            <Suspense fallback={<SkeletonPage />}>
+            <Suspense fallback={pageFallback}>
               {/* Route transition. `key={page}` is what makes it fire: React
                   remounts this subtree on navigation, so the animation replays.
                   Only page content moves — the sidebar, header and tab bar are

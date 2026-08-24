@@ -64,3 +64,47 @@ export function SkeletonPage() {
     </div>
   );
 }
+
+/**
+ * Dashboard-shaped loading state.
+ *
+ * Separate from SkeletonPage on purpose. SkeletonPage is the fallback for all
+ * seven authenticated routes, six of which are a header plus a table — so
+ * reshaping it to match the Dashboard would have mis-described those six to
+ * fix one. This mirrors the Dashboard's real geometry instead: intro band,
+ * four compact stat cards, the workflow strip, then the paired panels, at the
+ * same paddings and gaps the page itself uses, so content settles into place
+ * rather than jumping when it arrives.
+ */
+export function SkeletonDashboard() {
+  return (
+    <div className="space-y-5 sm:space-y-6">
+      <Skeleton className="h-32 w-full rounded-panel" />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Surface key={i} className="p-4">
+            <Skeleton className="h-9 w-9 rounded-control" />
+            <Skeleton className="mt-3 h-8 w-14" />
+            <Skeleton className="mt-1.5 h-3 w-20" />
+          </Surface>
+        ))}
+      </div>
+      <Surface className="p-4 sm:p-5">
+        <Skeleton className="h-5 w-44" />
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 flex-1 rounded-control" />
+          ))}
+        </div>
+      </Surface>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {Array.from({ length: 2 }).map((_, i) => (
+          <Surface key={i} className="p-4 sm:p-5">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="mt-4 h-36 w-full" />
+          </Surface>
+        ))}
+      </div>
+    </div>
+  );
+}
