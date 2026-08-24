@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Download, Upload, DatabaseBackup, AlertTriangle, CheckCircle2, FileJson } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { exportBackup, parseBackup } from '@/lib/export';
@@ -90,10 +91,11 @@ export function BackupPage({ suratMasuk, suratKeluar, agendaPimpinan, onRefresh,
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div className="soft-panel p-4">
-        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Backup Data</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400">Cadangkan dan pulihkan data dari server cloud dengan pengalaman yang lebih bersih.</p>
-      </div>
+      <PageHeader
+        title="Backup Data"
+        icon={DatabaseBackup}
+        description="Cadangkan dan pulihkan data dari server cloud."
+      />
 
       {/* Stats */}
       <div className="soft-panel p-5">

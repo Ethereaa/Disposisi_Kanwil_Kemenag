@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { FileSpreadsheet, FileText, Download, CalendarRange, Database, Inbox, Send, CalendarClock } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { Field, Input } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
 import { displayToISO, isoToDisplay } from '@/lib/date';
@@ -64,10 +65,11 @@ export function ExportPage({ suratMasuk, suratKeluar, agendaPimpinan }: Props) {
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div className="soft-panel p-4">
-        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Export Data</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400">Unduh data disposisi dalam format Excel atau Word dengan tampilan yang lebih rapi.</p>
-      </div>
+      <PageHeader
+        title="Export Data"
+        icon={Download}
+        description="Unduh data disposisi dalam format Excel atau Word."
+      />
 
       {/* Scope */}
       <div className="space-y-4 soft-panel p-5">

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Mail, Lock, Moon, Sun, Save, ShieldCheck, RotateCcw, Upload, User, Smartphone, History, ShieldAlert, BellRing, BellOff, Timer } from 'lucide-react';
+import { Mail, Lock, Moon, Sun, Save, ShieldCheck, RotateCcw, Upload, User, Smartphone, History, ShieldAlert, BellRing, BellOff, Timer, Settings as SettingsIcon } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { Field, Input } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
 import { Logo } from '@/components/Logo';
@@ -295,10 +296,11 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div className="soft-panel p-4">
-        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Settings</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400">Kelola akun, keamanan, dan tampilan aplikasi dengan nuansa yang lebih modern.</p>
-      </div>
+      <PageHeader
+        title="Settings"
+        icon={SettingsIcon}
+        description="Kelola akun, keamanan, dan tampilan aplikasi."
+      />
 
       {/* Account info */}
       <section className="soft-panel p-5 space-y-4">

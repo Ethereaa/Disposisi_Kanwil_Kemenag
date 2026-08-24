@@ -27,14 +27,18 @@ const ExportPage = lazy(() => import('@/pages/ExportPage').then((m) => ({ defaul
 const BackupPage = lazy(() => import('@/pages/BackupPage').then((m) => ({ default: m.BackupPage })));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 
-const pageMeta: Record<PageKey, { title: string; subtitle: string }> = {
-  dashboard: { title: 'Dashboard', subtitle: 'Ringkasan disposisi surat' },
-  'surat-masuk': { title: 'Surat Masuk', subtitle: 'Kelola disposisi surat masuk' },
-  'surat-keluar': { title: 'Surat Keluar', subtitle: 'Kelola disposisi surat keluar' },
-  'agenda-pimpinan': { title: 'Agenda Pimpinan', subtitle: 'Kelola agenda pimpinan dan disposisi pegawai' },
-  export: { title: 'Export Data', subtitle: 'Unduh data ke Excel atau Word' },
-  backup: { title: 'Backup Data', subtitle: 'Cadangkan dan pulihkan data' },
-  settings: { title: 'Settings', subtitle: 'Profil, keamanan, dan tampilan' },
+// Route labels for the header's location line. Each page owns its own title and
+// description through <PageHeader>, so this is a label map, not page metadata —
+// the per-page subtitles that used to live here duplicated copy the pages
+// already print for themselves.
+const pageLabel: Record<PageKey, string> = {
+  dashboard: 'Dashboard',
+  'surat-masuk': 'Surat Masuk',
+  'surat-keluar': 'Surat Keluar',
+  'agenda-pimpinan': 'Agenda Pimpinan',
+  export: 'Export Data',
+  backup: 'Backup Data',
+  settings: 'Settings',
 };
 
 const pagePathMap: Record<PageKey, string> = {
@@ -330,7 +334,6 @@ function Root() {
     return <AuthScreen onAuthed={handleAuthed} />;
   }
 
-  const meta = pageMeta[page];
   const showMigration = migrationInfo && !migrationDismissed;
   const unsignedCount = suratKeluar.filter((s) => !s.ditandatangani).length;
 
@@ -350,8 +353,6 @@ function Root() {
         onNavigate={handleNavigate}
         open={sidebarOpen}
         onToggle={() => setSidebarOpen((o) => !o)}
-        theme={theme}
-        onToggleTheme={toggleTheme}
         email={user?.email || 'Pengguna'}
         username={user?.username || ''}
         onLogout={handleLogout}
@@ -367,19 +368,25 @@ function Root() {
 
       <div className="flex-1 min-w-0 flex flex-col">
         <Header
-          title={meta.title}
-          subtitle={meta.subtitle}
+          pageLabel={pageLabel[page]}
           onMenuClick={() => setSidebarOpen(true)}
+          theme={theme}
+          onToggleTheme={toggleTheme}
         />
-        <main className="flex-1 w-full max-w-7xl mx-auto p-3 pb-24 sm:p-6 lg:pb-6">
+        {/* The one authenticated content frame. Gutters step 16 → 24 → 32px and
+            match the header's, so the location line and the page title share a
+            left edge at every width. Bottom clearance for the mobile tab bar is
+            the footer's job (below), not padding here — both used to carry it,
+            which left ~96px of dead canvas above the footer on a phone. */}
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
           {showMigration && (
-            <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 rounded-xl p-4 animate-slide-up">
-              <div className="h-10 w-10 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
+            <div className="mb-5 flex flex-col sm:flex-row sm:items-center gap-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 rounded-panel p-4 animate-slide-up">
+              <div className="h-10 w-10 rounded-control bg-blue-600 text-white flex items-center justify-center shrink-0">
                 <Cloud size={20} />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">Pindahkan data lama ke cloud</p>
-                <p className="text-xs text-blue-700 dark:text-blue-300">
+                <p className="text-body-strong text-blue-900 dark:text-blue-100">Pindahkan data lama ke cloud</p>
+                <p className="text-label font-normal tracking-normal text-blue-700 dark:text-blue-300">
                   Ditemukan {migrationInfo!.masuk} surat masuk dan {migrationInfo!.keluar} surat keluar tersimpan di perangkat ini. Pindahkan ke cloud agar bisa diakses dari mana saja.
                 </p>
               </div>
@@ -401,7 +408,13 @@ function Root() {
             <SkeletonPage />
           ) : (
             <Suspense fallback={<SkeletonPage />}>
-              <div className="animate-fade-in">
+              {/* Route transition. `key={page}` is what makes it fire: React
+                  remounts this subtree on navigation, so the animation replays.
+                  Only page content moves — the sidebar, header and tab bar are
+                  outside it and stay put. 220ms, fade + 4px, and the
+                  prefers-reduced-motion block in index.css overrides it to
+                  effectively nothing for anyone who has asked for that. */}
+              <div key={page} className="animate-page-in">
                 {page === 'dashboard' && <Dashboard suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} onNavigate={handleNavigate} />}
                 {page === 'surat-masuk' && <SuratMasukPage rows={suratMasuk} onRefresh={refresh} canDelete={user?.role === 'admin'} quickAddSignal={quickAdd?.target === 'surat-masuk' ? quickAdd.token : undefined} />}
                 {page === 'surat-keluar' && <SuratKeluarPage rows={suratKeluar} onRefresh={refresh} canDelete={user?.role === 'admin'} quickAddSignal={quickAdd?.target === 'surat-keluar' ? quickAdd.token : undefined} />}
@@ -413,7 +426,7 @@ function Root() {
             </Suspense>
           )}
         </main>
-        <footer className="border-t border-office-border px-4 py-3 pb-[calc(0.75rem+64px+env(safe-area-inset-bottom))] text-center text-[11px] text-office-subtext dark:border-slate-700 dark:text-slate-500 sm:px-6 lg:pb-3">
+        <footer className="border-t border-office-border px-4 py-4 pb-[calc(1rem+64px+env(safe-area-inset-bottom))] text-center text-micro font-normal tracking-normal text-office-subtext dark:border-slate-700 dark:text-slate-500 sm:px-6 lg:px-8 lg:pb-4">
           {APP_TITLE}
         </footer>
       </div>

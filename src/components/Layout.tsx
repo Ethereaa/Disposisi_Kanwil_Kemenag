@@ -1,4 +1,3 @@
-import { type ReactNode } from 'react';
 import {
   LayoutDashboard,
   Inbox,
@@ -14,7 +13,7 @@ import {
   Sun,
 } from 'lucide-react';
 import { Logo } from './Logo';
-import { Button } from './ui/Button';
+import { IconButton } from './ui/IconButton';
 import { APP_TITLE, APP_SHORT, type PageKey, type Theme } from '@/types';
 
 interface SidebarProps {
@@ -22,8 +21,6 @@ interface SidebarProps {
   onNavigate: (page: PageKey) => void;
   open: boolean;
   onToggle: () => void;
-  theme: Theme;
-  onToggleTheme: () => void;
   email: string;
   username: string;
   onLogout: () => void;
@@ -41,73 +38,102 @@ const menu: { key: PageKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: 'settings', label: 'Settings', icon: SettingsIcon },
 ];
 
-export function Sidebar({ active, onNavigate, open, onToggle, theme, onToggleTheme, email, username, onLogout, suratKeluarBadge = 0 }: SidebarProps) {
+export function Sidebar({ active, onNavigate, open, onToggle, email, username, onLogout, suratKeluarBadge = 0 }: SidebarProps) {
   return (
     <>
       {open && (
-        <div className="fixed inset-0 z-30 bg-slate-900/60 backdrop-blur-sm lg:hidden" onClick={onToggle} />
+        <div className="fixed inset-0 z-30 bg-slate-900/70 lg:hidden" onClick={onToggle} />
       )}
       <aside
-        className={`fixed lg:sticky top-0 left-0 z-40 h-screen w-64 shrink-0 flex flex-col overflow-hidden border-r border-white/10 sidebar-gradient text-slate-100 transition-transform duration-300 lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
+        className={`fixed lg:sticky top-0 left-0 z-40 h-screen w-64 shrink-0 flex flex-col overflow-hidden border-r border-white/10 sidebar-gradient text-slate-100 transition-transform duration-normal ease-brand lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
       >
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.28),transparent_45%)]" />
-        <div className="relative flex items-center gap-3 border-b border-white/10 px-4 py-4">
-          <div className="rounded-2xl border border-white/15 bg-white/10 p-2">
-            <Logo size={38} />
+        {/* Institutional identity: the organisation, not the app's design
+            name. The decorative emerald radial that used to sit behind this
+            column is gone — the sidebar gradient is the only treatment it
+            needs, and two stacked gradients washed out the active state. */}
+        <div className="flex items-center gap-3 border-b border-white/10 px-4 py-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-control border border-white/15 bg-white/10">
+            <Logo size={32} />
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="truncate text-sm font-semibold text-white">Kanwil Kemenag</p>
-            <p className="truncate text-xs text-emerald-100/80">Provinsi Gorontalo</p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-body-strong text-white">Kanwil Kemenag</p>
+            <p className="truncate text-micro font-normal tracking-normal text-slate-300">Provinsi Gorontalo</p>
           </div>
-          <button onClick={onToggle} className="rounded-full p-1.5 text-emerald-100/80 transition-colors hover:bg-white/10 lg:hidden">
+          <button
+            onClick={onToggle}
+            aria-label="Tutup menu"
+            title="Tutup menu"
+            className="focus-ring-inverse flex h-9 w-9 shrink-0 items-center justify-center rounded-control text-slate-300 transition-colors duration-fast ease-brand hover:bg-white/10 hover:text-white lg:hidden"
+          >
             <X size={18} />
           </button>
         </div>
 
-        <nav className="relative flex-1 overflow-y-auto px-3 py-4 space-y-1">
-          <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-100/70">Menu</p>
-          {menu.map((m) => {
-            const Icon = m.icon;
-            const isActive = active === m.key;
-            const badge = m.key === 'surat-keluar' ? suratKeluarBadge : 0;
-            return (
-              <button
-                key={m.key}
-                onClick={() => onNavigate(m.key)}
-                className={`group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-sm font-medium transition-all ${
-                  isActive
-                    ? 'bg-white/15 text-white'
-                    : 'text-emerald-50/90 hover:bg-white/10 hover:text-white'
-                }`}
-              >
-                <Icon size={18} className={isActive ? 'text-white' : 'text-emerald-100/80 group-hover:text-white'} />
-                <span className="flex-1">{m.label}</span>
-                {badge > 0 && (
-                  <span
-                    className="inline-flex shrink-0 items-center gap-1 rounded-full bg-rose-500 px-2 py-0.5 text-[11px] font-bold text-white shadow-sm"
-                    title={`${badge} surat keluar belum ditandatangani`}
+        <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Navigasi utama">
+          <p className="px-2 pb-2 text-micro uppercase text-slate-400">Menu</p>
+          <ul className="space-y-0.5">
+            {menu.map((m) => {
+              const Icon = m.icon;
+              const isActive = active === m.key;
+              const badge = m.key === 'surat-keluar' ? suratKeluarBadge : 0;
+              return (
+                <li key={m.key}>
+                  <button
+                    onClick={() => onNavigate(m.key)}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`focus-ring-inverse group relative flex w-full items-center gap-3 rounded-control py-2.5 pl-4 pr-2.5 text-left transition-colors duration-fast ease-brand ${
+                      isActive ? 'bg-white/10 text-white' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
+                    }`}
                   >
-                    {badge} belum TTD
-                  </span>
-                )}
-              </button>
-            );
-          })}
+                    {/* ONE active indicator: a single hairline rail plus a
+                        barely-there tint. No glow + border + gradient + shadow
+                        stacked together. It is white, not green: the sidebar
+                        surface itself shifts toward green down the column, so a
+                        green marker would lose contrast on the lower items. */}
+                    {isActive && (
+                      <span aria-hidden="true" className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-white" />
+                    )}
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                      <Icon size={18} className={isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'} />
+                    </span>
+                    <span className={`min-w-0 flex-1 truncate ${isActive ? 'text-body-strong' : 'text-body'}`}>{m.label}</span>
+                    {badge > 0 && (
+                      <span
+                        className="inline-flex shrink-0 items-center rounded-chip bg-rose-500 px-1.5 py-0.5 text-micro text-white"
+                        title={`${badge} surat keluar belum ditandatangani`}
+                      >
+                        {badge} belum TTD
+                      </span>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         </nav>
 
-        <div className="relative border-t border-white/10 p-3 space-y-2">
-          <Button variant="secondary" size="sm" className="flex-1" onClick={onToggleTheme}>
-            {theme === 'dark' ? <><Sun size={15} /> Light</> : <><Moon size={15} /> Dark</>}
-          </Button>
-          <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-2 py-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-sm font-semibold text-white">
+        {/* Account zone, separated from navigation by a rule and its own label
+            so the column reads as two zones (where to go / who you are)
+            instead of one long list that ends in a stray button. The theme
+            toggle that used to sit here as a full-width secondary Button moved
+            to the header command bar: it is an app-wide control, not an
+            account setting, and it was the loudest element in the sidebar. */}
+        <div className="border-t border-white/10 p-3">
+          <p className="px-2 pb-2 text-micro uppercase text-slate-400">Akun</p>
+          <div className="flex items-center gap-2.5 rounded-control bg-white/[0.06] p-2">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-office-primary text-body-strong text-white">
               {(username || email.split('@')[0]).charAt(0).toUpperCase()}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="truncate text-xs font-semibold text-white">{username || email.split('@')[0]}</p>
-              <p className="truncate text-[11px] text-emerald-100/75">{username ? email : 'Pengguna Kanwil'}</p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-label text-white">{username || email.split('@')[0]}</p>
+              <p className="truncate text-micro font-normal tracking-normal text-slate-400">{username ? email : 'Pengguna Kanwil'}</p>
             </div>
-            <button onClick={onLogout} title="Keluar" aria-label="Keluar" className="focus-ring-inverse rounded-full p-1 text-emerald-100/80 transition-colors hover:bg-white/10 hover:text-white">
+            <button
+              onClick={onLogout}
+              title="Keluar"
+              aria-label="Keluar"
+              className="focus-ring-inverse flex h-9 w-9 shrink-0 items-center justify-center rounded-control text-slate-300 transition-colors duration-fast ease-brand hover:bg-white/10 hover:text-white"
+            >
               <LogOut size={16} />
             </button>
           </div>
@@ -132,13 +158,23 @@ interface BottomNavProps {
   suratKeluarBadge?: number;
 }
 
+// `text-micro` supplies the size only; font-normal + tracking-normal hold the
+// rendered weight and letter-spacing where they were, because at 360px five
+// tabs leave ~68px per label and "Surat Masuk" only just fits.
+const bottomNavLabel = 'w-full truncate text-center text-micro font-normal tracking-normal';
+// min-h-14 = 56px: the whole tab is the target, so nothing here is a 28px
+// hitbox. The active marker is a single top rail — the same one-indicator rule
+// the sidebar follows, mirrored to the opposite edge of the screen.
+const bottomNavTab = 'relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 px-1 transition-colors duration-fast ease-brand';
+const bottomNavRail = 'absolute inset-x-4 top-0 h-0.5 rounded-b-full bg-office-primary dark:bg-emerald-400';
+
 /** Fixed bottom tab bar for small screens — the sidebar drawer remains reachable via the "Lainnya" tab, which opens it, so Export/Backup/Settings stay one tap away without needing their own slots. */
 export function BottomNav({ active, onNavigate, onMore, suratKeluarBadge = 0 }: BottomNavProps) {
   const moreActive = active === 'export' || active === 'backup' || active === 'settings';
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-30 flex border-t border-office-border bg-white/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom)] dark:border-slate-700 dark:bg-slate-800/95 lg:hidden"
-      aria-label="Navigasi utama"
+      className="fixed inset-x-0 bottom-0 z-30 flex border-t border-office-border bg-white pb-[env(safe-area-inset-bottom)] dark:border-slate-700 dark:bg-slate-900 lg:hidden"
+      aria-label="Navigasi bawah"
     >
       {bottomNavItems.map((m) => {
         const Icon = m.icon;
@@ -148,50 +184,74 @@ export function BottomNav({ active, onNavigate, onMore, suratKeluarBadge = 0 }: 
           <button
             key={m.key}
             onClick={() => onNavigate(m.key)}
-            className={`relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition-colors ${
-              isActive ? 'text-office-primary dark:text-emerald-400' : 'text-office-subtext dark:text-slate-400'
-            }`}
+            aria-current={isActive ? 'page' : undefined}
+            className={`${bottomNavTab} ${isActive ? 'text-office-primary dark:text-emerald-400' : 'text-office-subtext dark:text-slate-400'}`}
           >
+            {isActive && <span aria-hidden="true" className={bottomNavRail} />}
             <Icon size={20} />
-            <span className="truncate">{m.label}</span>
+            <span className={bottomNavLabel}>{m.label}</span>
             {badge > 0 && (
-              <span className="absolute right-1/4 top-1 h-2 w-2 rounded-full bg-rose-500" title={`${badge} surat keluar belum ditandatangani`} />
+              <span className="absolute right-1/4 top-1.5 h-2 w-2 rounded-full bg-rose-500" title={`${badge} surat keluar belum ditandatangani`} />
             )}
           </button>
         );
       })}
       <button
         onClick={onMore}
-        className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition-colors ${
-          moreActive ? 'text-office-primary dark:text-emerald-400' : 'text-office-subtext dark:text-slate-400'
-        }`}
+        aria-current={moreActive ? 'page' : undefined}
+        className={`${bottomNavTab} ${moreActive ? 'text-office-primary dark:text-emerald-400' : 'text-office-subtext dark:text-slate-400'}`}
       >
+        {moreActive && <span aria-hidden="true" className={bottomNavRail} />}
         <Menu size={20} />
-        <span className="truncate">Lainnya</span>
+        <span className={bottomNavLabel}>Lainnya</span>
       </button>
     </nav>
   );
 }
 
 interface HeaderProps {
-  title: string;
-  subtitle?: string;
+  /**
+   * Label of the current route, rendered as location context — deliberately
+   * NOT as the page title.
+   *
+   * Phase 2C settled the split: this bar owns app-level context, <PageHeader>
+   * owns each page's own title and its actions. That is why there is no
+   * `actions` slot here any more. One existed and was rendered, but no caller
+   * ever passed it, and two homes for the same primary action is exactly what
+   * the split exists to prevent.
+   */
+  pageLabel: string;
   onMenuClick: () => void;
-  actions?: ReactNode;
+  theme: Theme;
+  onToggleTheme: () => void;
 }
 
-export function Header({ title, subtitle, onMenuClick, actions }: HeaderProps) {
+export function Header({ pageLabel, onMenuClick, theme, onToggleTheme }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-20 border-b border-emerald-100/80 bg-white/70 backdrop-blur-xl dark:border-slate-700 dark:bg-slate-800/70">
-      <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
-        <button onClick={onMenuClick} className="rounded-full p-2 text-slate-700 transition-colors hover:bg-emerald-50 lg:hidden dark:text-slate-200 dark:hover:bg-slate-700">
-          <Menu size={20} />
-        </button>
-        <div className="flex-1 min-w-0">
-          <h1 className="truncate text-lg font-bold text-slate-800 dark:text-slate-100 sm:text-xl">{title}</h1>
-          {subtitle && <p className="truncate text-xs text-slate-500 dark:text-slate-400 sm:text-sm">{subtitle}</p>}
+    <header className="sticky top-0 z-20 border-b border-office-border bg-white dark:border-slate-700 dark:bg-slate-900">
+      {/* Shares <main>'s frame — same max width, same 16 → 24 → 32px gutter
+          ramp — so the location line above and the page title below sit on one
+          left edge. The bar's border and background stay full-width; only this
+          row is capped, which is what keeps the rule spanning the column while
+          the text still lines up past 1536px, where max-w-7xl starts biting. */}
+      <div className="mx-auto flex h-14 w-full max-w-7xl items-center gap-2 px-4 sm:h-16 sm:px-6 lg:px-8">
+        <IconButton
+          icon={<Menu size={18} />}
+          label="Buka menu navigasi"
+          size="md"
+          onClick={onMenuClick}
+          className="lg:hidden"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-micro uppercase text-office-subtext dark:text-slate-500">Disposisi &amp; Agenda Pimpinan</p>
+          <p className="truncate text-body-strong text-office-text dark:text-slate-100">{pageLabel}</p>
         </div>
-        {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
+        <IconButton
+          icon={theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          label={theme === 'dark' ? 'Mode terang' : 'Mode gelap'}
+          size="md"
+          onClick={onToggleTheme}
+        />
       </div>
     </header>
   );

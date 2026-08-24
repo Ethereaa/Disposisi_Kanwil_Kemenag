@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Eye, Pencil, Trash2, ExternalLink, CalendarCheck } from 'lucide-react';
+import { Plus, Eye, Pencil, Trash2, ExternalLink, CalendarCheck, Briefcase } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { DataTable, type Column } from '@/components/ui/DataTable';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { AttachmentField } from '@/components/ui/AttachmentField';
 import { LampiranCell } from '@/components/ui/LampiranCell';
 import { useToast } from '@/components/ui/Toast';
@@ -151,21 +152,22 @@ export function AgendaPimpinanPage({ rows, onRefresh, canDelete = false, quickAd
   }
 
   return (
-    <div className="space-y-4">
-      <div className="soft-panel flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Agenda Pimpinan</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">{rows.length} agenda tercatat</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => window.open('/agenda-preview', '_blank', 'noopener,noreferrer')}>
-            <ExternalLink size={16} /> Buka Preview Agenda
-          </Button>
-          <Button onClick={() => { setEditing(null); setView('form'); }}>
-            <Plus size={16} /> Tambah Agenda
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        title="Agenda Pimpinan"
+        icon={Briefcase}
+        description={`${rows.length} agenda tercatat`}
+        actions={
+          <>
+            <Button variant="outline" onClick={() => window.open('/agenda-preview', '_blank', 'noopener,noreferrer')}>
+              <ExternalLink size={16} /> Buka Preview Agenda
+            </Button>
+            <Button onClick={() => { setEditing(null); setView('form'); }}>
+              <Plus size={16} /> Tambah Agenda
+            </Button>
+          </>
+        }
+      />
 
       <DataTable
         columns={columns}

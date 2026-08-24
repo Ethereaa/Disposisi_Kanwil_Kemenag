@@ -56,7 +56,7 @@ export function QuickAddFab({ onSelect }: QuickAddFabProps) {
               <button
                 key={o.key}
                 onClick={() => handleSelect(o.key)}
-                className="group flex items-center gap-3 rounded-full bg-white/95 pl-4 pr-2 py-2 text-sm font-medium text-slate-700 shadow-md backdrop-blur transition-transform hover:scale-[1.03] dark:bg-slate-800/95 dark:text-slate-100"
+                className="focus-ring group flex items-center gap-3 rounded-full bg-white py-2 pl-4 pr-2 text-body-strong text-slate-700 shadow-overlay transition-transform duration-fast ease-brand hover:scale-[1.03] dark:bg-slate-800 dark:text-slate-100"
               >
                 {o.label}
                 <span className={`flex h-9 w-9 items-center justify-center rounded-full ${o.color} text-white`}>
@@ -72,7 +72,7 @@ export function QuickAddFab({ onSelect }: QuickAddFabProps) {
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? 'Tutup tambah cepat' : 'Tambah cepat'}
         aria-expanded={open}
-        className={`flex h-14 w-14 items-center justify-center rounded-full brand-solid text-white shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 ${open ? 'rotate-45' : ''}`}
+        className={`focus-ring flex h-14 w-14 items-center justify-center rounded-full brand-solid text-white shadow-overlay transition-transform duration-normal ease-brand hover:scale-105 active:scale-95 ${open ? 'rotate-45' : ''}`}
       >
         {open ? <X size={24} /> : <Plus size={26} />}
       </button>

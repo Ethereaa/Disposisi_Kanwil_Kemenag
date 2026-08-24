@@ -145,12 +145,21 @@ export default {
           from: { transform: 'translateY(8px)', opacity: '0' },
           to: { transform: 'translateY(0)', opacity: '1' },
         },
+        // Route transition. 4px is the ceiling on purpose: enough to read as
+        // "the page changed", too little to read as motion. Nothing bounces and
+        // nothing delays the route — the content is already mounted and
+        // interactive while this plays.
+        'page-in': {
+          from: { transform: 'translateY(4px)', opacity: '0' },
+          to: { transform: 'translateY(0)', opacity: '1' },
+        },
       },
       animation: {
         'slide-in-right': 'slide-in-right 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
         'fade-in': 'fade-in 0.12s ease-out',
         'scale-in': 'scale-in 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
         'slide-up': 'slide-up 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+        'page-in': 'page-in 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
       },
     },
   },

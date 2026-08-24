@@ -3,6 +3,7 @@ import { Plus, Eye, Pencil, Trash2, Inbox, Filter, Printer, AlertTriangle } from
 import { Button } from '@/components/ui/Button';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { DataTable, type Column } from '@/components/ui/DataTable';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { Select } from '@/components/ui/Form';
 import { AttachmentField } from '@/components/ui/AttachmentField';
 import { LampiranCell } from '@/components/ui/LampiranCell';
@@ -230,23 +231,26 @@ export function SuratMasukPage({ rows, onRefresh, canDelete = false, quickAddSig
   }
 
   return (
-    <div className="space-y-4">
-      <div className="soft-panel flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-office-text dark:text-slate-100">Daftar Surat Masuk</h2>
-          <p className="text-sm text-office-subtext dark:text-slate-400">
+    <div className="space-y-5">
+      <PageHeader
+        title="Surat Masuk"
+        icon={Inbox}
+        description={
+          <>
             {filteredRows.length} surat tercatat
             {overdueCount > 0 && (
               <span className="ml-2 inline-flex items-center gap-1 font-medium text-red-600 dark:text-red-400">
                 <AlertTriangle size={12} /> {overdueCount} terlambat diproses
               </span>
             )}
-          </p>
-        </div>
-        <Button onClick={() => { setEditing(null); setView('form'); }}>
-          <Plus size={16} /> Tambah Surat
-        </Button>
-      </div>
+          </>
+        }
+        actions={
+          <Button onClick={() => { setEditing(null); setView('form'); }}>
+            <Plus size={16} /> Tambah Surat
+          </Button>
+        }
+      />
 
       <DataTable
         columns={columns}
