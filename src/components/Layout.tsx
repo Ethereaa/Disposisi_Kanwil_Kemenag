@@ -105,9 +105,9 @@ export function Sidebar({ active, onNavigate, open, onToggle, theme, onToggleThe
             </div>
             <div className="flex-1 min-w-0">
               <p className="truncate text-xs font-semibold text-white">{username || email.split('@')[0]}</p>
-              <p className="truncate text-[11px] text-emerald-100/75">{username ? email : 'Anggota Keluarga'}</p>
+              <p className="truncate text-[11px] text-emerald-100/75">{username ? email : 'Pengguna Kanwil'}</p>
             </div>
-            <button onClick={onLogout} title="Keluar" className="rounded-full p-1 text-emerald-100/80 transition-colors hover:bg-white/10 hover:text-white">
+            <button onClick={onLogout} title="Keluar" aria-label="Keluar" className="focus-ring-inverse rounded-full p-1 text-emerald-100/80 transition-colors hover:bg-white/10 hover:text-white">
               <LogOut size={16} />
             </button>
           </div>

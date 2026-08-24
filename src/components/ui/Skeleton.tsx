@@ -1,3 +1,5 @@
+import { Surface } from './Surface';
+
 interface SkeletonProps {
   className?: string;
 }
@@ -11,18 +13,19 @@ export function Skeleton({ className = '' }: SkeletonProps) {
   );
 }
 
+// The skeletons are the reference consumer for <Surface>: they used to
+// hand-write `rounded-2xl border border-office-border bg-white ...`, which
+// is exactly why a loading card never quite matched the real card it stood
+// in for. Going through the primitive means they can no longer drift.
 export function SkeletonStatCards({ count = 4 }: { count?: number }) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {Array.from({ length: count }).map((_, i) => (
-        <div
-          key={i}
-          className="rounded-2xl border border-office-border bg-white p-5 dark:border-slate-700 dark:bg-slate-800"
-        >
+        <Surface key={i} className="p-5">
           <Skeleton className="h-11 w-11 rounded-xl mb-4" />
           <Skeleton className="h-7 w-16 mb-2" />
           <Skeleton className="h-4 w-24" />
-        </div>
+        </Surface>
       ))}
     </div>
   );
@@ -30,7 +33,7 @@ export function SkeletonStatCards({ count = 4 }: { count?: number }) {
 
 export function SkeletonTable({ rows = 6, cols = 5 }: { rows?: number; cols?: number }) {
   return (
-    <div className="soft-panel p-4">
+    <Surface className="p-4">
       <div className="mb-4 flex items-center justify-between">
         <Skeleton className="h-9 w-64 rounded-xl" />
       </div>
@@ -48,14 +51,14 @@ export function SkeletonTable({ rows = 6, cols = 5 }: { rows?: number; cols?: nu
           </div>
         ))}
       </div>
-    </div>
+    </Surface>
   );
 }
 
 export function SkeletonPage() {
   return (
     <div className="space-y-6">
-      <Skeleton className="h-28 w-full rounded-2xl" />
+      <Skeleton className="h-28 w-full rounded-panel" />
       <SkeletonStatCards />
       <SkeletonTable />
     </div>

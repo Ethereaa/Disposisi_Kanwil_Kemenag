@@ -4,6 +4,7 @@ import { AuthScreen } from '@/components/AuthScreen';
 import { QuickAddFab, type QuickAddTarget } from '@/components/QuickAddFab';
 import { ToastProvider, useToast } from '@/components/ui/Toast';
 import { Button } from '@/components/ui/Button';
+import { IconButton } from '@/components/ui/IconButton';
 import { SkeletonPage } from '@/components/ui/Skeleton';
 import { AgendaPimpinanPreview } from '@/pages/AgendaPimpinanPreview';
 import { AgendaPreviewHome } from '@/pages/AgendaPreviewHome';
@@ -318,7 +319,7 @@ function Root() {
   }
 
   if (!bootChecked) {
-    return <div className="min-h-screen bg-office-bg dark:bg-slate-900" />;
+    return <div className="app-canvas min-h-screen" />;
   }
 
   if (!authed) {
@@ -342,7 +343,7 @@ function Root() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.12),_transparent_35%),linear-gradient(135deg,_#f7fcf8,_#f2f7f3_55%,_#eef5fb)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.14),_transparent_35%),linear-gradient(135deg,_#020617,_#0f172a_55%,_#111827)]">
+    <div className="app-canvas min-h-screen">
       <div className="flex min-h-screen flex-col lg:flex-row">
       <Sidebar
         active={page}
@@ -386,9 +387,12 @@ function Root() {
                 <Button size="sm" onClick={handleMigrate} disabled={migrating}>
                   {migrating ? 'Memindahkan...' : 'Pindahkan'}
                 </Button>
-                <button onClick={() => setMigrationDismissed(true)} className="p-1.5 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-md">
-                  <X size={16} />
-                </button>
+                <IconButton
+                  icon={<X size={16} />}
+                  label="Tutup pemberitahuan"
+                  onClick={() => setMigrationDismissed(true)}
+                  className="text-blue-700 hover:bg-blue-100 hover:text-blue-900 dark:text-blue-300 dark:hover:bg-blue-900/40 dark:hover:text-blue-100"
+                />
               </div>
             </div>
           )}

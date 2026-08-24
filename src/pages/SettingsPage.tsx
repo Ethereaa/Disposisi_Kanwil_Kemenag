@@ -345,7 +345,7 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
           </div>
         </Field>
         <p className="text-xs text-office-subtext dark:text-slate-400">
-          Email adalah identitas akun Anda dan tidak dapat diubah. Setiap anggota keluarga memiliki akun dengan email sendiri.
+          Email adalah identitas akun Anda dan tidak dapat diubah. Setiap pengguna memiliki akun dengan email sendiri.
         </p>
         {user?.role && (
           <div className="flex items-center gap-2">
@@ -557,7 +557,7 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
       </section>
 
       <p className="text-xs text-office-subtext dark:text-slate-500 text-center pt-2">
-        Aplikasi keluarga · Data tersimpan di cloud dan dapat diakses dari mana saja
+        Aplikasi internal Kanwil · Data tersimpan di cloud dan dapat diakses dari mana saja
       </p>
     </div>
   );

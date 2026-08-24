@@ -43,7 +43,7 @@ export function AgendaPreviewHome() {
   const todayWITA = witaTodayISO(nowMs);
 
   return (
-    <div className="min-h-dvh bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_35%),linear-gradient(135deg,#f7fcf8,#eef6f2)] p-4 text-slate-800 dark:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_35%),linear-gradient(135deg,#020617,#0f172a)] dark:text-slate-100 sm:p-6">
+    <div className="app-canvas min-h-dvh p-4 text-slate-800 dark:text-slate-100 sm:p-6">
       <div className="mx-auto flex max-w-3xl flex-col gap-4">
         <div className="glass-card p-5">
           <div className="flex items-center gap-3">

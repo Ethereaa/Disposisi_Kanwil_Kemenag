@@ -25,36 +25,111 @@
 
 @layer components {
   .input-base {
-    @apply w-full rounded-2xl border border-emerald-100/80 bg-white/80 px-3 py-2.5 text-sm text-office-text shadow-[inset_0_1px_2px_rgba(15,23,42,0.05)] placeholder:text-office-subtext/70 transition-all duration-200 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20;
+    @apply w-full rounded-chip border border-office-border bg-white px-3 py-2.5 text-body text-office-text transition-[border-color,box-shadow] duration-fast ease-brand placeholder:text-office-subtext/70 focus:border-office-primary focus:outline-none focus:ring-2 focus:ring-office-primary/25;
   }
   .dark .input-base {
-    @apply border-slate-700 bg-slate-800/80 text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:ring-emerald-400/25;
+    @apply border-slate-700 bg-slate-800 text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:ring-emerald-400/25;
   }
 
-  /* The one signature "soft glass" look — translucent, bordered, gently
-     elevated. Used at two weights: .glass-card for a handful of prominent
-     focal surfaces (Modal, AuthScreen), .soft-panel for everyday content
-     cards and toolbars. Both share the same restrained radius and a single
-     shadow layer so they read as one consistent style rather than competing
-     effects. */
-  .glass-card {
-    @apply rounded-2xl border border-white/70 bg-white/70 shadow-[0_10px_30px_rgba(15,23,42,0.07)] backdrop-blur-xl;
+  /* ───────────────────────────────────────────────────────────────────────
+     SURFACE FOUNDATION — "Kanwil Command"
+
+     Three surfaces, three jobs. Borders carry structure; shadows carry
+     layering. This replaces the previous language where every panel was
+     `border-emerald-100/80 + shadow-sm + backdrop-blur`, which made the
+     whole app one uniform weight — no hierarchy, and glass as the default.
+
+       .surface          default content panel. Bordered, essentially flat.
+       .surface-raised   interactive card that lifts on hover/focus.
+       .surface-subtle   nested/inset block inside a panel (sunken).
+       .surface-overlay  modal, sheet, dropdown ONLY. The only place that
+                         still gets real elevation and blur.
+
+     Blur is deliberately confined to .surface-overlay. Pervasive
+     backdrop-blur was both a paint cost on long tables and the main
+     "glassmorphism everywhere" risk.
+     ─────────────────────────────────────────────────────────────────────── */
+  .surface {
+    @apply rounded-panel border border-office-border bg-white shadow-flat;
   }
-  .dark .glass-card {
-    @apply border-slate-700 bg-slate-800/70;
+  .dark .surface {
+    @apply border-slate-700 bg-slate-800;
   }
+
+  .surface-raised {
+    @apply rounded-panel border border-office-border bg-white shadow-raised transition-[box-shadow,border-color] duration-fast ease-brand;
+  }
+  .dark .surface-raised {
+    @apply border-slate-700 bg-slate-800;
+  }
+
+  .surface-subtle {
+    @apply rounded-control border border-office-border/70 bg-slate-50;
+  }
+  .dark .surface-subtle {
+    @apply border-slate-700/70 bg-slate-900/40;
+  }
+
+  .surface-overlay {
+    @apply rounded-panel border border-office-border bg-white shadow-overlay;
+  }
+  .dark .surface-overlay {
+    @apply border-slate-700 bg-slate-800;
+  }
+
+  /* Back-compat aliases. `.soft-panel` (the everyday panel) and
+     `.glass-card` (prominent focal surfaces) are used across 13 files.
+     Rather than edit every call site in this phase — which would turn a
+     foundation commit into a page redesign — they now resolve to the new
+     surfaces. Every existing panel becomes flat and un-blurred, and every
+     modal/hero picks up the overlay elevation, with no page diff.
+     Later phases migrate call sites to .surface* and retire these. */
   .soft-panel {
-    @apply rounded-2xl border border-emerald-100/80 bg-white/80 shadow-[0_6px_18px_rgba(15,23,42,0.04)] backdrop-blur;
+    @apply surface;
   }
-  .dark .soft-panel {
-    @apply border-slate-700 bg-slate-800/80;
+  .glass-card {
+    @apply surface-overlay;
+  }
+
+  /* ───────────────────────────────────────────────────────────────────────
+     FOCUS SYSTEM
+     One keyboard-focus convention, brand-consistent and clearly visible
+     without being obnoxious. `focus-visible` only, so pointer users never
+     see it. The offset ring keeps it legible on both white panels and the
+     dark sidebar.
+     ─────────────────────────────────────────────────────────────────────── */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-office-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-white;
+  }
+  .dark .focus-ring {
+    @apply focus-visible:ring-emerald-400/50 focus-visible:ring-offset-slate-900;
+  }
+  /* For controls sitting directly on a brand/solid surface, where an
+     emerald ring would disappear into the background. */
+  .focus-ring-inverse {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent;
+  }
+
+  /* ───────────────────────────────────────────────────────────────────────
+     APP CANVAS
+     ONE canonical canvas, replacing six hand-written copies of a
+     ~300-character dual radial+linear gradient (App, AuthScreen,
+     AgendaPreviewHome, and three inside AgendaPimpinanPreview). Clean,
+     neutral, institutional — the brand green is structural, not ambient.
+     Hero branding is unaffected: it still comes from .brand-gradient-hero.
+     ─────────────────────────────────────────────────────────────────────── */
+  .app-canvas {
+    background-color: theme('colors.office.canvas');
+  }
+  .dark .app-canvas {
+    background-color: theme('colors.office.canvasDark');
   }
 
   /* Single source of truth for the brand's solid color surfaces (buttons,
      table header, FAB). Reads office.primary from tailwind.config.js
      instead of hardcoding a hex per-component. Deliberately flat — the
      gradient variant below is reserved for large hero banners only, so it
-     doesn't compete with the glass-card look on every button and header. */
+     doesn't compete with the panel surfaces on every button and header. */
   .brand-solid {
     background-color: theme('colors.office.primary');
   }
@@ -65,7 +140,7 @@
   /* Gradient reserved for large single-surface hero banners (AuthScreen,
      Dashboard summary card, AgendaPimpinanPreview header) — not used on
      buttons/table headers/FAB so those stay flat and don't compete with
-     the glass-card panels around them. */
+     the panels around them. This is the ONLY surviving gradient surface. */
   .brand-gradient-hero {
     background-image: linear-gradient(to bottom right, theme('colors.office.primary'), theme('colors.office.primaryHover'), theme('colors.office.accentHover'));
   }
@@ -74,6 +149,14 @@
      office.sidebar -> office.sidebarAccent from tailwind.config.js. */
   .sidebar-gradient {
     background-image: linear-gradient(135deg, theme('colors.office.sidebar'), theme('colors.office.sidebarAccent'));
+  }
+
+  /* RESTRICTED GOLD ACCENT. A hairline institutional rule — the one
+     sanctioned decorative use of office.gold. Not a button colour, not a
+     card colour, not a text colour for body copy. If you are reaching for
+     gold anywhere other than a thin accent or a small icon, don't. */
+  .accent-rule-gold {
+    background-image: linear-gradient(90deg, theme('colors.office.gold'), theme('colors.office.goldSoft'), transparent);
   }
 }
 
@@ -86,12 +169,46 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #bbd9c2;
+  background: #cbd5e1;
   border-radius: 999px;
 }
 .dark ::-webkit-scrollbar-thumb {
   background: #475569;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #8fb79a;
+  background: #94a3b8;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   REDUCED MOTION — mandatory foundation, landed BEFORE any motion work.
+
+   Everything decorative collapses to effectively zero. Deliberately a
+   blanket `*` rule with !important so it also neutralises the inline and
+   arbitrary-value transitions scattered through existing components, not
+   just the tokenised ones.
+
+   Loading indicators are the documented exception: a spinner or skeleton
+   communicates state, and freezing one makes a working page look hung. They
+   keep running, just calmer. This is why the rule is not a plain
+   `animation: none`.
+   ───────────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+  html {
+    scroll-behavior: auto !important;
+  }
+  .animate-spin {
+    animation: spin 1.5s linear infinite !important;
+  }
+  .animate-pulse {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite !important;
+  }
 }

@@ -157,7 +157,7 @@ export function BackupPage({ suratMasuk, suratKeluar, agendaPimpinan, onRefresh,
           <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-lg p-3 mb-4 flex items-start gap-2">
             <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <p className="text-xs text-amber-800 dark:text-amber-200">
-              <strong>Perhatian:</strong> Memulihkan backup akan mengganti seluruh data di cloud. Semua anggota keluarga akan melihat data hasil pemulihan. Pastikan Anda sudah mencadangkan data jika diperlukan.
+              <strong>Perhatian:</strong> Memulihkan backup akan mengganti seluruh data di cloud. Seluruh pengguna akan melihat data hasil pemulihan. Pastikan Anda sudah mencadangkan data jika diperlukan.
             </p>
           </div>
 

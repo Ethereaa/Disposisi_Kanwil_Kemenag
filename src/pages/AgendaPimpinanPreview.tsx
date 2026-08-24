@@ -30,15 +30,15 @@ export function AgendaPimpinanPreview({ agendaId, onClose }: Props) {
 
   if (loading) {
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_35%),linear-gradient(135deg,#f7fcf8,#eef6f2)] p-4 text-center dark:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_35%),linear-gradient(135deg,#020617,#0f172a)]">
-        <p className="text-sm text-slate-500 dark:text-slate-400">Memuat agenda...</p>
+      <div className="app-canvas flex min-h-dvh flex-col items-center justify-center p-4 text-center">
+        <p className="text-body text-slate-500 dark:text-slate-400">Memuat agenda...</p>
       </div>
     );
   }
 
   if (!agenda) {
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_35%),linear-gradient(135deg,#f7fcf8,#eef6f2)] p-4 text-center dark:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_35%),linear-gradient(135deg,#020617,#0f172a)]">
+      <div className="app-canvas flex min-h-dvh flex-col items-center justify-center p-4 text-center">
         <div className="glass-card w-full max-w-md p-6">
           <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Agenda tidak ditemukan</p>
           <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Tautan preview ini sudah tidak aktif atau agenda telah dihapus.</p>
@@ -67,7 +67,7 @@ export function AgendaPimpinanPreview({ agendaId, onClose }: Props) {
   }
 
   return (
-    <div className="min-h-dvh bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_35%),linear-gradient(135deg,#f7fcf8,#eef6f2)] p-3 text-slate-800 dark:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_35%),linear-gradient(135deg,#020617,#0f172a)] dark:text-slate-100 sm:p-6">
+    <div className="app-canvas min-h-dvh p-3 text-slate-800 dark:text-slate-100 sm:p-6">
       <div className="mx-auto flex max-w-2xl flex-col gap-4">
         <div className="flex items-center justify-between">
           <Button variant="secondary" size="sm" onClick={onClose}>

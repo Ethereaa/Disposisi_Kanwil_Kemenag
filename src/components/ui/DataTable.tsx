@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useDebounce } from '@/lib/useDebounce';
 import { EmptyState } from './EmptyState';
+import { IconButton } from './IconButton';
 import { SkeletonTable } from './Skeleton';
 
 export interface Column<T> {
@@ -271,12 +272,37 @@ export function DataTable<T extends { id: string }>({
           <p>
             Menampilkan {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, filtered.length)} dari {filtered.length} data
           </p>
+          {/* Reference consumer for <IconButton>: these four were
+              hand-written `rounded-xl p-1.5` (~28px, under every touch
+              guideline) with their own hover-colour strings. Handlers are
+              unchanged — only the hitbox, focus ring and tone now come
+              from the primitive. */}
           <div className="flex items-center gap-1">
-            <button onClick={() => setPage(1)} disabled={safePage === 1} className="rounded-xl p-1.5 hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed dark:hover:bg-slate-700"><ChevronsLeft size={16} /></button>
-            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage === 1} className="rounded-xl p-1.5 hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed dark:hover:bg-slate-700"><ChevronLeft size={16} /></button>
+            <IconButton
+              icon={<ChevronsLeft size={16} />}
+              label="Halaman pertama"
+              onClick={() => setPage(1)}
+              disabled={safePage === 1}
+            />
+            <IconButton
+              icon={<ChevronLeft size={16} />}
+              label="Halaman sebelumnya"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={safePage === 1}
+            />
             <span className="px-3 py-1 font-medium text-slate-700 dark:text-slate-200">{safePage} / {totalPages}</span>
-            <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={safePage === totalPages} className="rounded-xl p-1.5 hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed dark:hover:bg-slate-700"><ChevronRight size={16} /></button>
-            <button onClick={() => setPage(totalPages)} disabled={safePage === totalPages} className="rounded-xl p-1.5 hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed dark:hover:bg-slate-700"><ChevronsRight size={16} /></button>
+            <IconButton
+              icon={<ChevronRight size={16} />}
+              label="Halaman berikutnya"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={safePage === totalPages}
+            />
+            <IconButton
+              icon={<ChevronsRight size={16} />}
+              label="Halaman terakhir"
+              onClick={() => setPage(totalPages)}
+              disabled={safePage === totalPages}
+            />
           </div>
         </div>
       )}
