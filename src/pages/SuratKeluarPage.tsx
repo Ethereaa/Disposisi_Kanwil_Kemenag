@@ -5,6 +5,7 @@ import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Select } from '@/components/ui/Form';
+import { IconButton } from '@/components/ui/IconButton';
 import { AttachmentField } from '@/components/ui/AttachmentField';
 import { LampiranCell } from '@/components/ui/LampiranCell';
 import { SuratKeluarStatusBadge } from '@/components/ui/StatusBadge';
@@ -75,20 +76,26 @@ export function SuratKeluarPage({ rows, onRefresh, canDelete = false, quickAddSi
       header: 'Tgl Surat',
       sortable: true,
       sortValue: (r) => r.tanggalSurat ?? '',
+      // With no render this printed the raw stored ISO ("2026-08-15") while
+      // the detail modal formatted the very same field. sortValue still reads
+      // the ISO, so the ordering this column produces is unchanged.
+      render: (r) => <span className="whitespace-nowrap">{isoToDisplay(r.tanggalSurat) || '-'}</span>,
     },
     {
       key: 'pengirim',
       header: 'Pengirim',
       sortable: true,
       sortValue: (r) => r.pengirim,
-      render: (r) => <span className="max-w-[180px] truncate inline-block">{r.pengirim || '-'}</span>,
+      // Truncation is desktop-only — on a card it would clip the subtitle
+      // that now carries this field.
+      render: (r) => <span className="lg:inline-block lg:max-w-[180px] lg:truncate">{r.pengirim || '-'}</span>,
     },
     {
       key: 'perihal',
       header: 'Perihal',
       sortable: true,
       sortValue: (r) => r.perihal,
-      render: (r) => <span className="max-w-[240px] truncate inline-block">{r.perihal || '-'}</span>,
+      render: (r) => <span className="lg:inline-block lg:max-w-[240px] lg:truncate">{r.perihal || '-'}</span>,
     },
     {
       key: 'ditandatangani',
@@ -106,22 +113,37 @@ export function SuratKeluarPage({ rows, onRefresh, canDelete = false, quickAddSi
     {
       key: 'actions',
       header: 'Aksi',
-      width: '110px',
+      width: '150px',
       render: (r) => (
-        <div className="flex items-center gap-1">
-          <button onClick={(e) => { e.stopPropagation(); setDetail(r); }} className="p-1.5 rounded-md text-office-subtext hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-900/40" title="Lihat">
-            <Eye size={16} />
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); printSuratKeluar(r); }} className="p-1.5 rounded-md text-office-subtext hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700" title="Cetak Lembar Disposisi">
-            <Printer size={16} />
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); setEditing(r); setView('form'); }} className="p-1.5 rounded-md text-office-subtext hover:bg-amber-100 hover:text-amber-600 dark:hover:bg-amber-900/40" title="Edit">
-            <Pencil size={16} />
-          </button>
+        // 44px on phone/tablet, 36px from `lg` — see IconButton's `row` size.
+        // Handlers, including stopPropagation, are byte-for-byte the same.
+        <div className="flex items-center gap-0.5 lg:gap-1">
+          <IconButton
+            size="row"
+            icon={<Eye size={16} />}
+            label="Lihat detail surat"
+            onClick={(e) => { e.stopPropagation(); setDetail(r); }}
+          />
+          <IconButton
+            size="row"
+            icon={<Printer size={16} />}
+            label="Cetak surat keluar"
+            onClick={(e) => { e.stopPropagation(); printSuratKeluar(r); }}
+          />
+          <IconButton
+            size="row"
+            icon={<Pencil size={16} />}
+            label="Edit surat"
+            onClick={(e) => { e.stopPropagation(); setEditing(r); setView('form'); }}
+          />
           {canDelete && (
-            <button onClick={(e) => { e.stopPropagation(); setToDelete(r); }} className="p-1.5 rounded-md text-office-subtext hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/40" title="Hapus">
-              <Trash2 size={16} />
-            </button>
+            <IconButton
+              size="row"
+              tone="danger"
+              icon={<Trash2 size={16} />}
+              label="Hapus surat"
+              onClick={(e) => { e.stopPropagation(); setToDelete(r); }}
+            />
           )}
         </div>
       ),
@@ -167,24 +189,42 @@ export function SuratKeluarPage({ rows, onRefresh, canDelete = false, quickAddSi
         searchKeys={['nomorSurat', 'pengirim', 'perihal', 'keterangan']}
         searchPlaceholder="Cari surat keluar..."
         emptyMessage="Belum ada surat keluar."
+        emptyIcon={Send}
         emptyActionLabel="Tambah Surat"
         onEmptyAction={() => { setEditing(null); setView('form'); }}
         initialSort={{ key: 'nomorUrut', dir: 'asc' }}
+        // Mobile card hierarchy, and the fix for the boolean-subtitle bug:
+        // `mobileSubtitleKey` pointed at `ditandatangani`, so the line under
+        // every card title was the signature chip — a state, not an identity,
+        // and it was already the loudest thing on the card. The subtitle now
+        // answers "who is this letter to?" (`pengirim`, which on an outgoing
+        // letter is the counterparty), the signature state moves to the footer
+        // band where the eye looks for status, and the date joins the meta
+        // strip. No data model, filter or sort change: `ditandatangani` is
+        // still its own sortable column rendering the same
+        // <SuratKeluarStatusBadge>, just in a different slot on the card.
         mobileTitleKey="perihal"
-        mobileSubtitleKey="ditandatangani"
+        mobileSubtitleKey="pengirim"
+        mobileMetaKeys={['tanggalSurat', 'lampiran']}
+        mobileStatusKey="ditandatangani"
         filters={
-          <div className="flex flex-wrap items-center gap-2">
-            <Filter size={14} className="text-office-subtext dark:text-slate-400" />
-            <Select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              placeholder="Semua Status"
-              options={[
-                { value: 'signed', label: 'Sudah Ditandatangani' },
-                { value: 'unsigned', label: 'Belum Ditandatangani' },
-              ]}
-              className="w-48"
-            />
+          // `Select` forwards className to the <select>, not the wrapper, so
+          // the fixed width needs a sizing wrapper to become responsive.
+          // Full-bleed on a phone, back to w-48 from `sm`.
+          <div className="flex w-full flex-wrap items-center gap-2">
+            <Filter size={14} className="hidden shrink-0 text-office-subtext dark:text-slate-400 sm:block" aria-hidden="true" />
+            <div className="w-full min-w-0 sm:w-48">
+              <Select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+                placeholder="Semua Status"
+                options={[
+                  { value: 'signed', label: 'Sudah Ditandatangani' },
+                  { value: 'unsigned', label: 'Belum Ditandatangani' },
+                ]}
+                aria-label="Filter status tanda tangan"
+              />
+            </div>
             <DateRangeFilter start={dateStart} end={dateEnd} onChange={(s, e) => { setDateStart(s); setDateEnd(e); }} />
           </div>
         }

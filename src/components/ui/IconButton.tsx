@@ -2,10 +2,10 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { Loader2 } from 'lucide-react';
 
 type Tone = 'default' | 'danger' | 'subtle';
-type IconButtonSize = 'sm' | 'md';
+type IconButtonSize = 'sm' | 'md' | 'row';
 
 interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
-  /** The icon element. Size it 16 for `sm`, 18 for `md`. */
+  /** The icon element. Size it 16 for `sm` and `row`, 18 for `md`. */
   icon: ReactNode;
   /** REQUIRED. An icon alone carries no accessible name, so this is not
    *  optional in the type. Doubles as the tooltip via `title`. */
@@ -28,11 +28,20 @@ const tones: Record<Tone, string> = {
 };
 
 // Hitbox, not padding. `sm` = 36px, the desktop floor from the audit; `md` =
-// 44px, the touch floor. Phase 2E swaps the hand-written `p-1.5` table
-// actions (~28px) for these; this phase only lands the primitive.
+// 44px, the touch floor.
+//
+// `row` is the size for controls that sit in a row of other controls — table
+// row actions, and the clear button in a filter bar. It is responsive. The same
+// `render(row)` function feeds both the desktop <td> and the mobile card, so
+// the two presentations cannot pass different props — only CSS can tell them
+// apart. It resolves to the 44px touch floor on phone/tablet and drops to the
+// 36px compact floor from `lg` up, which is exactly where DataTable swaps its
+// card list for the real table. Keeping it here means the 44/36 rule lives in
+// one place instead of being re-typed at a dozen call sites.
 const sizes: Record<IconButtonSize, string> = {
   sm: 'h-9 w-9',
   md: 'h-11 w-11',
+  row: 'h-11 w-11 lg:h-9 lg:w-9',
 };
 
 /**
@@ -64,7 +73,7 @@ export function IconButton({
       className={`inline-flex shrink-0 items-center justify-center rounded-control transition-[background-color,color] duration-fast ease-brand focus-ring active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40 ${tones[tone]} ${sizes[size]} ${className}`}
       {...props}
     >
-      {isLoading ? <Loader2 size={size === 'sm' ? 16 : 18} className="animate-spin" aria-hidden="true" /> : icon}
+      {isLoading ? <Loader2 size={size === 'md' ? 18 : 16} className="animate-spin" aria-hidden="true" /> : icon}
     </button>
   );
 }

@@ -5,6 +5,7 @@ import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Select } from '@/components/ui/Form';
+import { IconButton } from '@/components/ui/IconButton';
 import { AttachmentField } from '@/components/ui/AttachmentField';
 import { LampiranCell } from '@/components/ui/LampiranCell';
 import { DisposisiStatusBadge } from '@/components/ui/StatusBadge';
@@ -113,13 +114,19 @@ export function SuratMasukPage({ rows, onRefresh, canDelete = false, quickAddSig
       header: 'Tgl Surat',
       sortable: true,
       sortValue: (r) => r.tanggalSurat ?? '',
+      // Without a render this cell printed the stored ISO string ("2026-08-15")
+      // while the detail modal three screens away formatted the same field.
+      // sortValue still reads the raw ISO, so ordering is untouched.
+      render: (r) => <span className="whitespace-nowrap">{isoToDisplay(r.tanggalSurat) || '-'}</span>,
     },
     {
       key: 'perihal',
       header: 'Perihal',
       sortable: true,
       sortValue: (r) => r.perihal,
-      render: (r) => <span className="max-w-[220px] truncate inline-block">{r.perihal || '-'}</span>,
+      // Truncation is desktop-only: in a table cell it protects the column
+      // width, but on a card it would defeat the title's two-line clamp.
+      render: (r) => <span className="lg:inline-block lg:max-w-[220px] lg:truncate">{r.perihal || '-'}</span>,
     },
     {
       key: 'tujuanDisposisi',
@@ -142,6 +149,7 @@ export function SuratMasukPage({ rows, onRefresh, canDelete = false, quickAddSig
       header: 'Tgl Diterima',
       sortable: true,
       sortValue: (r) => r.tanggalDiterima ?? '',
+      render: (r) => <span className="whitespace-nowrap">{isoToDisplay(r.tanggalDiterima) || '-'}</span>,
     },
     {
       key: 'statusDisposisi',
@@ -152,13 +160,18 @@ export function SuratMasukPage({ rows, onRefresh, canDelete = false, quickAddSig
       render: (r) => {
         const overdue = isOverdue(r);
         return (
+          // Presentation only. The write path — value, onChange and
+          // handleStatusChange — is deliberately identical to what it was; the
+          // control just gets a 44px touch target on phones (it was ~26px),
+          // an accessible name it never had, and the shared focus ring.
           <div onClick={(e) => e.stopPropagation()} className="flex flex-col items-start gap-1">
             <select
               value={r.statusDisposisi}
               onChange={(e) => handleStatusChange(r, e.target.value as StatusDisposisi)}
-              className={`rounded-md border px-2 py-1 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-office-primary/30 dark:bg-slate-800 ${
+              aria-label={`Status disposisi surat nomor ${r.nomorUrut}`}
+              className={`focus-ring min-h-11 rounded-chip border px-2.5 text-label transition-colors duration-fast lg:min-h-9 dark:bg-slate-800 ${
                 overdue
-                  ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300'
+                  ? 'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
                   : r.statusDisposisi === 'selesai'
                     ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
                     : r.statusDisposisi === 'diproses'
@@ -171,8 +184,8 @@ export function SuratMasukPage({ rows, onRefresh, canDelete = false, quickAddSig
               ))}
             </select>
             {overdue && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 dark:text-red-400">
-                <AlertTriangle size={11} /> Terlambat
+              <span className="inline-flex items-center gap-1 text-micro text-rose-600 dark:text-rose-400">
+                <AlertTriangle size={11} aria-hidden="true" /> Terlambat
               </span>
             )}
           </div>
@@ -188,22 +201,38 @@ export function SuratMasukPage({ rows, onRefresh, canDelete = false, quickAddSig
     {
       key: 'actions',
       header: 'Aksi',
-      width: '110px',
+      width: '150px',
       render: (r) => (
-        <div className="flex items-center gap-1">
-          <button onClick={(e) => { e.stopPropagation(); setDetail(r); }} className="p-1.5 rounded-md text-office-subtext hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-900/40" title="Lihat">
-            <Eye size={16} />
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); printSuratMasuk(r); }} className="p-1.5 rounded-md text-office-subtext hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700" title="Cetak Lembar Disposisi">
-            <Printer size={16} />
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); setEditing(r); setView('form'); }} className="p-1.5 rounded-md text-office-subtext hover:bg-amber-100 hover:text-amber-600 dark:hover:bg-amber-900/40" title="Edit">
-            <Pencil size={16} />
-          </button>
+        // 44px targets on phone/tablet, 36px from `lg` — see IconButton's `row`
+        // size. These were `p-1.5` (~28px) with hand-written hover colours.
+        // Every handler below is unchanged, stopPropagation included.
+        <div className="flex items-center gap-0.5 lg:gap-1">
+          <IconButton
+            size="row"
+            icon={<Eye size={16} />}
+            label="Lihat detail surat"
+            onClick={(e) => { e.stopPropagation(); setDetail(r); }}
+          />
+          <IconButton
+            size="row"
+            icon={<Printer size={16} />}
+            label="Cetak lembar disposisi"
+            onClick={(e) => { e.stopPropagation(); printSuratMasuk(r); }}
+          />
+          <IconButton
+            size="row"
+            icon={<Pencil size={16} />}
+            label="Edit surat"
+            onClick={(e) => { e.stopPropagation(); setEditing(r); setView('form'); }}
+          />
           {canDelete && (
-            <button onClick={(e) => { e.stopPropagation(); setToDelete(r); }} className="p-1.5 rounded-md text-office-subtext hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/40" title="Hapus">
-              <Trash2 size={16} />
-            </button>
+            <IconButton
+              size="row"
+              tone="danger"
+              icon={<Trash2 size={16} />}
+              label="Hapus surat"
+              onClick={(e) => { e.stopPropagation(); setToDelete(r); }}
+            />
           )}
         </div>
       ),
@@ -262,28 +291,44 @@ export function SuratMasukPage({ rows, onRefresh, canDelete = false, quickAddSig
         emptyActionLabel="Tambah Surat"
         onEmptyAction={() => { setEditing(null); setView('form'); }}
         initialSort={{ key: 'nomorUrut', dir: 'asc' }}
+        // Mobile card hierarchy. PRIMARY: what is this letter about, and who
+        // is it for. SECONDARY: the two dates plus the attachment count.
+        // Status is the one thing on this page you also *change* from the
+        // list, so it goes in the footer band next to the actions. The
+        // numbers (urut / surat / agenda) fall through to SUPPORTING.
         mobileTitleKey="perihal"
         mobileSubtitleKey="tujuanDisposisi"
+        mobileMetaKeys={['tanggalSurat', 'tanggalDiterima', 'lampiran']}
+        mobileStatusKey="statusDisposisi"
         filters={
-          <div className="flex flex-wrap items-center gap-2">
-            <Filter size={14} className="text-office-subtext dark:text-slate-400" />
-            <Select
-              value={tujuanFilter}
-              onChange={(e) => setTujuanFilter(e.target.value)}
-              placeholder="Semua Tujuan"
-              options={TUJUAN_DISPOSISI.map((t) => ({ value: t, label: t }))}
-              className="w-44"
-            />
-            <Select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              placeholder="Semua Status"
-              options={[
-                ...STATUS_DISPOSISI.map((s) => ({ value: s, label: STATUS_DISPOSISI_LABEL[s] })),
-                { value: 'terlambat', label: 'Terlambat' },
-              ]}
-              className="w-40"
-            />
+          // The `Select` primitive puts `className` on the <select> itself,
+          // not on its wrapper, so the fixed widths below can't be made
+          // responsive from the prop alone — hence the sizing wrappers. Each
+          // control is full-bleed on a phone and returns to its fixed width
+          // from `sm`. Filter semantics are untouched.
+          <div className="flex w-full flex-wrap items-center gap-2">
+            <Filter size={14} className="hidden shrink-0 text-office-subtext dark:text-slate-400 sm:block" aria-hidden="true" />
+            <div className="w-full min-w-0 sm:w-44">
+              <Select
+                value={tujuanFilter}
+                onChange={(e) => setTujuanFilter(e.target.value)}
+                placeholder="Semua Tujuan"
+                options={TUJUAN_DISPOSISI.map((t) => ({ value: t, label: t }))}
+                aria-label="Filter tujuan disposisi"
+              />
+            </div>
+            <div className="w-full min-w-0 sm:w-40">
+              <Select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                placeholder="Semua Status"
+                options={[
+                  ...STATUS_DISPOSISI.map((s) => ({ value: s, label: STATUS_DISPOSISI_LABEL[s] })),
+                  { value: 'terlambat', label: 'Terlambat' },
+                ]}
+                aria-label="Filter status disposisi"
+              />
+            </div>
             <DateRangeFilter start={dateStart} end={dateEnd} onChange={(s, e) => { setDateStart(s); setDateEnd(e); }} />
           </div>
         }

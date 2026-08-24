@@ -5,6 +5,7 @@ import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { AttachmentField } from '@/components/ui/AttachmentField';
+import { IconButton } from '@/components/ui/IconButton';
 import { LampiranCell } from '@/components/ui/LampiranCell';
 import { useToast } from '@/components/ui/Toast';
 import { isoToDisplayWithDay, formatDateTime } from '@/lib/date';
@@ -76,14 +77,17 @@ export function AgendaPimpinanPage({ rows, onRefresh, canDelete = false, quickAd
       header: 'Nama Kegiatan',
       sortable: true,
       sortValue: (r) => r.namaKegiatan,
-      render: (r) => <span className="max-w-[240px] truncate inline-block">{r.namaKegiatan || '-'}</span>,
+      // Truncation is desktop-only. In a table cell it protects the column
+      // width; on a card it would fight the title's two-line clamp and the
+      // subtitle, which is where these three fields now live.
+      render: (r) => <span className="lg:inline-block lg:max-w-[240px] lg:truncate">{r.namaKegiatan || '-'}</span>,
     },
     {
       key: 'tempatKegiatan',
       header: 'Tempat',
       sortable: true,
       sortValue: (r) => r.tempatKegiatan,
-      render: (r) => <span className="max-w-[220px] truncate inline-block">{r.tempatKegiatan || '-'}</span>,
+      render: (r) => <span className="lg:inline-block lg:max-w-[220px] lg:truncate">{r.tempatKegiatan || '-'}</span>,
     },
     {
       key: 'keterangan',
@@ -97,7 +101,7 @@ export function AgendaPimpinanPage({ rows, onRefresh, canDelete = false, quickAd
       header: 'Disposisi Pegawai',
       sortable: true,
       sortValue: (r) => r.disposisiPegawai,
-      render: (r) => <span className="max-w-[220px] truncate inline-block">{r.disposisiPegawai || '-'}</span>,
+      render: (r) => <span className="lg:inline-block lg:max-w-[220px] lg:truncate">{r.disposisiPegawai || '-'}</span>,
     },
     {
       key: 'lampiran',
@@ -108,22 +112,38 @@ export function AgendaPimpinanPage({ rows, onRefresh, canDelete = false, quickAd
     {
       key: 'actions',
       header: 'Aksi',
-      width: '110px',
+      width: '150px',
       render: (r) => (
-        <div className="flex items-center gap-1">
-          <button onClick={(e) => { e.stopPropagation(); window.open(`/agenda-preview/${r.id}`, '_blank', 'noopener,noreferrer'); }} className="rounded-md p-1.5 text-slate-500 hover:bg-emerald-100 hover:text-emerald-600 dark:text-slate-400 dark:hover:bg-emerald-900/40" title="Buka Preview">
-            <ExternalLink size={16} />
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); setDetail(r); }} className="rounded-md p-1.5 text-slate-500 hover:bg-emerald-100 hover:text-emerald-600 dark:text-slate-400 dark:hover:bg-emerald-900/40" title="Lihat">
-            <Eye size={16} />
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); setEditing(r); setView('form'); }} className="rounded-md p-1.5 text-slate-500 hover:bg-amber-100 hover:text-amber-600 dark:text-slate-400 dark:hover:bg-amber-900/40" title="Edit">
-            <Pencil size={16} />
-          </button>
+        // 44px on phone/tablet, 36px from `lg` — see IconButton's `row` size.
+        // Every handler is unchanged, including the preview window.open target
+        // and its noopener/noreferrer flags.
+        <div className="flex items-center gap-0.5 lg:gap-1">
+          <IconButton
+            size="row"
+            icon={<ExternalLink size={16} />}
+            label="Buka preview agenda di tab baru"
+            onClick={(e) => { e.stopPropagation(); window.open(`/agenda-preview/${r.id}`, '_blank', 'noopener,noreferrer'); }}
+          />
+          <IconButton
+            size="row"
+            icon={<Eye size={16} />}
+            label="Lihat detail agenda"
+            onClick={(e) => { e.stopPropagation(); setDetail(r); }}
+          />
+          <IconButton
+            size="row"
+            icon={<Pencil size={16} />}
+            label="Edit agenda"
+            onClick={(e) => { e.stopPropagation(); setEditing(r); setView('form'); }}
+          />
           {canDelete && (
-            <button onClick={(e) => { e.stopPropagation(); setToDelete(r); }} className="rounded-md p-1.5 text-slate-500 hover:bg-red-100 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-900/40" title="Hapus">
-              <Trash2 size={16} />
-            </button>
+            <IconButton
+              size="row"
+              tone="danger"
+              icon={<Trash2 size={16} />}
+              label="Hapus agenda"
+              onClick={(e) => { e.stopPropagation(); setToDelete(r); }}
+            />
           )}
         </div>
       ),
@@ -179,8 +199,17 @@ export function AgendaPimpinanPage({ rows, onRefresh, canDelete = false, quickAd
         emptyActionLabel="Tambah Agenda"
         onEmptyAction={() => { setEditing(null); setView('form'); }}
         initialSort={{ key: 'nomorUrut', dir: 'asc' }}
+        // Mobile card hierarchy. An agenda row answers a different question
+        // from a letter: not "what is it about?" but "where do I have to be,
+        // and when?". So the title is the activity, the subtitle is the place
+        // (it was the date, which then repeated itself two lines lower), and
+        // date + time + attachments form the meta strip. `keterangan` is the
+        // attendance state — dihadiri / diwakili / tentatif — so it belongs in
+        // the footer status slot, not buried mid-card.
         mobileTitleKey="namaKegiatan"
-        mobileSubtitleKey="tanggalKegiatan"
+        mobileSubtitleKey="tempatKegiatan"
+        mobileMetaKeys={['tanggalKegiatan', 'waktuKegiatan', 'lampiran']}
+        mobileStatusKey="keterangan"
         pageSize={10}
         onRowClick={(r) => setDetail(r)}
       />

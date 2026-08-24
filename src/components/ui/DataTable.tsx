@@ -43,6 +43,18 @@ interface DataTableProps<T> {
   mobileTitleKey?: string;
   /** Column key shown as a small line under the title on mobile (e.g. a status/date). */
   mobileSubtitleKey?: string;
+  /**
+   * SECONDARY card fields, in display order: the two or three columns that
+   * answer "when?" and "how much?" at a glance. Rendered as one wrapped
+   * label-and-value strip directly under the title, ahead of everything else.
+   */
+  mobileMetaKeys?: string[];
+  /**
+   * The column holding this row's status control or badge. Pulled out of the
+   * body into the card's footer band, next to the actions, so status is always
+   * in the same place and always reachable with a thumb.
+   */
+  mobileStatusKey?: string;
   /** Column key whose rendered content is pulled out into a footer action row on mobile, instead of the label/value grid. Defaults to 'actions'. */
   mobileActionsKey?: string;
   /** Extra classes appended to each row (desktop <tr> and mobile card), e.g. to highlight overdue items. */
@@ -65,6 +77,8 @@ export function DataTable<T extends { id: string }>({
   onEmptyAction,
   mobileTitleKey,
   mobileSubtitleKey,
+  mobileMetaKeys,
+  mobileStatusKey,
   mobileActionsKey = 'actions',
   rowClassName,
 }: DataTableProps<T>) {
@@ -127,12 +141,35 @@ export function DataTable<T extends { id: string }>({
     return <SkeletonTable cols={columns.length} />;
   }
 
+  // One place that decides how a cell's content is produced, used by the
+  // desktop <td> and by all four card slots. It used to be the same ternary
+  // written out five times, which is how a slot ends up quietly disagreeing
+  // with the table about what a column renders.
+  const cell = (c: Column<T>, row: T): ReactNode =>
+    c.render ? c.render(row) : (row as Record<string, ReactNode>)[c.key];
+
+  // Mobile information hierarchy. The card used to be title + subtitle + every
+  // remaining column in a two-up grid at identical weight — eight truncated
+  // fragments that answered no question quickly. Now each column lands in
+  // exactly one tier: PRIMARY (title/subtitle), SECONDARY (`mobileMetaKeys`),
+  // status and actions (footer band), and whatever is left becomes SUPPORTING.
+  // Unannotated tables still get the old behaviour: everything falls through
+  // to SUPPORTING.
   const titleCol = columns.find((c) => c.key === (mobileTitleKey ?? columns[0]?.key)) ?? columns[0];
   const actionsCol = columns.find((c) => c.key === mobileActionsKey);
   const subtitleCol = mobileSubtitleKey ? columns.find((c) => c.key === mobileSubtitleKey) : undefined;
-  const bodyCols = columns.filter(
-    (c) => c.key !== titleCol?.key && c.key !== actionsCol?.key && c.key !== subtitleCol?.key,
-  );
+  const statusCol = mobileStatusKey ? columns.find((c) => c.key === mobileStatusKey) : undefined;
+  const metaCols = (mobileMetaKeys ?? [])
+    .map((k) => columns.find((c) => c.key === k))
+    .filter((c): c is Column<T> => !!c);
+  const claimedKeys = new Set<string | undefined>([
+    titleCol?.key,
+    actionsCol?.key,
+    subtitleCol?.key,
+    statusCol?.key,
+    ...metaCols.map((c) => c.key),
+  ]);
+  const bodyCols = columns.filter((c) => !claimedKeys.has(c.key));
 
   const emptyStateEl = (
     <EmptyState
@@ -147,8 +184,10 @@ export function DataTable<T extends { id: string }>({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-sm">
+      {/* Search and filters stack full-width below `sm` so a 360px phone never
+          has to scroll sideways to reach a control. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full sm:max-w-sm">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
           <input
             value={query}
@@ -157,29 +196,52 @@ export function DataTable<T extends { id: string }>({
             className="input-base pl-9"
           />
         </div>
-        {filters && <div className="flex flex-wrap gap-2">{filters}</div>}
+        {filters && <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">{filters}</div>}
       </div>
 
-      <div className="soft-panel hidden overflow-x-auto sm:block">
+      {/* Desktop table, from `lg` up only.
+          It used to appear at `sm` (640px), which handed a tablet in portrait
+          the full eight-to-ten column grid squeezed into ~700px. Every consumer
+          of this component is one of the three wide record tables, so raising
+          the switch to `lg` costs nothing and gives 768px the card list it
+          should have had. `min-w-[60rem]` then keeps the columns legible rather
+          than crushing ten of them into whatever is left after the sidebar:
+          the panel scrolls inside its own border at 1024 and needs no scroll at
+          all by ~1440. This is the one place horizontal scrolling is allowed,
+          and it is deliberately not the mobile strategy. */}
+      <div className="surface hidden overflow-hidden lg:block">
         <div className="max-h-[65vh] overflow-auto">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 z-10 brand-solid text-white">
+          <table className="w-full min-w-[60rem] text-body">
+            {/* The header was `brand-solid text-white` at 14px — white on
+                #059669 is 3.77:1, which fails AA for text this size. A tonal
+                step carries a table header perfectly well without asking the
+                brand colour to do contrast work it can't: slate-600 on
+                slate-100 is ~6.8:1. */}
+            <thead className="sticky top-0 z-10">
               <tr>
                 {columns.map((c) => (
                   <th
                     key={c.key}
+                    scope="col"
                     style={c.width ? { width: c.width } : undefined}
-                    className={`px-4 py-3 text-left font-semibold whitespace-nowrap ${c.sortable ? 'cursor-pointer select-none hover:bg-white/10' : ''} ${c.className || ''}`}
+                    aria-sort={
+                      c.sortable
+                        ? sort?.key === c.key
+                          ? sort.dir === 'asc' ? 'ascending' : 'descending'
+                          : 'none'
+                        : undefined
+                    }
+                    className={`bg-slate-100 px-4 py-2.5 text-left text-micro uppercase whitespace-nowrap text-slate-600 dark:bg-slate-800 dark:text-slate-300 ${c.sortable ? 'cursor-pointer select-none hover:bg-slate-200/80 dark:hover:bg-slate-700' : ''} ${c.className || ''}`}
                     onClick={() => c.sortable && toggleSort(c.key)}
                   >
                     <span className="inline-flex items-center gap-1.5">
                       {c.header}
                       {c.sortable && (
-                        <span className="opacity-90">
+                        <span className={sort?.key === c.key ? 'text-office-primary dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}>
                           {sort?.key === c.key ? (
                             sort.dir === 'asc' ? <ArrowUp size={13} /> : <ArrowDown size={13} />
                           ) : (
-                            <ArrowUpDown size={13} className="opacity-70" />
+                            <ArrowUpDown size={13} />
                           )}
                         </span>
                       )}
@@ -196,15 +258,20 @@ export function DataTable<T extends { id: string }>({
                   </td>
                 </tr>
               ) : (
-                pageRows.map((row, i) => (
+                pageRows.map((row) => (
+                  // Zebra striping is gone. Rows carried a tint, a hover tint
+                  // and (on Surat Masuk) an overdue left border all at once,
+                  // and the striping was the one of the three that meant
+                  // nothing. Hairlines separate rows; the tint is now free to
+                  // mean "you are pointing at this".
                   <tr
                     key={row.id}
                     onClick={() => onRowClick?.(row)}
-                    className={`border-b border-emerald-100/70 transition-colors dark:border-slate-700/60 ${onRowClick ? 'cursor-pointer hover:bg-emerald-50/70 dark:hover:bg-slate-700/40' : 'hover:bg-slate-50 dark:hover:bg-slate-700/30'} ${i % 2 === 1 ? 'bg-slate-50/60 dark:bg-slate-800/30' : ''} ${rowClassName?.(row) ?? ''}`}
+                    className={`border-b border-office-border transition-colors duration-fast dark:border-slate-700/60 ${onRowClick ? 'cursor-pointer' : ''} hover:bg-office-bg dark:hover:bg-slate-700/40 ${rowClassName?.(row) ?? ''}`}
                   >
                     {columns.map((c) => (
-                      <td key={c.key} className={`px-4 py-3 text-slate-700 align-top dark:text-slate-200 ${c.className || ''}`}>
-                        {c.render ? c.render(row) : (row as Record<string, ReactNode>)[c.key]}
+                      <td key={c.key} className={`px-4 py-2.5 align-middle text-office-text dark:text-slate-200 ${c.className || ''}`}>
+                        {cell(c, row)}
                       </td>
                     ))}
                   </tr>
@@ -215,57 +282,95 @@ export function DataTable<T extends { id: string }>({
         </div>
       </div>
 
-      {/* Mobile card list — avoids sideways-scrolling a wide table on small screens */}
-      <div className="flex flex-col gap-2 sm:hidden">
+      {/* Mobile/tablet record cards, up to `lg`. A real <ul>/<li> list, and the
+          tappable region is a real <button> rather than a card-shaped <div>
+          with an onClick — so it is keyboard-reachable and announces itself.
+          The row actions sit outside that button as siblings, which is what
+          keeps a button out of a button. */}
+      <ul className="flex flex-col gap-2.5 lg:hidden">
         {pageRows.length === 0 ? (
-          <div className="soft-panel">
-            {emptyStateEl}
-          </div>
+          <li className="surface">{emptyStateEl}</li>
         ) : (
-          pageRows.map((row) => (
-            <div
-              key={row.id}
-              onClick={() => onRowClick?.(row)}
-              className={`rounded-2xl border border-emerald-100/80 bg-white dark:border-slate-700 dark:bg-slate-800/90 p-4 shadow-sm ${onRowClick ? 'cursor-pointer active:bg-emerald-50/70 dark:active:bg-slate-700/40' : ''} ${rowClassName?.(row) ?? ''}`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  {titleCol && (
-                    <div className="truncate font-semibold text-office-text dark:text-slate-100">
-                      {titleCol.render ? titleCol.render(row) : (row as Record<string, ReactNode>)[titleCol.key]}
-                    </div>
-                  )}
-                  {subtitleCol && (
-                    <div className="mt-0.5 truncate text-xs text-office-subtext dark:text-slate-400">
-                      {subtitleCol.render ? subtitleCol.render(row) : (row as Record<string, ReactNode>)[subtitleCol.key]}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
-                {bodyCols.map((c) => (
-                  <div key={c.key} className="min-w-0">
-                    <dt className="text-[11px] uppercase tracking-wide text-office-subtext/80 dark:text-slate-500">{c.header}</dt>
-                    <dd className="truncate text-sm text-slate-700 dark:text-slate-200">
-                      {c.render ? c.render(row) : (row as Record<string, ReactNode>)[c.key]}
-                    </dd>
+          pageRows.map((row) => {
+            const cardBody = (
+              <>
+                {titleCol && (
+                  <div className="line-clamp-2 text-body-strong text-office-text dark:text-slate-100">
+                    {cell(titleCol, row)}
                   </div>
-                ))}
-              </dl>
+                )}
+                {subtitleCol && (
+                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 text-label font-normal tracking-normal text-office-subtext dark:text-slate-400">
+                    <span className="text-micro uppercase text-office-subtext/70 dark:text-slate-500">
+                      {subtitleCol.header}
+                    </span>
+                    {/* div, not span: a column's render may legitimately return
+                        a block element (a chip stacked over a sub-line, an
+                        attachment cell), and phrasing content can't hold that. */}
+                    <div className="min-w-0">{cell(subtitleCol, row)}</div>
+                  </div>
+                )}
+                {metaCols.length > 0 && (
+                  <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    {metaCols.map((c) => (
+                      <div key={c.key} className="flex min-w-0 items-center gap-1.5">
+                        <span className="shrink-0 text-micro uppercase text-office-subtext/70 dark:text-slate-500">
+                          {c.header}
+                        </span>
+                        <div className="min-w-0 truncate text-label font-normal tracking-normal text-office-text dark:text-slate-200">
+                          {cell(c, row)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {bodyCols.length > 0 && (
+                  <dl className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 border-t border-office-border/70 pt-2 dark:border-slate-700/60">
+                    {bodyCols.map((c) => (
+                      <div key={c.key} className="flex min-w-0 items-center gap-1.5">
+                        <dt className="shrink-0 text-micro uppercase text-office-subtext/70 dark:text-slate-500">
+                          {c.header}
+                        </dt>
+                        <dd className="min-w-0 truncate text-label font-normal tracking-normal text-office-text dark:text-slate-300">
+                          {cell(c, row)}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+              </>
+            );
 
-              {actionsCol && (
-                <div
-                  className="mt-3 flex justify-end border-t border-emerald-100/70 pt-2 dark:border-slate-700/60"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {actionsCol.render ? actionsCol.render(row) : (row as Record<string, ReactNode>)[actionsCol.key]}
-                </div>
-              )}
-            </div>
-          ))
+            return (
+              <li key={row.id} className={`surface overflow-hidden ${rowClassName?.(row) ?? ''}`}>
+                {onRowClick ? (
+                  <button
+                    type="button"
+                    onClick={() => onRowClick(row)}
+                    className="focus-ring block w-full p-3.5 text-left active:bg-office-bg dark:active:bg-slate-700/40"
+                  >
+                    {cardBody}
+                  </button>
+                ) : (
+                  <div className="p-3.5">{cardBody}</div>
+                )}
+
+                {/* Footer band: status on the left, actions on the right, and
+                    `flex-wrap` so they take a line each at 360px instead of
+                    overflowing. */}
+                {(statusCol || actionsCol) && (
+                  <div
+                    className={`flex flex-wrap items-center gap-2 border-t border-office-border bg-slate-50/70 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/30 ${statusCol ? 'justify-between' : 'justify-end'}`}
+                  >
+                    {statusCol && <div className="min-w-0">{cell(statusCol, row)}</div>}
+                    {actionsCol && <div className="flex items-center gap-0.5">{cell(actionsCol, row)}</div>}
+                  </div>
+                )}
+              </li>
+            );
+          })
         )}
-      </div>
+      </ul>
 
       {filtered.length > 0 && (
         <div className="flex flex-col sm:flex-row gap-3 items-center justify-between text-sm text-slate-500 dark:text-slate-400">
