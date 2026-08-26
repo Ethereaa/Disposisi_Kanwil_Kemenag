@@ -33,9 +33,16 @@ const variants: Record<Variant, string> = {
 // md/lg used rounded-2xl, so two adjacent buttons of different sizes read as
 // two different components. Heights are held at >=36px so even `sm` clears
 // the desktop icon-target floor.
+//
+// `md` is the default size and was a flat 40px, i.e. 4px under the touch floor
+// on every phone-width action button in the app. It now matches the pattern
+// the other primitives already use (Form's controlHeight, IconButton's `row`):
+// 44px on touch, back to the compact 40px from `sm:` up, so desktop density is
+// unchanged. `sm` stays 36px at every width — it is the deliberately compact
+// size used inside dense rows and empty states, not a touch action.
 const sizes: Record<Size, string> = {
   sm: 'min-h-9 px-3 py-1.5 text-body gap-1.5',
-  md: 'min-h-10 px-4 py-2 text-body gap-2',
+  md: 'min-h-11 px-4 py-2 text-body gap-2 sm:min-h-10',
   lg: 'min-h-11 px-5 py-2.5 text-base gap-2',
 };
 

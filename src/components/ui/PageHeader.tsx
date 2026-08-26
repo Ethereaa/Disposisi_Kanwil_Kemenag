@@ -46,7 +46,17 @@ export function PageHeader({ title, description, icon: Icon, actions }: PageHead
           )}
         </div>
       </div>
-      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+      {/* Actions stack full-width below 640px. As a wrapping row they were
+          left-aligned at their natural widths, so Agenda Pimpinan's pair
+          ("Buka Preview Agenda" + "Tambah Agenda" ≈ 340px) overflowed the
+          328px of usable width at 360 and broke to a second line ragged. One
+          button per row reads as a deliberate mobile action stack; from `sm:`
+          up the original right-aligned row is unchanged. */}
+      {actions && (
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:shrink-0 sm:flex-row sm:flex-wrap sm:items-center">
+          {actions}
+        </div>
+      )}
     </div>
   );
 }

@@ -43,7 +43,7 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
     // form and then floated the credits on top of it, so the first thing a
     // phone user saw was branding and the password field could sit under the
     // footer. The hero is now desktop-only and the footer is in flow.
-    <div className="app-canvas flex min-h-screen flex-col items-center justify-center gap-6 p-4 py-8 sm:p-8">
+    <div className="app-canvas flex min-h-screen flex-col items-center justify-center gap-6 p-4 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))] sm:p-8">
       <div className="glass-card w-full max-w-md p-2 lg:max-w-5xl lg:p-3">
         <div className="grid overflow-hidden rounded-xl lg:grid-cols-[1.05fr_0.95fr]">
           <div className="brand-gradient-hero hidden flex-col justify-center p-10 text-white lg:flex">
@@ -122,14 +122,16 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
                     autoComplete="current-password"
                     required
                   />
-                  {/* 40px square on touch — the reveal toggle was a bare 16px
-                      icon, the smallest target on the login screen. */}
+                  {/* 44px square on touch (36 from `sm:`) — the reveal toggle
+                      was a bare 16px icon, the smallest target on the login
+                      screen, then 40px, still under the floor. `pr-12` on the
+                      input reserves exactly the 44 + right-1 it occupies. */}
                   <button
                     type="button"
                     onClick={() => setShowPw((s) => !s)}
                     aria-label={showPw ? 'Sembunyikan password' : 'Tampilkan password'}
                     aria-pressed={showPw}
-                    className="focus-ring absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-chip text-slate-500 transition-colors hover:text-emerald-700 sm:h-9 sm:w-9 dark:text-slate-400 dark:hover:text-slate-200"
+                    className="focus-ring absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-chip text-slate-500 transition-colors hover:text-emerald-700 sm:h-9 sm:w-9 dark:text-slate-400 dark:hover:text-slate-200"
                   >
                     {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>

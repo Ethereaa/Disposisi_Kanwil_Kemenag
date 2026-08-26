@@ -193,7 +193,7 @@ export function DataTable<T extends { id: string }>({
             value={query}
             onChange={(e) => { setQuery(e.target.value); setPage(1); }}
             placeholder={searchPlaceholder}
-            className="input-base pl-9"
+            className="input-base min-h-11 pl-9 sm:min-h-10"
           />
         </div>
         {filters && <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">{filters}</div>}
@@ -379,32 +379,39 @@ export function DataTable<T extends { id: string }>({
           </p>
           {/* Reference consumer for <IconButton>: these four were
               hand-written `rounded-xl p-1.5` (~28px, under every touch
-              guideline) with their own hover-colour strings. Handlers are
+              guideline) with their own hover-colour strings. `size="row"`
+              gives 44px on touch and the compact 36px back from `lg:` —
+              they defaulted to `sm` (36px everywhere), which is the one
+              remaining sub-44px target on a phone data page. Handlers are
               unchanged — only the hitbox, focus ring and tone now come
               from the primitive. */}
           <div className="flex items-center gap-1">
             <IconButton
               icon={<ChevronsLeft size={16} />}
               label="Halaman pertama"
+              size="row"
               onClick={() => setPage(1)}
               disabled={safePage === 1}
             />
             <IconButton
               icon={<ChevronLeft size={16} />}
               label="Halaman sebelumnya"
+              size="row"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={safePage === 1}
             />
-            <span className="px-3 py-1 font-medium text-slate-700 dark:text-slate-200">{safePage} / {totalPages}</span>
+            <span className="px-3 py-1 font-medium text-slate-700 tabular-nums dark:text-slate-200">{safePage} / {totalPages}</span>
             <IconButton
               icon={<ChevronRight size={16} />}
               label="Halaman berikutnya"
+              size="row"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={safePage === totalPages}
             />
             <IconButton
               icon={<ChevronsRight size={16} />}
               label="Halaman terakhir"
+              size="row"
               onClick={() => setPage(totalPages)}
               disabled={safePage === totalPages}
             />

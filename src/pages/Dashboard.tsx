@@ -277,8 +277,14 @@ export function Dashboard({ suratMasuk, suratKeluar, agendaPimpinan, onNavigate 
       {/* ── C. KPI ─────────────────────────────────────────────────────────
           Two of these lead somewhere and are buttons. Two do not and are
           plain text — see StatCard: "Surat Hari Ini" and "Total Data" were
-          buttons wired to onNavigate('dashboard'), i.e. to this very page. */}
-      <section aria-label="Ringkasan angka" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          buttons wired to onNavigate('dashboard'), i.e. to this very page.
+
+          `md:grid-cols-4` (768px) rather than waiting for `lg`. At 768 there
+          is no sidebar yet, so the column is ~720px wide — four 2×2-stacked
+          tiles left half the band as whitespace and read like a phone layout
+          stretched. Four across at ~170px each is the intentional tablet
+          density; 360–430 keeps 2×2. */}
+      <section aria-label="Ringkasan angka" className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard
           label="Surat Masuk"
           value={stats.masuk}

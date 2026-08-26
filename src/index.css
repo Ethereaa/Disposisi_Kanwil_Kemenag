@@ -17,6 +17,13 @@
     font-family: 'Inter', system-ui, sans-serif;
     @apply min-h-screen bg-office-bg text-office-text;
     touch-action: manipulation;
+    /* A single unbroken token — "1234/Kw.30.1/PP.00.9/08/2026", a long
+       filename, an email — must break rather than push the page sideways at
+       360px. Inherited, so it covers card titles, detail rows and table cells
+       without a `break-words` on every one of them. `break-word` (not
+       `anywhere`) so it only kicks in when the word genuinely cannot fit,
+       leaving normal wrapping and intrinsic widths alone. */
+    overflow-wrap: break-word;
   }
   .dark body {
     @apply bg-slate-900 text-slate-100;

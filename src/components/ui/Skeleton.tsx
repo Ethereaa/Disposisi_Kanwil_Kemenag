@@ -19,7 +19,7 @@ export function Skeleton({ className = '' }: SkeletonProps) {
 // in for. Going through the primitive means they can no longer drift.
 export function SkeletonStatCards({ count = 4 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
       {Array.from({ length: count }).map((_, i) => (
         <Surface key={i} className="p-5">
           <Skeleton className="h-11 w-11 rounded-xl mb-4" />
@@ -80,7 +80,7 @@ export function SkeletonDashboard() {
   return (
     <div className="space-y-5 sm:space-y-6">
       <Skeleton className="h-32 w-full rounded-panel" />
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <Surface key={i} className="p-4">
             <Skeleton className="h-9 w-9 rounded-control" />

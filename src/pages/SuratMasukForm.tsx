@@ -259,7 +259,7 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
                 type="button"
                 onClick={() => setMode('solo')}
                 aria-pressed={mode === 'solo'}
-                className={`focus-ring min-h-10 rounded-md px-4 text-xs font-medium transition-all sm:min-h-8 ${mode === 'solo' ? 'bg-office-primary text-white' : 'text-office-subtext dark:text-slate-400'}`}
+                className={`focus-ring min-h-11 rounded-md px-4 text-xs font-medium transition-all sm:min-h-8 ${mode === 'solo' ? 'bg-office-primary text-white' : 'text-office-subtext dark:text-slate-400'}`}
               >
                 Solo
               </button>
@@ -267,7 +267,7 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
                 type="button"
                 onClick={() => setMode('banyak')}
                 aria-pressed={mode === 'banyak'}
-                className={`focus-ring flex min-h-10 items-center gap-1 rounded-md px-4 text-xs font-medium transition-all sm:min-h-8 ${mode === 'banyak' ? 'bg-office-primary text-white' : 'text-office-subtext dark:text-slate-400'}`}
+                className={`focus-ring flex min-h-11 items-center gap-1 rounded-md px-4 text-xs font-medium transition-all sm:min-h-8 ${mode === 'banyak' ? 'bg-office-primary text-white' : 'text-office-subtext dark:text-slate-400'}`}
               >
                 <Repeat size={12} aria-hidden="true" /> Banyak
               </button>

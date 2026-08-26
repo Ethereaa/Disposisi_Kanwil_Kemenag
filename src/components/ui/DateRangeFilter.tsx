@@ -25,7 +25,7 @@ export function DateRangeFilter({ start, end, onChange }: DateRangeFilterProps) 
           type="date"
           value={start}
           onChange={(e) => onChange(e.target.value, end)}
-          className="input-base min-w-0 flex-1 text-xs sm:w-[135px] sm:flex-none sm:text-sm"
+          className="input-base min-h-11 min-w-0 flex-1 text-xs sm:min-h-10 sm:w-[135px] sm:flex-none sm:text-sm"
           aria-label="Dari tanggal"
         />
         <span className="shrink-0 text-xs text-office-subtext dark:text-slate-500">s/d</span>
@@ -33,7 +33,7 @@ export function DateRangeFilter({ start, end, onChange }: DateRangeFilterProps) 
           type="date"
           value={end}
           onChange={(e) => onChange(start, e.target.value)}
-          className="input-base min-w-0 flex-1 text-xs sm:w-[135px] sm:flex-none sm:text-sm"
+          className="input-base min-h-11 min-w-0 flex-1 text-xs sm:min-h-10 sm:w-[135px] sm:flex-none sm:text-sm"
           aria-label="Sampai tanggal"
         />
       </div>

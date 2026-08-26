@@ -41,19 +41,42 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={{ toast }}>
       {children}
-      <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 w-[calc(100vw-2rem)] max-w-sm">
+      {/* MOBILE PLACEMENT
+          Before: `top-4 right-4 w-[calc(100vw-2rem)]`. At 360–430px that put a
+          full-bleed toast on top of the sticky header for 3.5s, covering the
+          menu button and the header actions — the one control a phone user
+          needs while a toast is up. It also sized from `100vw` (which includes
+          a scrollbar gutter and can exceed the visual viewport) and ignored
+          `safe-area-inset-top`, so on a notched device in standalone PWA mode
+          the first toast landed under the status bar.
+
+          Now it is inset-anchored and parked just BELOW the header band
+          (h-14 on phones, h-16 from `sm:`) plus the top safe area, so nothing
+          it covers is interactive. Desktop keeps its original `top-4` corner
+          from `lg:` up. The container is pointer-events-none so the page under
+          an empty/narrow toast stack stays tappable.
+
+          Placement and hitboxes only — toast(), the type map, the 3.5s
+          auto-dismiss and role="status" are untouched. */}
+      <div className="pointer-events-none fixed inset-x-3 top-[calc(3.5rem+0.5rem+env(safe-area-inset-top))] z-[100] flex flex-col gap-2 sm:left-auto sm:right-4 sm:top-[calc(4rem+0.5rem+env(safe-area-inset-top))] sm:w-full sm:max-w-sm lg:top-4">
         {toasts.map((t) => {
           const { icon: Icon, classes } = config[t.type];
           return (
             <div
               key={t.id}
-              className={`flex items-start gap-3 rounded-xl border-l-4 px-4 py-3 shadow-lg animate-slide-in-right ${classes}`}
+              className={`pointer-events-auto flex items-start gap-3 rounded-control border-l-4 px-4 py-3 shadow-overlay animate-slide-in-right ${classes}`}
               role="status"
             >
-              <Icon size={18} className="mt-0.5 shrink-0" />
-              <p className="flex-1 text-sm font-medium leading-snug">{t.message}</p>
-              <button onClick={() => remove(t.id)} className="shrink-0 opacity-60 hover:opacity-100 transition-opacity">
-                <X size={16} />
+              <Icon size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+              <p className="min-w-0 flex-1 text-sm font-medium leading-snug">{t.message}</p>
+              {/* 44px on touch (36 from `sm:`), negative margins so the larger
+                  hitbox does not grow the toast. Was a bare 16px icon. */}
+              <button
+                onClick={() => remove(t.id)}
+                aria-label="Tutup notifikasi"
+                className="focus-ring -my-1.5 -mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-chip opacity-70 transition-opacity duration-fast ease-brand hover:opacity-100 sm:-my-1 sm:-mr-1.5 sm:h-9 sm:w-9"
+              >
+                <X size={16} aria-hidden="true" />
               </button>
             </div>
           );

@@ -41,11 +41,16 @@ const menu: { key: PageKey; label: string; icon: typeof LayoutDashboard }[] = [
 export function Sidebar({ active, onNavigate, open, onToggle, email, username, onLogout, suratKeluarBadge = 0 }: SidebarProps) {
   return (
     <>
+      {/* z-[35] sits between the bottom nav / FAB (z-30) and the drawer panel
+          (z-40). At z-30 it tied with <BottomNav>, which renders after
+          <Sidebar> in App.tsx and therefore painted OVER the scrim: with the
+          drawer open the tab bar stayed bright and tappable, so a phone user
+          could navigate from behind the overlay. */}
       {open && (
-        <div className="fixed inset-0 z-30 bg-slate-900/70 lg:hidden" onClick={onToggle} />
+        <div className="fixed inset-0 z-[35] bg-slate-900/70 lg:hidden" onClick={onToggle} />
       )}
       <aside
-        className={`fixed lg:sticky top-0 left-0 z-40 h-screen w-64 shrink-0 flex flex-col overflow-hidden border-r border-white/10 sidebar-gradient text-slate-100 transition-transform duration-normal ease-brand lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
+        className={`fixed lg:sticky top-0 left-0 z-40 h-screen w-64 shrink-0 flex flex-col overflow-hidden border-r border-white/10 sidebar-gradient text-slate-100 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] transition-transform duration-normal ease-brand lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
       >
         {/* Institutional identity: the organisation, not the app's design
             name. The decorative emerald radial that used to sit behind this
@@ -63,7 +68,7 @@ export function Sidebar({ active, onNavigate, open, onToggle, email, username, o
             onClick={onToggle}
             aria-label="Tutup menu"
             title="Tutup menu"
-            className="focus-ring-inverse flex h-9 w-9 shrink-0 items-center justify-center rounded-control text-slate-300 transition-colors duration-fast ease-brand hover:bg-white/10 hover:text-white lg:hidden"
+            className="focus-ring-inverse flex h-11 w-11 shrink-0 items-center justify-center rounded-control text-slate-300 transition-colors duration-fast ease-brand hover:bg-white/10 hover:text-white lg:hidden"
           >
             <X size={18} />
           </button>
@@ -81,7 +86,7 @@ export function Sidebar({ active, onNavigate, open, onToggle, email, username, o
                   <button
                     onClick={() => onNavigate(m.key)}
                     aria-current={isActive ? 'page' : undefined}
-                    className={`focus-ring-inverse group relative flex w-full items-center gap-3 rounded-control py-2.5 pl-4 pr-2.5 text-left transition-colors duration-fast ease-brand ${
+                    className={`focus-ring-inverse group relative flex min-h-11 w-full items-center gap-3 rounded-control py-2.5 pl-4 pr-2.5 text-left transition-colors duration-fast ease-brand ${
                       isActive ? 'bg-white/10 text-white' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
                     }`}
                   >
@@ -132,7 +137,7 @@ export function Sidebar({ active, onNavigate, open, onToggle, email, username, o
               onClick={onLogout}
               title="Keluar"
               aria-label="Keluar"
-              className="focus-ring-inverse flex h-9 w-9 shrink-0 items-center justify-center rounded-control text-slate-300 transition-colors duration-fast ease-brand hover:bg-white/10 hover:text-white"
+              className="focus-ring-inverse flex h-11 w-11 shrink-0 items-center justify-center rounded-control text-slate-300 transition-colors duration-fast ease-brand hover:bg-white/10 hover:text-white lg:h-9 lg:w-9"
             >
               <LogOut size={16} />
             </button>
@@ -228,7 +233,11 @@ interface HeaderProps {
 
 export function Header({ pageLabel, onMenuClick, theme, onToggleTheme }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-20 border-b border-office-border bg-white dark:border-slate-700 dark:bg-slate-900">
+    // pt-[env(safe-area-inset-top)] on the sticky bar itself: installed as a
+    // PWA the app draws under the status bar, and without this the menu button
+    // and the theme toggle sit beneath it. Zero on every non-notched device and
+    // in the browser tab, so desktop is unchanged.
+    <header className="sticky top-0 z-20 border-b border-office-border bg-white pt-[env(safe-area-inset-top)] dark:border-slate-700 dark:bg-slate-900">
       {/* Shares <main>'s frame — same max width, same 16 → 24 → 32px gutter
           ramp — so the location line above and the page title below sit on one
           left edge. The bar's border and background stay full-width; only this
