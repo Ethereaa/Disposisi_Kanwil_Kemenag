@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Save, Plus, X, Zap, Repeat, FileSearch, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Field, Input, Textarea, Checkbox } from '@/components/ui/Form';
+import { Field, Input, Textarea, Checkbox, FormSection, FormErrorSummary } from '@/components/ui/Form';
 import { AttachmentField } from '@/components/ui/AttachmentField';
 import { useToast } from '@/components/ui/Toast';
 import type { SuratKeluar, Attachment } from '@/types';
-import { displayToISO, isoToDisplay, todayISO } from '@/lib/date';
+import { todayISO } from '@/lib/date';
 import {
   insertKeluarSorted,
   updateKeluar,
@@ -45,6 +45,9 @@ export function SuratKeluarForm({ editing, onSaved, onCancel }: Props) {
   const [dupNomorSurat, setDupNomorSurat] = useState<number | null>(null);
   const [ocrBusy, setOcrBusy] = useState(false);
   const nomorSuratRef = useRef<HTMLInputElement>(null);
+  // Validated controls, so a failed submit can put the cursor on the first
+  // field that actually needs attention instead of only colouring it.
+  const requiredRefs = useRef<Record<string, HTMLElement | null>>({});
   const { toast } = useToast();
 
   // OCR-reads the first lampiran (assumed to be page 1 of the letter) and
@@ -130,6 +133,12 @@ export function SuratKeluarForm({ editing, onSaved, onCancel }: Props) {
     const e: Record<string, string> = {};
     if (!form.tanggalSurat) e.tanggalSurat = 'Tanggal surat wajib diisi';
     setErrors(e);
+    const firstInvalid = Object.keys(e)[0];
+    if (firstInvalid) {
+      const el = requiredRefs.current[firstInvalid];
+      el?.scrollIntoView({ block: 'center' });
+      el?.focus();
+    }
     return Object.keys(e).length === 0;
   }
 
@@ -186,6 +195,8 @@ export function SuratKeluarForm({ editing, onSaved, onCancel }: Props) {
     save(stay);
   }
 
+  const errorMessages = Object.values(errors).filter(Boolean);
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between bg-slate-50 dark:bg-slate-900/40 rounded-xl p-4 border border-office-border dark:border-slate-700">
@@ -199,119 +210,134 @@ export function SuratKeluarForm({ editing, onSaved, onCancel }: Props) {
           </div>
         </div>
         {!editing && (
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <div className="flex items-center gap-2 text-sm text-office-subtext dark:text-slate-400">
-              <Zap size={15} className="text-amber-500" /> Mode Input
+              <Zap size={15} className="text-amber-500" aria-hidden="true" /> Mode Input
             </div>
-            <div className="flex gap-1 p-1 bg-white dark:bg-slate-800 rounded-lg border border-office-border dark:border-slate-600">
+            <div role="group" aria-label="Mode input" className="flex gap-1 p-1 bg-white dark:bg-slate-800 rounded-lg border border-office-border dark:border-slate-600">
               <button
                 type="button"
                 onClick={() => setMode('solo')}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${mode === 'solo' ? 'bg-office-primary text-white' : 'text-office-subtext dark:text-slate-400'}`}
+                aria-pressed={mode === 'solo'}
+                className={`focus-ring min-h-10 rounded-md px-4 text-xs font-medium transition-all sm:min-h-8 ${mode === 'solo' ? 'bg-office-primary text-white' : 'text-office-subtext dark:text-slate-400'}`}
               >
                 Solo
               </button>
               <button
                 type="button"
                 onClick={() => setMode('banyak')}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1 ${mode === 'banyak' ? 'bg-office-primary text-white' : 'text-office-subtext dark:text-slate-400'}`}
+                aria-pressed={mode === 'banyak'}
+                className={`focus-ring flex min-h-10 items-center gap-1 rounded-md px-4 text-xs font-medium transition-all sm:min-h-8 ${mode === 'banyak' ? 'bg-office-primary text-white' : 'text-office-subtext dark:text-slate-400'}`}
               >
-                <Repeat size={12} /> Banyak
+                <Repeat size={12} aria-hidden="true" /> Banyak
               </button>
             </div>
           </div>
         )}
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-4">
-        <Field
-          label="Nomor Surat"
-          hint="Opsional"
-          warning={dupNomorSurat != null ? `Nomor surat ini sudah dipakai di No. Urut ${dupNomorSurat}` : undefined}
-        >
-          <Input
-            ref={nomorSuratRef}
-            value={form.nomorSurat}
-            onChange={(e) => update('nomorSurat', e.target.value)}
-            placeholder="cth: 002/XYZ/2025"
-          />
-        </Field>
-        <Field label="Tanggal Surat" required error={errors.tanggalSurat}>
-          <Input
-            type="date"
-            value={form.tanggalSurat}
-            onChange={(e) => update('tanggalSurat', e.target.value)}
-          />
-        </Field>
-        <Field label="Pengirim Surat">
-          <Input
-            value={form.pengirim}
-            onChange={(e) => update('pengirim', e.target.value)}
-            placeholder="Pengirim surat"
-          />
-        </Field>
-        <Field label="Perihal Surat">
-          <Input
-            value={form.perihal}
-            onChange={(e) => update('perihal', e.target.value)}
-            placeholder="Perihal surat"
-          />
-        </Field>
-      </div>
+      <FormErrorSummary messages={errorMessages} />
 
-      <div className="bg-slate-50 dark:bg-slate-900/40 rounded-xl p-4 border border-office-border dark:border-slate-700">
-        <Checkbox
-          label="Sudah Ditandatangani"
-          checked={form.ditandatangani}
-          onChange={(v) => update('ditandatangani', v)}
-        />
-        <p className="text-xs text-office-subtext dark:text-slate-400 mt-1.5">
-          Centang jika surat sudah ditandatangani. Jika tidak dicentang, status "Belum Ditandatangani".
-        </p>
-      </div>
-
-      <Field label="Keterangan">
-        <Textarea
-          value={form.keterangan}
-          onChange={(e) => update('keterangan', e.target.value)}
-          placeholder="Keterangan tambahan..."
-          rows={3}
-        />
-      </Field>
-
-      <Field
-        label="Lampiran / Scan Surat Asli"
-        hint={
-          <button
-            type="button"
-            disabled={ocrBusy || busy || form.lampiran.length === 0}
-            onClick={handleAutoFillFromScan}
-            className="inline-flex items-center gap-1 font-medium text-office-primary hover:underline disabled:opacity-50 disabled:no-underline dark:text-emerald-400"
+      <FormSection title="Identitas Surat" hint="Nomor & tanggal sesuai surat fisik">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Nomor Surat"
+            hint="Opsional"
+            warning={dupNomorSurat != null ? `Nomor surat ini sudah dipakai di No. Urut ${dupNomorSurat}` : undefined}
           >
-            {ocrBusy ? <Loader2 size={12} className="animate-spin" /> : <FileSearch size={12} />}
-            {ocrBusy ? 'Membaca...' : 'Baca Otomatis dari Foto (isi Nomor Surat & Tanggal)'}
-          </button>
-        }
-      >
-        <AttachmentField
-          folder="surat-keluar"
-          value={form.lampiran}
-          onChange={(next) => update('lampiran', next)}
-          disabled={busy}
-        />
-      </Field>
+            <Input
+              ref={nomorSuratRef}
+              value={form.nomorSurat}
+              onChange={(e) => update('nomorSurat', e.target.value)}
+              placeholder="cth: 002/XYZ/2025"
+            />
+          </Field>
+          <Field label="Tanggal Surat" required error={errors.tanggalSurat}>
+            <Input
+              ref={(el) => { requiredRefs.current.tanggalSurat = el; }}
+              type="date"
+              value={form.tanggalSurat}
+              onChange={(e) => update('tanggalSurat', e.target.value)}
+            />
+          </Field>
+          <Field label="Pengirim Surat">
+            <Input
+              value={form.pengirim}
+              onChange={(e) => update('pengirim', e.target.value)}
+              placeholder="Pengirim surat"
+            />
+          </Field>
+          <Field label="Perihal Surat">
+            <Input
+              value={form.perihal}
+              onChange={(e) => update('perihal', e.target.value)}
+              placeholder="Perihal surat"
+            />
+          </Field>
+        </div>
+      </FormSection>
 
-      <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-office-border dark:border-slate-700">
-        <Button type="submit" disabled={busy}>
-          <Save size={16} /> {busy ? 'Menyimpan...' : 'Simpan'}
+      <FormSection title="Status & Catatan">
+        <div className="rounded-control border border-office-border bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900/40">
+          <Checkbox
+            label="Sudah Ditandatangani"
+            checked={form.ditandatangani}
+            onChange={(v) => update('ditandatangani', v)}
+          />
+          <p className="mt-1 text-xs text-office-subtext dark:text-slate-400">
+            Centang jika surat sudah ditandatangani. Jika tidak dicentang, status "Belum Ditandatangani".
+          </p>
+        </div>
+
+        <Field label="Keterangan">
+          <Textarea
+            value={form.keterangan}
+            onChange={(e) => update('keterangan', e.target.value)}
+            placeholder="Keterangan tambahan..."
+            rows={3}
+          />
+        </Field>
+      </FormSection>
+
+      <FormSection title="Lampiran">
+        <Field
+          label="Lampiran / Scan Surat Asli"
+          asGroup
+          hint={
+            <button
+              type="button"
+              disabled={ocrBusy || busy || form.lampiran.length === 0}
+              onClick={handleAutoFillFromScan}
+              className="inline-flex items-center gap-1 font-medium text-office-primary hover:underline disabled:opacity-50 disabled:no-underline dark:text-emerald-400"
+            >
+              {ocrBusy ? <Loader2 size={12} className="animate-spin" /> : <FileSearch size={12} />}
+              {ocrBusy ? 'Membaca...' : 'Baca Otomatis dari Foto (isi Nomor Surat & Tanggal)'}
+            </button>
+          }
+        >
+          <AttachmentField
+            folder="surat-keluar"
+            value={form.lampiran}
+            onChange={(next) => update('lampiran', next)}
+            disabled={busy}
+          />
+        </Field>
+      </FormSection>
+
+      {/* Actions. Sticky to the bottom of the scrolling modal body (whose
+          padding the negative margins cancel) so Simpan stays reachable on a
+          phone without scrolling the whole form. */}
+      <div className="sticky bottom-0 -mx-5 -mb-4 flex flex-col gap-2 border-t border-office-border bg-white/95 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:flex-row sm:pb-3 dark:border-slate-700 dark:bg-slate-800/95">
+        <Button type="submit" disabled={busy} className="w-full min-h-11 sm:w-auto sm:min-h-10">
+          <Save size={16} aria-hidden="true" /> {busy ? 'Menyimpan...' : 'Simpan'}
         </Button>
         {!editing && (
-          <Button type="button" variant="outline" disabled={busy} onClick={() => save(true)}>
-            <Plus size={16} /> Simpan & Input Berikutnya
+          <Button type="button" variant="outline" disabled={busy} onClick={() => save(true)} className="w-full min-h-11 sm:w-auto sm:min-h-10">
+            <Plus size={16} aria-hidden="true" /> Simpan & Input Berikutnya
           </Button>
         )}
-        <Button type="button" variant="secondary" onClick={onCancel} disabled={busy}>
-          <X size={16} /> Batal
+        <Button type="button" variant="secondary" onClick={onCancel} disabled={busy} className="w-full min-h-11 sm:w-auto sm:min-h-10">
+          <X size={16} aria-hidden="true" /> Batal
         </Button>
       </div>
     </form>
