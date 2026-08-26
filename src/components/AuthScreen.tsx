@@ -38,45 +38,68 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
   }
 
   return (
-    <div className="app-canvas relative flex min-h-screen items-center justify-center overflow-hidden p-4 sm:p-8">
-      <div className="glass-card relative w-full max-w-5xl p-3">
-        <div className="grid overflow-hidden rounded-xl lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="flex flex-col justify-center brand-gradient-hero p-8 text-white sm:p-10">
+    // Column flow, not an absolutely-positioned footer over a centred card.
+    // At 360px the old layout stacked a 300px-tall gradient hero above the
+    // form and then floated the credits on top of it, so the first thing a
+    // phone user saw was branding and the password field could sit under the
+    // footer. The hero is now desktop-only and the footer is in flow.
+    <div className="app-canvas flex min-h-screen flex-col items-center justify-center gap-6 p-4 py-8 sm:p-8">
+      <div className="glass-card w-full max-w-md p-2 lg:max-w-5xl lg:p-3">
+        <div className="grid overflow-hidden rounded-xl lg:grid-cols-[1.05fr_0.95fr]">
+          <div className="brand-gradient-hero hidden flex-col justify-center p-10 text-white lg:flex">
             <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur">
               <Logo size={44} />
             </div>
-            <h1 className="max-w-md text-3xl font-semibold leading-tight sm:text-4xl">{APP_SHORT}</h1>
+            <h1 className="max-w-md text-4xl font-semibold leading-tight">{APP_SHORT}</h1>
             {/* The one sanctioned use of the restricted gold accent: a
                 hairline institutional rule on the hero. Not a button, not a
                 card, not body text. */}
             <div className="accent-rule-gold mt-4 h-px w-24" />
-            <p className="mt-3 max-w-md text-sm leading-6 text-emerald-50/90 sm:text-base">
+            <p className="mt-3 max-w-md text-base leading-6 text-emerald-50/90">
               Platform Disposisi & Agenda Pimpinan.
             </p>
             <div className="mt-8 rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
               <div className="flex items-center gap-3">
-                <Users size={18} className="text-emerald-100" />
+                <Users size={18} className="text-emerald-100" aria-hidden="true" />
                 <p className="text-sm text-emerald-50/90">Kelola Surat Masuk, Surat Keluar, dan Agenda Pimpinan dengan flexibel.</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-6 sm:p-8 dark:bg-slate-900">
-            <div className="mb-6 flex flex-col items-start gap-2">
-              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-emerald-600 dark:text-emerald-400">Akses sistem</p>
+          <div className="bg-white p-5 sm:p-7 lg:p-8 dark:bg-slate-900">
+            {/* Mobile/tablet brand line. Carries the logo and product name in
+                one row so the form itself stays above the fold at 360px. It is
+                the <h1> below `lg:`, where the hero (and its own <h1>) is
+                display:none and therefore not exposed to a screen reader —
+                exactly one heading is live at any breakpoint. */}
+            <div className="mb-5 flex items-center gap-3 border-b border-office-border pb-4 dark:border-slate-700 lg:hidden">
+              <Logo size={40} />
+              <div className="min-w-0">
+                <h1 className="truncate text-heading text-slate-800 dark:text-slate-100">{APP_SHORT}</h1>
+                <p className="truncate text-xs text-slate-500 dark:text-slate-400">Platform Disposisi &amp; Agenda Pimpinan</p>
+              </div>
+            </div>
+
+            <div className="mb-5 flex flex-col items-start gap-1.5">
+              <p className="text-label uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400">Akses sistem</p>
               <h2 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">Masuk ke akun</h2>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <Field label="Email atau Username" required>
                 <div className="relative">
-                  <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
+                  <Mail
+                    size={16}
+                    aria-hidden="true"
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400"
+                  />
                   <Input
                     type="text"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
                     placeholder="email@contoh.com atau username"
                     className="pl-9"
+                    autoComplete="username"
                     autoFocus
                     required
                   />
@@ -85,16 +108,29 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
 
               <Field label="Password" required>
                 <div className="relative">
-                  <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
+                  <Lock
+                    size={16}
+                    aria-hidden="true"
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400"
+                  />
                   <Input
                     type={showPw ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Masukkan password"
-                    className="pl-9 pr-9"
+                    className="pl-9 pr-12 sm:pr-11"
+                    autoComplete="current-password"
                     required
                   />
-                  <button type="button" onClick={() => setShowPw((s) => !s)} aria-label={showPw ? 'Sembunyikan password' : 'Tampilkan password'} className="focus-ring absolute right-3 top-1/2 -translate-y-1/2 rounded-chip text-slate-500 transition-colors hover:text-emerald-700 dark:text-slate-400 dark:hover:text-slate-200">
+                  {/* 40px square on touch — the reveal toggle was a bare 16px
+                      icon, the smallest target on the login screen. */}
+                  <button
+                    type="button"
+                    onClick={() => setShowPw((s) => !s)}
+                    aria-label={showPw ? 'Sembunyikan password' : 'Tampilkan password'}
+                    aria-pressed={showPw}
+                    className="focus-ring absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-chip text-slate-500 transition-colors hover:text-emerald-700 sm:h-9 sm:w-9 dark:text-slate-400 dark:hover:text-slate-200"
+                  >
                     {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
@@ -105,8 +141,8 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
               </Button>
             </form>
 
-            <div className="mt-4 flex items-start gap-2 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
-              <Users size={16} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <div className="mt-5 flex items-start gap-2 rounded-control border border-emerald-100 bg-emerald-50/70 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+              <Users size={16} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
               <p className="text-xs leading-5 text-emerald-800 dark:text-emerald-200">
                 Akun dibuat oleh admin. Hubungi admin jika Anda belum memiliki akses.
               </p>
@@ -119,7 +155,7 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
           font-normal + tracking-normal hold the rendered weight and tracking
           exactly where they were — the token is the source of the size, not a
           restyle of the footer. */}
-      <div className="absolute bottom-4 flex flex-col items-center gap-1 text-center text-micro font-normal tracking-normal text-slate-500 dark:text-slate-400">
+      <div className="flex shrink-0 flex-col items-center gap-1 text-center text-micro font-normal tracking-normal text-slate-500 dark:text-slate-400">
         <p>{APP_TITLE}</p>
         <p className="text-slate-400 dark:text-slate-500">Dikembangkan oleh Luthfi Alfikri</p>
       </div>

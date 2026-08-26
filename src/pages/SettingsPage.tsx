@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Mail, Lock, Moon, Sun, Save, ShieldCheck, RotateCcw, Upload, User, Smartphone, History, ShieldAlert, BellRing, BellOff, Timer, Settings as SettingsIcon } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { Moon, Sun, Save, ShieldCheck, RotateCcw, Upload, History, ShieldAlert, BellRing, BellOff, Settings as SettingsIcon } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { Field, Input } from '@/components/ui/Form';
+import { Surface } from '@/components/ui/Surface';
+import { Input } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
 import { Logo } from '@/components/Logo';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -34,6 +36,104 @@ interface ActivityItem {
   by: string;
   at: string;
   kind: 'masuk' | 'keluar' | 'agenda';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SETTINGS LAYOUT PRIMITIVES
+//
+// Settings was six stacked `soft-panel` cards, several of them wrapping a
+// second `bg-slate-50 rounded-xl border p-4` box around a single control — so
+// every setting arrived at the same visual weight inside two nested frames,
+// and the page read as one long undifferentiated stack.
+//
+// Now: four topic panels, each a `Surface` with a header band and a divided
+// list of rows. A row is "what this setting is" on the left, "the control" on
+// the right (stacked below `sm:`). Density comes from the dividers, hierarchy
+// from the panel headers — no nested cards.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function SettingsPanel({
+  icon: Icon,
+  title,
+  description,
+  children,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Surface as="section" className="overflow-hidden">
+      <div className="flex items-start gap-3 border-b border-office-border px-4 py-3.5 dark:border-slate-700 sm:px-5">
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-chip bg-office-primary/10 text-office-primary dark:bg-emerald-500/10 dark:text-emerald-400">
+          <Icon size={16} aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <h2 className="text-heading text-office-text dark:text-slate-100">{title}</h2>
+          {description && (
+            <p className="mt-0.5 text-xs leading-5 text-office-subtext dark:text-slate-400">{description}</p>
+          )}
+        </div>
+      </div>
+      {/* A single-child panel gets no divider line, which is what the activity
+          list wants; multi-row panels get one rule between each row. */}
+      <div className="divide-y divide-office-border dark:divide-slate-700/60">{children}</div>
+    </Surface>
+  );
+}
+
+function SettingRow({
+  /** Set when the row wraps exactly one labellable control: the row title then
+   *  becomes that control's real `<label>`, so tapping it focuses the input,
+   *  and the hint is published at `${controlId}-hint` for the control to name
+   *  in `aria-describedby` — the wiring `Field` gives its own children. */
+  controlId,
+  label,
+  hint,
+  required,
+  children,
+}: {
+  controlId?: string;
+  label: ReactNode;
+  hint?: ReactNode;
+  required?: boolean;
+  children: ReactNode;
+}) {
+  const titleClass = 'block text-body-strong text-office-text dark:text-slate-200';
+  const title = required ? (
+    <>
+      {label}
+      <span aria-hidden="true" className="ml-0.5 text-rose-500">
+        *
+      </span>
+    </>
+  ) : (
+    label
+  );
+
+  return (
+    <div className="flex flex-col gap-2.5 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6 sm:px-5">
+      <div className="min-w-0 sm:max-w-[19rem]">
+        {controlId ? (
+          <label htmlFor={controlId} className={titleClass}>
+            {title}
+          </label>
+        ) : (
+          <p className={titleClass}>{title}</p>
+        )}
+        {hint && (
+          <p
+            id={controlId ? `${controlId}-hint` : undefined}
+            className="mt-0.5 text-xs leading-5 text-office-subtext dark:text-slate-400"
+          >
+            {hint}
+          </p>
+        )}
+      </div>
+      <div className="min-w-0 sm:w-72 sm:shrink-0">{children}</div>
+    </div>
+  );
 }
 
 export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk = [], suratKeluar = [], agendaPimpinan = [] }: Props) {
@@ -293,243 +393,306 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
   }
 
   const notifPermission = getNotificationPermission();
+  const isCustomLogo = logoSrc !== '/kemenag-seeklogo.svg';
+  const readOnlyInput = 'bg-slate-50 dark:bg-slate-900/40';
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-5">
       <PageHeader
         title="Settings"
         icon={SettingsIcon}
-        description="Kelola akun, keamanan, dan tampilan aplikasi."
+        description="Kelola akun, keamanan, tampilan, dan notifikasi aplikasi."
       />
 
-      {/* Account info */}
-      <section className="soft-panel p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-office-text dark:text-slate-200 flex items-center gap-2">
-          <Mail size={16} className="text-office-primary" /> Akun
-        </h3>
-        <Field label="Username">
+      <SettingsPanel
+        icon={ShieldCheck}
+        title="Akun & Keamanan"
+        description="Identitas Anda di sistem dan kredensial untuk masuk."
+      >
+        <SettingRow controlId="set-username" label="Username" hint="Nama yang tampil di aplikasi.">
           {editingUsername ? (
-            <form onSubmit={handleUsername} className="flex gap-2">
-              <div className="relative flex-1">
-                <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-office-subtext dark:text-slate-400" />
-                <Input
-                  type="text"
-                  value={usernameEdit}
-                  onChange={(e) => setUsernameEdit(e.target.value)}
-                  className="pl-9"
-                  required
-                  autoFocus
-                />
+            <form onSubmit={handleUsername} className="space-y-2">
+              <Input
+                id="set-username"
+                aria-describedby="set-username-hint"
+                type="text"
+                value={usernameEdit}
+                onChange={(e) => setUsernameEdit(e.target.value)}
+                required
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <Button type="submit" size="sm" disabled={busyUsername} className="flex-1 sm:flex-none">
+                  <Save size={14} /> Simpan
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="flex-1 sm:flex-none"
+                  onClick={() => { setEditingUsername(false); setUsernameEdit(user?.username ?? ''); }}
+                >
+                  Batal
+                </Button>
               </div>
-              <Button type="submit" size="sm" disabled={busyUsername}>
-                <Save size={14} /> Simpan
-              </Button>
-              <Button type="button" variant="secondary" size="sm" onClick={() => { setEditingUsername(false); setUsernameEdit(user?.username ?? ''); }}>
-                Batal
-              </Button>
             </form>
           ) : (
             <div className="flex gap-2">
-              <div className="relative flex-1">
-                <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-office-subtext dark:text-slate-400" />
-                <Input value={user?.username ?? ''} readOnly className="pl-9 bg-slate-50 dark:bg-slate-900/40" />
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setEditingUsername(true)}>
-                <User size={14} /> Ubah
+              <Input
+                id="set-username"
+                aria-describedby="set-username-hint"
+                value={user?.username ?? ''}
+                readOnly
+                className={readOnlyInput}
+              />
+              <Button variant="outline" size="sm" className="shrink-0" onClick={() => setEditingUsername(true)}>
+                Ubah
               </Button>
             </div>
           )}
-        </Field>
-        <Field label="Email">
-          <div className="relative">
-            <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-office-subtext dark:text-slate-400" />
-            <Input value={user?.email ?? ''} readOnly className="pl-9 bg-slate-50 dark:bg-slate-900/40" />
-          </div>
-        </Field>
-        <p className="text-xs text-office-subtext dark:text-slate-400">
-          Email adalah identitas akun Anda dan tidak dapat diubah. Setiap pengguna memiliki akun dengan email sendiri.
-        </p>
+        </SettingRow>
+
+        <SettingRow
+          controlId="set-email"
+          label="Email"
+          hint="Identitas akun Anda dan tidak dapat diubah. Setiap pengguna memiliki email sendiri."
+        >
+          <Input
+            id="set-email"
+            aria-describedby="set-email-hint"
+            value={user?.email ?? ''}
+            readOnly
+            className={readOnlyInput}
+          />
+        </SettingRow>
+
         {user?.role && (
-          <div className="flex items-center gap-2">
-            <ShieldAlert size={14} className="text-office-subtext dark:text-slate-400" />
-            <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${user.role === 'admin' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-700/50 dark:text-slate-300'}`}>
+          <SettingRow label="Peran" hint="Menentukan tindakan yang tersedia untuk Anda.">
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-chip px-2.5 py-1 text-xs font-semibold ${user.role === 'admin' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-700/50 dark:text-slate-300'}`}
+            >
+              <ShieldAlert size={13} aria-hidden="true" />
               {user.role === 'admin' ? 'Admin — bisa hapus data' : 'Staf — lihat & input saja'}
             </span>
-          </div>
+          </SettingRow>
         )}
-      </section>
 
-      {/* Appearance */}
-      <section className="soft-panel p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-office-text dark:text-slate-200 flex items-center gap-2">
-          <Sun size={16} className="text-amber-500" /> Tampilan
-        </h3>
+        <SettingRow controlId="set-password" label="Password Baru" required hint="Minimal 6 karakter.">
+          <form onSubmit={handlePassword} className="space-y-2">
+            <Input
+              id="set-password"
+              aria-describedby="set-password-hint"
+              type="password"
+              value={newPw}
+              onChange={(e) => setNewPw(e.target.value)}
+              autoComplete="new-password"
+              required
+            />
+            <Button type="submit" size="sm" disabled={busyPw} className="w-full sm:w-auto">
+              <Save size={14} /> {busyPw ? 'Menyimpan...' : 'Ubah Password'}
+            </Button>
+          </form>
+        </SettingRow>
+      </SettingsPanel>
 
-        {/* Logo customization */}
-        <div className="flex flex-col gap-4 bg-slate-50 dark:bg-slate-900/40 rounded-xl p-4 border border-office-border dark:border-slate-700">
-          <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
+      <SettingsPanel icon={Sun} title="Tampilan" description="Tema dan identitas visual aplikasi.">
+        <SettingRow
+          label="Mode Tampilan"
+          hint={`Saat ini: ${theme === 'dark' ? 'Dark Mode' : 'Light Mode'}.`}
+        >
+          <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={onToggleTheme}>
+            {theme === 'dark' ? <><Sun size={15} /> Ganti ke Light</> : <><Moon size={15} /> Ganti ke Dark</>}
+          </Button>
+        </SettingRow>
+
+        <SettingRow
+          label="Logo Aplikasi"
+          hint="Tampil di sidebar, halaman login, dan tab browser. PNG/JPG/SVG, maks. 2 MB."
+        >
+          <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <Logo size={Math.max(48, Math.min(96, logoSize))} />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-office-text dark:text-slate-200">Logo Aplikasi</p>
-                <p className="text-xs text-office-subtext dark:text-slate-400">Tampil di sidebar, halaman login, dan tab browser. PNG/JPG/SVG, maks. 2 MB.</p>
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-control border border-office-border bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40">
+                <Logo size={Math.max(28, Math.min(52, logoSize))} />
+              </span>
+              <div className="flex flex-wrap gap-2">
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                  onChange={handleLogoChange}
+                  className="hidden"
+                />
+                <Button variant="outline" size="sm" onClick={() => logoInputRef.current?.click()}>
+                  <Upload size={15} /> Unggah
+                </Button>
+                {isCustomLogo && (
+                  <Button variant="ghost" size="sm" onClick={handleResetLogo}>
+                    <RotateCcw size={15} /> Default
+                  </Button>
+                )}
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" onChange={handleLogoChange} className="hidden" />
-              <Button variant="outline" size="sm" onClick={() => logoInputRef.current?.click()}>
-                <Upload size={15} /> Unggah
-              </Button>
-              {logoSrc !== '/kemenag-seeklogo.svg' && (
-                <Button variant="ghost" size="sm" onClick={handleResetLogo}>
-                  <RotateCcw size={15} /> Default
-                </Button>
-              )}
-            </div>
-          </div>
-          <div className="flex flex-col gap-2 sm:max-w-xs">
-            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Ukuran Logo (px)</label>
-            <input
-              type="range"
-              min="24"
-              max="220"
-              value={logoSize}
-              onChange={(e) => handleLogoSizeChange(Number(e.target.value))}
-              className="accent-emerald-600"
-            />
-            <p className="text-xs text-slate-500 dark:text-slate-400">Ukuran saat ini: {logoSize}px</p>
-          </div>
-        </div>
-
-        {/* Theme toggle */}
-        <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900/40 rounded-xl p-4 border border-office-border dark:border-slate-700">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-office-primary/10 flex items-center justify-center">
-              {theme === 'dark' ? <Moon size={18} className="text-office-primary" /> : <Sun size={18} className="text-amber-500" />}
-            </div>
             <div>
-              <p className="text-sm font-medium text-office-text dark:text-slate-200">Mode Tampilan</p>
-              <p className="text-xs text-office-subtext dark:text-slate-400">Saat ini: {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</p>
+              <div className="flex items-baseline justify-between gap-2">
+                <label htmlFor="set-logo-size" className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  Ukuran logo
+                </label>
+                <span className="text-xs tabular-nums text-slate-500 dark:text-slate-400">{logoSize}px</span>
+              </div>
+              <input
+                id="set-logo-size"
+                type="range"
+                min="24"
+                max="220"
+                value={logoSize}
+                onChange={(e) => handleLogoSizeChange(Number(e.target.value))}
+                className="mt-2 h-6 w-full accent-emerald-600"
+              />
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={onToggleTheme}>
-            {theme === 'dark' ? <><Sun size={15} /> Light</> : <><Moon size={15} /> Dark</>}
-          </Button>
-        </div>
-      </section>
+        </SettingRow>
+      </SettingsPanel>
 
-      {/* PWA */}
-      <section className="soft-panel p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-office-text dark:text-slate-200 flex items-center gap-2">
-          <Smartphone size={16} className="text-emerald-600" /> Instal Aplikasi Android
-        </h3>
-        <div className="rounded-xl border border-emerald-100/70 bg-emerald-50/70 p-4 dark:border-slate-700 dark:bg-emerald-950/20">
-          <p className="text-sm text-slate-700 dark:text-slate-200">Pasang aplikasi ini sebagai PWA agar tampil seperti aplikasi Android dengan nama <span className="font-semibold">Agenda Pimpinan Kanwil</span>.</p>
-          {alreadyInstalled ? (
-            <p className="mt-3 text-sm font-medium text-emerald-700 dark:text-emerald-300">Aplikasi sudah terpasang di perangkat ini.</p>
-          ) : (
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button variant="primary" size="sm" onClick={handleInstallApp} disabled={!installable}>
-                <Smartphone size={15} /> {installable ? 'Install Sekarang' : 'Menunggu izin browser…'}
-              </Button>
-              {!installable && (
-                <p className="w-full text-xs text-slate-500 dark:text-slate-400">
-                  Tombol aktif otomatis begitu Chrome/Edge mengizinkan instalasi (biasanya setelah beberapa kali buka & login). Di iPhone/iPad, pasang lewat menu Share → "Add to Home Screen".
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Reminder (Web Push): Agenda Pimpinan + Surat Masuk terlambat */}
-      <section className="soft-panel p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-office-text dark:text-slate-200 flex items-center gap-2">
-          <BellRing size={16} className="text-emerald-600" /> Reminder Agenda & Surat Masuk
-        </h3>
-        <div className="rounded-xl border border-emerald-100/70 bg-emerald-50/70 p-4 dark:border-slate-700 dark:bg-emerald-950/20">
-          <p className="text-sm text-slate-700 dark:text-slate-200">
-            Dapatkan notifikasi otomatis di perangkat ini untuk agenda pimpinan yang jadwalnya <span className="font-semibold">besok (H-1)</span> dan <span className="font-semibold">hari ini (hari-H)</span>, serta surat masuk yang <span className="font-semibold">terlambat diproses</span>.
-          </p>
-
+      <SettingsPanel
+        icon={BellRing}
+        title="Notifikasi & Perangkat"
+        description="Reminder otomatis, ambang keterlambatan, dan pemasangan aplikasi."
+      >
+        <SettingRow
+          label="Reminder Agenda & Surat Masuk"
+          hint={
+            <>
+              Notifikasi di perangkat ini untuk agenda pimpinan <span className="font-semibold">besok (H-1)</span> dan{' '}
+              <span className="font-semibold">hari ini (hari-H)</span>, serta surat masuk yang{' '}
+              <span className="font-semibold">terlambat diproses</span>.
+            </>
+          }
+        >
           {notifPermission === 'unsupported' ? (
-            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Browser ini tidak mendukung notifikasi push. Coba buka lewat Chrome/Edge terbaru.</p>
+            <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">
+              Browser ini tidak mendukung notifikasi push. Coba buka lewat Chrome/Edge terbaru.
+            </p>
           ) : notifPermission === 'denied' ? (
-            <p className="mt-3 text-sm text-rose-600 dark:text-rose-300">Izin notifikasi diblokir di browser ini. Aktifkan lewat pengaturan situs (ikon gembok di address bar) lalu muat ulang halaman.</p>
+            <p className="text-xs leading-5 text-rose-600 dark:text-rose-300">
+              Izin notifikasi diblokir di browser ini. Aktifkan lewat pengaturan situs (ikon gembok di address bar) lalu
+              muat ulang halaman.
+            </p>
           ) : (
-            <div className="mt-3 flex flex-wrap items-center gap-3">
+            <div className="space-y-2">
               <Button
                 variant={reminderSubscribed ? 'secondary' : 'primary'}
                 size="sm"
+                className="w-full sm:w-auto"
                 onClick={handleToggleReminder}
                 disabled={reminderBusy}
               >
-                {reminderSubscribed ? <><BellOff size={15} /> Nonaktifkan Reminder</> : <><BellRing size={15} /> Aktifkan Reminder</>}
+                {reminderSubscribed ? <><BellOff size={15} /> Nonaktifkan</> : <><BellRing size={15} /> Aktifkan</>}
               </Button>
-              <span className={`text-xs font-medium ${reminderSubscribed ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}`}>
+              <p
+                className={`text-xs font-medium ${reminderSubscribed ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}`}
+              >
                 {reminderSubscribed ? 'Aktif di perangkat ini' : 'Belum aktif di perangkat ini'}
-              </span>
+              </p>
             </div>
           )}
-        </div>
+        </SettingRow>
 
-        <div className="rounded-xl border border-office-border bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/30">
-          <p className="text-sm font-medium text-office-text dark:text-slate-200 flex items-center gap-2">
-            <Timer size={15} className="text-office-primary dark:text-emerald-400" /> Ambang Waktu Terlambat
-          </p>
-          <p className="mt-1 text-xs text-office-subtext dark:text-slate-400">
-            Surat masuk yang berstatus "Diproses" lebih dari sekian hari kerja (Senin-Jumat, tidak termasuk akhir pekan) akan ditandai terlambat di halaman Surat Masuk, Dashboard, dan lewat notifikasi. Berlaku untuk seluruh kantor.
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {canManageThreshold ? (
-              <>
+        <SettingRow
+          controlId={canManageThreshold ? 'set-threshold' : undefined}
+          label="Ambang Waktu Terlambat"
+          hint='Surat masuk berstatus "Diproses" lebih dari sekian hari kerja (Senin–Jumat) ditandai terlambat di Surat Masuk, Dashboard, dan notifikasi. Berlaku untuk seluruh kantor.'
+        >
+          {canManageThreshold ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
                 <Input
+                  id="set-threshold"
+                  aria-describedby="set-threshold-hint"
                   type="number"
                   min={1}
                   value={overdueThresholdInput}
                   onChange={(e) => setOverdueThresholdInput(e.target.value)}
-                  className="w-24"
+                  className="w-20 shrink-0"
                 />
-                <span className="text-sm text-office-subtext dark:text-slate-400">hari kerja</span>
-                <Button size="sm" variant="outline" onClick={handleSaveThreshold} disabled={savingThreshold || overdueThresholdInput === String(overdueThreshold)}>
-                  <Save size={14} /> Simpan
-                </Button>
-              </>
-            ) : (
-              <>
-                {/* Staf still sees the value in force — it explains the badges on
-                    Surat Masuk and the Dashboard — but gets no write control at
-                    all, rather than a control that fails on save. */}
-                <span className="rounded-lg border border-office-border bg-white px-3 py-1.5 text-sm font-semibold text-office-text dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
-                  {overdueThreshold}
-                </span>
-                <span className="text-sm text-office-subtext dark:text-slate-400">hari kerja</span>
-                <span className="inline-flex items-center gap-1 text-xs text-office-subtext dark:text-slate-400">
-                  <ShieldAlert size={13} /> Hanya admin yang dapat mengubah setelan kantor ini.
-                </span>
-              </>
-            )}
-          </div>
-        </div>
-      </section>
+                <span className="text-body text-office-subtext dark:text-slate-400">hari kerja</span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={handleSaveThreshold}
+                disabled={savingThreshold || overdueThresholdInput === String(overdueThreshold)}
+              >
+                <Save size={14} /> Simpan
+              </Button>
+            </div>
+          ) : (
+            /* Staf still sees the value in force — it explains the badges on
+               Surat Masuk and the Dashboard — but gets no write control at
+               all, rather than a control that fails on save. */
+            <div className="space-y-1.5">
+              <p className="text-body text-office-text dark:text-slate-100">
+                <span className="text-body-strong tabular-nums">{overdueThreshold}</span> hari kerja
+              </p>
+              <p className="inline-flex items-start gap-1 text-xs text-office-subtext dark:text-slate-400">
+                <ShieldAlert size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+                Hanya admin yang dapat mengubah setelan kantor ini.
+              </p>
+            </div>
+          )}
+        </SettingRow>
+
+        <SettingRow
+          label="Instal Aplikasi"
+          hint={
+            <>
+              Pasang sebagai aplikasi Android (PWA) dengan nama{' '}
+              <span className="font-semibold">Agenda Pimpinan Kanwil</span>.
+            </>
+          }
+        >
+          {alreadyInstalled ? (
+            <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
+              Aplikasi sudah terpasang di perangkat ini.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto"
+                onClick={handleInstallApp}
+                disabled={!installable}
+              >
+                {installable ? 'Install Sekarang' : 'Menunggu izin browser…'}
+              </Button>
+              {!installable && (
+                <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">
+                  Tombol aktif otomatis begitu Chrome/Edge mengizinkan instalasi. Di iPhone/iPad, pasang lewat menu
+                  Share → "Add to Home Screen".
+                </p>
+              )}
+            </div>
+          )}
+        </SettingRow>
+      </SettingsPanel>
 
       {/* Activity log (simple audit trail from existing createdByEmail data) */}
-      <section className="soft-panel p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-office-text dark:text-slate-200 flex items-center gap-2">
-          <History size={16} className="text-office-primary" /> Aktivitas Terbaru
-        </h3>
+      <SettingsPanel icon={History} title="Aktivitas Terbaru" description="10 perubahan data terakhir di seluruh kantor.">
         {recentActivity.length === 0 ? (
-          <EmptyState icon={History} title="Belum ada aktivitas" description="Aktivitas terbaru akan muncul di sini." compact />
+          <div className="px-4 py-5 sm:px-5">
+            <EmptyState icon={History} title="Belum ada aktivitas" description="Aktivitas terbaru akan muncul di sini." compact />
+          </div>
         ) : (
-          <ul className="divide-y divide-office-border dark:divide-slate-700/60">
+          <ul className="divide-y divide-office-border px-4 dark:divide-slate-700/60 sm:px-5">
             {recentActivity.map((item) => (
-              <li key={item.id} className="flex items-start justify-between gap-3 py-2.5">
+              <li key={item.id} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-office-text dark:text-slate-200">{item.label}</p>
+                  <p className="truncate text-body text-office-text dark:text-slate-200">{item.label}</p>
                   <p className="text-xs text-office-subtext dark:text-slate-400">oleh {item.by}</p>
                 </div>
-                <div className="flex shrink-0 flex-col items-end gap-1">
-                  <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium ${kindBadge[item.kind]}`}>
+                <div className="flex shrink-0 items-center gap-2 sm:flex-col sm:items-end sm:gap-1">
+                  <span className={`inline-flex items-center rounded-chip px-2 py-0.5 text-[11px] font-medium ${kindBadge[item.kind]}`}>
                     {kindLabel[item.kind]}
                   </span>
                   <span className="text-[11px] text-office-subtext dark:text-slate-500">{formatDateTime(item.at)}</span>
@@ -538,27 +701,9 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
             ))}
           </ul>
         )}
-      </section>
+      </SettingsPanel>
 
-      {/* Password */}
-      <section className="soft-panel p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-office-text dark:text-slate-200 flex items-center gap-2">
-          <ShieldCheck size={16} className="text-emerald-600" /> Keamanan
-        </h3>
-        <form onSubmit={handlePassword} className="space-y-4">
-          <Field label="Password Baru" required hint="Minimal 6 karakter">
-            <div className="relative">
-              <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-office-subtext dark:text-slate-400" />
-              <Input type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} className="pl-9" required />
-            </div>
-          </Field>
-          <Button type="submit" disabled={busyPw}>
-            <Save size={16} /> {busyPw ? 'Menyimpan...' : 'Ubah Password'}
-          </Button>
-        </form>
-      </section>
-
-      <p className="text-xs text-office-subtext dark:text-slate-500 text-center pt-2">
+      <p className="pt-1 text-center text-xs text-office-subtext dark:text-slate-500">
         Aplikasi internal Kanwil · Data tersimpan di cloud dan dapat diakses dari mana saja
       </p>
     </div>
