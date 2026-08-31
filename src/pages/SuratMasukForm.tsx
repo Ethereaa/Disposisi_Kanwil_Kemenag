@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Save, Plus, X, Zap, Repeat, FileSearch, Loader2 } from 'lucide-react';
+import { Save, Plus, X, Zap, Repeat, FileSearch } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Field, Input, Textarea, Select, FormSection, FormErrorSummary } from '@/components/ui/Form';
+import { Field, Input, Textarea, Select, FormSection, FormErrorSummary, FormActions } from '@/components/ui/Form';
 import { AttachmentField } from '@/components/ui/AttachmentField';
 import { useToast } from '@/components/ui/Toast';
 import {
@@ -27,6 +27,7 @@ import { extractTextFromAttachmentFile, parseSuratFields } from '@/lib/ocr';
 import { getErrorMessage } from '@/lib/error';
 import { useInputMode } from '@/lib/useInputMode';
 import { useDebounce } from '@/lib/useDebounce';
+import { useFieldRefs } from '@/lib/useFieldRefs';
 
 interface Props {
   editing?: SuratMasuk | null;
@@ -60,7 +61,7 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
   const nomorSuratRef = useRef<HTMLInputElement>(null);
   // Validated controls, so a failed submit can put the cursor on the first
   // field that actually needs attention instead of only colouring it.
-  const requiredRefs = useRef<Record<string, HTMLElement | null>>({});
+  const { register, focusField } = useFieldRefs();
   const { toast } = useToast();
 
   // OCR-reads the first lampiran (assumed to be page 1 of the letter) and
@@ -167,11 +168,7 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
     }
     setErrors(e);
     const firstInvalid = Object.keys(e)[0];
-    if (firstInvalid) {
-      const el = requiredRefs.current[firstInvalid];
-      el?.scrollIntoView({ block: 'center' });
-      el?.focus();
-    }
+    if (firstInvalid) focusField(firstInvalid);
     return Object.keys(e).length === 0;
   }
 
@@ -234,7 +231,9 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
   }
 
   const isKabagTU = form.tujuanDisposisi === 'Kabag TU';
-  const errorMessages = Object.values(errors).filter(Boolean);
+  const fieldErrors = Object.entries(errors)
+    .filter(([, message]) => !!message)
+    .map(([key, message]) => ({ key, message }));
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -276,7 +275,7 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
         )}
       </div>
 
-      <FormErrorSummary messages={errorMessages} />
+      <FormErrorSummary errors={fieldErrors} onJump={focusField} />
 
       <FormSection title="Identitas Surat" hint="Nomor & tanggal sesuai surat fisik">
         <div className="grid gap-4 sm:grid-cols-2">
@@ -304,7 +303,7 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
           </Field>
           <Field label="Tanggal Surat" required error={errors.tanggalSurat}>
             <Input
-              ref={(el) => { requiredRefs.current.tanggalSurat = el; }}
+              ref={register('tanggalSurat')}
               type="date"
               value={form.tanggalSurat}
               onChange={(e) => update('tanggalSurat', e.target.value)}
@@ -312,7 +311,7 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
           </Field>
           <Field label="Tanggal Diterima" required error={errors.tanggalDiterima}>
             <Input
-              ref={(el) => { requiredRefs.current.tanggalDiterima = el; }}
+              ref={register('tanggalDiterima')}
               type="date"
               value={form.tanggalDiterima}
               onChange={(e) => update('tanggalDiterima', e.target.value)}
@@ -339,7 +338,7 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Tujuan Disposisi" required error={errors.tujuanDisposisi}>
             <Select
-              ref={(el) => { requiredRefs.current.tujuanDisposisi = el; }}
+              ref={register('tujuanDisposisi')}
               value={form.tujuanDisposisi}
               onChange={(e) => update('tujuanDisposisi', e.target.value as TujuanDisposisi | '')}
               placeholder="-- Pilih Tujuan --"
@@ -349,7 +348,7 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
           {isKabagTU && (
             <Field label="Sub Disposisi (Kabag TU)" required={isKabagTU} error={errors.subDisposisi}>
               <Select
-                ref={(el) => { requiredRefs.current.subDisposisi = el; }}
+                ref={register('subDisposisi')}
                 value={form.subDisposisi}
                 onChange={(e) => update('subDisposisi', e.target.value as SubDisposisi | '')}
                 placeholder="-- Pilih Sub --"
@@ -378,21 +377,7 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
           />
         </Field>
 
-        <Field
-          label="Lampiran / Scan Surat Asli"
-          asGroup
-          hint={
-            <button
-              type="button"
-              disabled={ocrBusy || busy || form.lampiran.length === 0}
-              onClick={handleAutoFillFromScan}
-              className="inline-flex items-center gap-1 font-medium text-office-primary hover:underline disabled:opacity-50 disabled:no-underline dark:text-emerald-400"
-            >
-              {ocrBusy ? <Loader2 size={12} className="animate-spin" /> : <FileSearch size={12} />}
-              {ocrBusy ? 'Membaca...' : 'Baca Otomatis dari Foto (isi Nomor Surat & Tanggal)'}
-            </button>
-          }
-        >
+        <Field label="Lampiran / Scan Surat Asli" asGroup>
           <AttachmentField
             folder="surat-masuk"
             value={form.lampiran}
@@ -400,24 +385,43 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
             disabled={busy}
           />
         </Field>
+
+        {/* OCR assist. Previously passed as the Field's `hint`, which put an
+            interactive control inside the text that `aria-describedby` points
+            at — read out as part of the field's description instead of being
+            reachable as an action. It is its own row now. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-control border border-office-border bg-slate-50 px-3.5 py-3 dark:border-slate-700 dark:bg-slate-900/40">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            isLoading={ocrBusy}
+            disabled={busy || form.lampiran.length === 0}
+            onClick={handleAutoFillFromScan}
+          >
+            {!ocrBusy && <FileSearch size={14} aria-hidden="true" />}
+            {ocrBusy ? 'Membaca...' : 'Baca Otomatis dari Foto'}
+          </Button>
+          <p className="min-w-0 flex-1 text-xs text-office-subtext dark:text-slate-400">
+            Mengisi Nomor Surat &amp; Tanggal Surat dari lampiran pertama.
+            {form.lampiran.length === 0 && ' Upload lampiran dulu untuk memakainya.'}
+          </p>
+        </div>
       </FormSection>
 
-      {/* Actions. Sticky to the bottom of the scrolling modal body (whose
-          padding the negative margins cancel) so Simpan stays reachable on a
-          phone without scrolling the whole form. */}
-      <div className="sticky bottom-0 -mx-5 -mb-4 flex flex-col gap-2 border-t border-office-border bg-white/95 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:flex-row sm:pb-3 dark:border-slate-700 dark:bg-slate-800/95">
-        <Button type="submit" disabled={busy} className="w-full min-h-11 sm:w-auto sm:min-h-10">
+      <FormActions>
+        <Button type="submit" disabled={busy} className="w-full sm:w-auto">
           <Save size={16} aria-hidden="true" /> {busy ? 'Menyimpan...' : 'Simpan'}
         </Button>
         {!editing && (
-          <Button type="button" variant="outline" disabled={busy} onClick={() => save(true)} className="w-full min-h-11 sm:w-auto sm:min-h-10">
-            <Plus size={16} aria-hidden="true" /> Simpan & Input Berikutnya
+          <Button type="button" variant="outline" disabled={busy} onClick={() => save(true)} className="w-full sm:w-auto">
+            <Plus size={16} aria-hidden="true" /> Simpan &amp; Input Berikutnya
           </Button>
         )}
-        <Button type="button" variant="secondary" onClick={onCancel} disabled={busy} className="w-full min-h-11 sm:w-auto sm:min-h-10">
+        <Button type="button" variant="secondary" onClick={onCancel} disabled={busy} className="w-full sm:w-auto">
           <X size={16} aria-hidden="true" /> Batal
         </Button>
-      </div>
+      </FormActions>
     </form>
   );
 }

@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Field, Input, Select, FormSection, FormErrorSummary } from '@/components/ui/Form';
+import { Field, Input, Select, FormSection, FormErrorSummary, FormActions } from '@/components/ui/Form';
 import { AttachmentField } from '@/components/ui/AttachmentField';
 import { useToast } from '@/components/ui/Toast';
 import { AGENDA_KETERANGAN_OPTIONS, type AgendaPimpinan, type Attachment } from '@/types';
 import { insertAgendaPimpinanSorted, updateAgendaPimpinan, updateLampiran } from '@/lib/db';
 import { todayISO } from '@/lib/date';
 import { getErrorMessage } from '@/lib/error';
+import { useFieldRefs } from '@/lib/useFieldRefs';
 
 interface Props {
   editing?: AgendaPimpinan | null;
@@ -32,7 +33,7 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
   const [busy, setBusy] = useState(false);
   // Validated controls, so a failed submit can put the cursor on the first
   // field that actually needs attention instead of only colouring it.
-  const requiredRefs = useRef<Record<string, HTMLElement | null>>({});
+  const { register, focusField } = useFieldRefs();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -72,11 +73,7 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
     if (!form.disposisiPegawai) e.disposisiPegawai = 'Disposisi pegawai wajib diisi';
     setErrors(e);
     const firstInvalid = Object.keys(e)[0];
-    if (firstInvalid) {
-      const el = requiredRefs.current[firstInvalid];
-      el?.scrollIntoView({ block: 'center' });
-      el?.focus();
-    }
+    if (firstInvalid) focusField(firstInvalid);
     return Object.keys(e).length === 0;
   }
 
@@ -127,17 +124,19 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
     }
   }
 
-  const errorMessages = Object.values(errors).filter(Boolean);
+  const fieldErrors = Object.entries(errors)
+    .filter(([, message]) => !!message)
+    .map(([key, message]) => ({ key, message }));
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <FormErrorSummary messages={errorMessages} />
+      <FormErrorSummary errors={fieldErrors} onJump={focusField} />
 
       <FormSection title="Jadwal" hint="Semua kolom pada bagian ini wajib">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Tanggal Kegiatan" required error={errors.tanggalKegiatan}>
             <Input
-              ref={(el) => { requiredRefs.current.tanggalKegiatan = el; }}
+              ref={register('tanggalKegiatan')}
               type="date"
               value={form.tanggalKegiatan}
               onChange={(e) => update('tanggalKegiatan', e.target.value)}
@@ -145,7 +144,7 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
           </Field>
           <Field label="Waktu Kegiatan" required hint="Format 24 jam, contoh 14:30" error={errors.waktuKegiatan}>
             <Input
-              ref={(el) => { requiredRefs.current.waktuKegiatan = el; }}
+              ref={register('waktuKegiatan')}
               type="time"
               value={form.waktuKegiatan}
               onChange={(e) => update('waktuKegiatan', e.target.value)}
@@ -153,7 +152,7 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
           </Field>
           <Field label="Nama Kegiatan" required error={errors.namaKegiatan}>
             <Input
-              ref={(el) => { requiredRefs.current.namaKegiatan = el; }}
+              ref={register('namaKegiatan')}
               value={form.namaKegiatan}
               onChange={(e) => update('namaKegiatan', e.target.value)}
               placeholder="Nama kegiatan"
@@ -161,7 +160,7 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
           </Field>
           <Field label="Tempat Kegiatan" required error={errors.tempatKegiatan}>
             <Input
-              ref={(el) => { requiredRefs.current.tempatKegiatan = el; }}
+              ref={register('tempatKegiatan')}
               value={form.tempatKegiatan}
               onChange={(e) => update('tempatKegiatan', e.target.value)}
               placeholder="Tempat kegiatan"
@@ -174,7 +173,7 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Keterangan" required error={errors.keterangan}>
             <Select
-              ref={(el) => { requiredRefs.current.keterangan = el; }}
+              ref={register('keterangan')}
               value={form.keterangan}
               onChange={(e) => update('keterangan', e.target.value)}
               placeholder="-- Pilih Keterangan --"
@@ -183,7 +182,7 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
           </Field>
           <Field label="Disposisi Pegawai" required error={errors.disposisiPegawai}>
             <Input
-              ref={(el) => { requiredRefs.current.disposisiPegawai = el; }}
+              ref={register('disposisiPegawai')}
               value={form.disposisiPegawai}
               onChange={(e) => update('disposisiPegawai', e.target.value)}
               placeholder="Nama pegawai / disposisi"
@@ -203,17 +202,14 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
         </Field>
       </FormSection>
 
-      {/* Actions. Sticky to the bottom of the scrolling modal body (whose
-          padding the negative margins cancel) so Simpan stays reachable on a
-          phone without scrolling the whole form. */}
-      <div className="sticky bottom-0 -mx-5 -mb-4 flex flex-col gap-2 border-t border-office-border bg-white/95 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:flex-row sm:pb-3 dark:border-slate-700 dark:bg-slate-800/95">
-        <Button type="submit" disabled={busy} className="w-full min-h-11 sm:w-auto sm:min-h-10">
+      <FormActions>
+        <Button type="submit" disabled={busy} className="w-full sm:w-auto">
           <Save size={16} aria-hidden="true" /> {busy ? 'Menyimpan...' : 'Simpan'}
         </Button>
-        <Button type="button" variant="secondary" onClick={onCancel} disabled={busy} className="w-full min-h-11 sm:w-auto sm:min-h-10">
+        <Button type="button" variant="secondary" onClick={onCancel} disabled={busy} className="w-full sm:w-auto">
           <X size={16} aria-hidden="true" /> Batal
         </Button>
-      </div>
+      </FormActions>
     </form>
   );
 }

@@ -254,25 +254,78 @@ export function FormSection({
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// FORM-LEVEL ERROR REPORTING
+// The registry that makes a summary line clickable lives in
+// `@/lib/useFieldRefs` — `focusField` from there is what `onJump` wants.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface FieldError {
+  /** Form-state key, matching the one used to register the control. */
+  key: string;
+  message: string;
+}
+
 /** Collected required-field messages, shown at the top of a form after a
  *  failed submit — the per-field message can be scrolled out of sight in a
- *  modal, so the summary is what tells you why nothing saved. */
-export function FormErrorSummary({ messages }: { messages: string[] }) {
-  if (messages.length === 0) return null;
+ *  modal, so the summary is what tells you why nothing saved.
+ *
+ *  Each entry carries the field key it came from, so the summary line can also
+ *  be the way BACK to that field: on a long form in a modal, reading "Tanggal
+ *  surat wajib diisi" and then having to hunt for the control is the actual
+ *  friction, not the missing message. */
+export function FormErrorSummary({
+  errors,
+  onJump,
+}: {
+  errors: FieldError[];
+  /** Usually `focusField` from {@link useFieldRefs}. Omit for forms whose
+   *  invalid controls aren't registered — the lines then render as plain text. */
+  onJump?: (key: string) => void;
+}) {
+  if (errors.length === 0) return null;
   return (
     <div
       role="alert"
       className="flex gap-2.5 rounded-control border border-rose-200 bg-rose-50 px-3.5 py-3 dark:border-rose-500/40 dark:bg-rose-500/10"
     >
       <AlertCircle size={16} className="mt-0.5 shrink-0 text-rose-600 dark:text-rose-400" aria-hidden="true" />
-      <div className="space-y-1 text-xs text-rose-700 dark:text-rose-300">
+      <div className="min-w-0 space-y-1 text-xs text-rose-700 dark:text-rose-300">
         <p className="text-sm font-semibold">Data belum lengkap</p>
-        <ul className="list-inside list-disc space-y-0.5">
-          {messages.map((m) => (
-            <li key={m}>{m}</li>
+        <ul className="list-disc space-y-0.5 pl-4">
+          {errors.map(({ key, message }) => (
+            <li key={key}>
+              {onJump ? (
+                <button
+                  type="button"
+                  onClick={() => onJump(key)}
+                  className="focus-ring inline-flex min-h-8 items-center rounded text-left underline decoration-rose-400/70 underline-offset-2 hover:decoration-rose-600 sm:min-h-0 dark:hover:decoration-rose-200"
+                >
+                  {message}
+                </button>
+              ) : (
+                message
+              )}
+            </li>
           ))}
         </ul>
       </div>
+    </div>
+  );
+}
+
+/** Sticky action bar for a form rendered inside a `Modal`.
+ *
+ *  The negative margins cancel the modal body's own `px-5 py-4`, so the bar
+ *  spans the full panel width and sits flush with its bottom edge; `sticky`
+ *  resolves against that same scrolling body, which is what keeps Simpan
+ *  reachable on a phone without scrolling the whole form. That coupling to
+ *  Modal's padding is why this lives here instead of being re-typed (and
+ *  drifting) in each form. */
+export function FormActions({ children }: { children: ReactNode }) {
+  return (
+    <div className="sticky bottom-0 z-10 -mx-5 -mb-4 flex flex-col gap-2 border-t border-office-border bg-white/95 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:flex-row sm:pb-3 dark:border-slate-700 dark:bg-slate-800/95">
+      {children}
     </div>
   );
 }

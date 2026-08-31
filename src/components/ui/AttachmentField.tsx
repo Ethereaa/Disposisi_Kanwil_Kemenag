@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { DragEvent, TouchEvent } from 'react';
+import type { DragEvent, ReactNode, TouchEvent } from 'react';
 import {
   Camera,
   FolderOpen,
@@ -31,6 +31,8 @@ import type { ScanMode } from '@/lib/attachments';
 import { detectDocumentCorners, warpPerspective } from '@/lib/documentDetection';
 import type { Quad } from '@/lib/documentDetection';
 import { useToast } from './Toast';
+import { Button } from './Button';
+import { IconButton } from './IconButton';
 import { Modal } from './Modal';
 import { Skeleton } from './Skeleton';
 import { CornerAdjustModal } from './CornerAdjustModal';
@@ -91,6 +93,56 @@ function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/** Wrapper for a row of {@link ToggleChip}s. `role="group"` + a name, so the
+ *  three settings rows below announce as "Mode dokumen"/"Filter scan"/… and
+ *  not as six loose buttons. */
+function ToggleGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div
+      role="group"
+      aria-label={label}
+      className="flex items-center gap-1 rounded-lg border border-office-border bg-white p-0.5 dark:border-slate-600 dark:bg-slate-800"
+    >
+      {children}
+    </div>
+  );
+}
+
+/** One segmented setting. These were `px-2 py-1` — roughly 24px tall, the
+ *  smallest hit targets left in the app — and carried their state in colour
+ *  alone. Now 44px on touch (back to compact from `sm:` up, matching the
+ *  form primitives) and `aria-pressed` for the on/off state. */
+function ToggleChip({
+  active,
+  disabled,
+  onClick,
+  title,
+  children,
+}: {
+  active: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      title={title}
+      aria-pressed={active}
+      className={`focus-ring inline-flex min-h-11 flex-1 items-center justify-center gap-1 rounded-md px-2.5 text-xs font-medium transition-colors disabled:opacity-50 sm:min-h-8 sm:flex-none ${
+        active
+          ? 'bg-office-primary text-white'
+          : 'text-office-subtext hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700'
+      }`}
+    >
+      {children}
+    </button>
+  );
 }
 
 export function AttachmentField({ value, onChange, folder, disabled, readOnly }: Props) {
@@ -468,97 +520,94 @@ export function AttachmentField({ value, onChange, folder, disabled, readOnly }:
       {!readOnly && (
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <button
+            <Button
               type="button"
+              variant="outline"
               disabled={isDisabled}
+              isLoading={busy}
               onClick={() => cameraInputRef.current?.click()}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-white/70 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-emerald-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-100 dark:hover:bg-slate-700"
+              className="flex-1 sm:flex-none"
             >
-              {busy ? <Loader2 size={15} className="animate-spin" /> : <Camera size={15} />}
+              {!busy && <Camera size={16} aria-hidden="true" />}
               Ambil Foto
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
               disabled={isDisabled}
               onClick={() => pickInputRef.current?.click()}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-white/70 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-emerald-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-100 dark:hover:bg-slate-700"
+              className="flex-1 sm:flex-none"
             >
-              <FolderOpen size={15} />
+              <FolderOpen size={16} aria-hidden="true" />
               Pilih File
-            </button>
-
-            {/* Single-document vs batch: controls what happens when more than
-                one photo is captured/picked in the same go (see handleFiles). */}
-            <div className="ml-auto flex items-center gap-1 rounded-lg border border-office-border bg-white p-0.5 dark:border-slate-600 dark:bg-slate-800">
-              <button
-                type="button"
-                disabled={isDisabled}
-                onClick={() => setPhotoMode('single')}
-                title="Beberapa foto digabung jadi 1 PDF multi-halaman"
-                className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-all disabled:opacity-50 ${photoMode === 'single' ? 'bg-office-primary text-white' : 'text-office-subtext dark:text-slate-400'}`}
-              >
-                <FileText size={12} /> 1 Dokumen
-              </button>
-              <button
-                type="button"
-                disabled={isDisabled}
-                onClick={() => setPhotoMode('batch')}
-                title="Tiap foto jadi dokumen terpisah"
-                className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-all disabled:opacity-50 ${photoMode === 'batch' ? 'bg-office-primary text-white' : 'text-office-subtext dark:text-slate-400'}`}
-              >
-                <Copy size={12} /> Batch
-              </button>
-            </div>
+            </Button>
           </div>
+
+          {/* Single-document vs batch: controls what happens when more than
+              one photo is captured/picked in the same go (see handleFiles). */}
+          <ToggleGroup label="Mode dokumen">
+            <ToggleChip
+              active={photoMode === 'single'}
+              disabled={isDisabled}
+              onClick={() => setPhotoMode('single')}
+              title="Beberapa foto digabung jadi 1 PDF multi-halaman"
+            >
+              <FileText size={12} aria-hidden="true" /> 1 Dokumen
+            </ToggleChip>
+            <ToggleChip
+              active={photoMode === 'batch'}
+              disabled={isDisabled}
+              onClick={() => setPhotoMode('batch')}
+              title="Tiap foto jadi dokumen terpisah"
+            >
+              <Copy size={12} aria-hidden="true" /> Batch
+            </ToggleChip>
+          </ToggleGroup>
 
           {/* Scan filter — applied to camera/gallery photos only (not PDFs
               picked directly) via enhanceScanImage() before they're placed
               into the PDF. Purely canvas-based, see attachments.ts. */}
-          <div className="flex items-center gap-1 rounded-lg border border-office-border bg-white p-0.5 dark:border-slate-600 dark:bg-slate-800">
-            <button
-              type="button"
+          <ToggleGroup label="Filter scan">
+            <ToggleChip
+              active={scanMode === 'original'}
               disabled={isDisabled}
               onClick={() => setScanMode('original')}
               title="Tanpa filter, hanya diperkecil ukurannya"
-              className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-all disabled:opacity-50 ${scanMode === 'original' ? 'bg-office-primary text-white' : 'text-office-subtext dark:text-slate-400'}`}
             >
-              <ImageIcon size={12} /> Warna Asli
-            </button>
-            <button
-              type="button"
+              <ImageIcon size={12} aria-hidden="true" /> Warna Asli
+            </ToggleChip>
+            <ToggleChip
+              active={scanMode === 'bright'}
               disabled={isDisabled}
               onClick={() => setScanMode('bright')}
               title="Kontras & kecerahan dinaikkan, teks dipertajam — mirip mode scan CamScanner"
-              className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-all disabled:opacity-50 ${scanMode === 'bright' ? 'bg-office-primary text-white' : 'text-office-subtext dark:text-slate-400'}`}
             >
-              <SunMedium size={12} /> Scan Terang
-            </button>
-            <button
-              type="button"
+              <SunMedium size={12} aria-hidden="true" /> Scan Terang
+            </ToggleChip>
+            <ToggleChip
+              active={scanMode === 'bw'}
               disabled={isDisabled}
               onClick={() => setScanMode('bw')}
               title="Hitam-putih tegas seperti scan dokumen resmi"
-              className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-all disabled:opacity-50 ${scanMode === 'bw' ? 'bg-office-primary text-white' : 'text-office-subtext dark:text-slate-400'}`}
             >
-              <Contrast size={12} /> Hitam Putih
-            </button>
-          </div>
+              <Contrast size={12} aria-hidden="true" /> Hitam Putih
+            </ToggleChip>
+          </ToggleGroup>
 
           {/* Auto-crop + perspective-correct: detects the document's 4
               corners (white paper vs. darker desk/background) and lets the
               user confirm/adjust them before the photo is cropped and
               straightened — see documentDetection.ts + CornerAdjustModal. */}
-          <div className="flex items-center gap-1 rounded-lg border border-office-border bg-white p-0.5 dark:border-slate-600 dark:bg-slate-800">
-            <button
-              type="button"
+          <ToggleGroup label="Auto-crop">
+            <ToggleChip
+              active={autoCrop}
               disabled={isDisabled}
               onClick={() => setAutoCrop((v) => !v)}
               title="Deteksi & luruskan otomatis batas dokumen dari foto (bisa dikoreksi manual sebelum diterapkan)"
-              className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-all disabled:opacity-50 ${autoCrop ? 'bg-office-primary text-white' : 'text-office-subtext dark:text-slate-400'}`}
             >
-              <Crop size={12} /> Auto-Crop Dokumen
-            </button>
-          </div>
+              <Crop size={12} aria-hidden="true" /> Auto-Crop Dokumen
+            </ToggleChip>
+          </ToggleGroup>
 
           {/* Opens the phone camera directly. */}
           <input
@@ -595,14 +644,24 @@ export function AttachmentField({ value, onChange, folder, disabled, readOnly }:
           </p>
 
           {progress && (
-            <div className="space-y-1 rounded-lg border border-emerald-100 bg-emerald-50/60 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+            <div
+              role="status"
+              className="space-y-1 rounded-lg border border-emerald-100 bg-emerald-50/60 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40"
+            >
               <div className="flex items-center justify-between text-xs font-medium text-office-text dark:text-slate-200">
                 <span className="inline-flex items-center gap-1.5">
-                  <Loader2 size={12} className="animate-spin text-office-primary" /> {progress.label}
+                  <Loader2 size={12} className="animate-spin text-office-primary" aria-hidden="true" /> {progress.label}
                 </span>
                 <span className="tabular-nums text-office-subtext dark:text-slate-400">{progressPct}%</span>
               </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-white dark:bg-slate-700/60">
+              <div
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={progressPct}
+                aria-label={progress.label}
+                className="h-1.5 w-full overflow-hidden rounded-full bg-white dark:bg-slate-700/60"
+              >
                 <div
                   className="h-full rounded-full bg-office-primary transition-all duration-300"
                   style={{ width: `${progressPct}%` }}
@@ -615,23 +674,25 @@ export function AttachmentField({ value, onChange, folder, disabled, readOnly }:
 
       {value.length === 0 && (
         <p className="flex items-center gap-1.5 text-xs text-office-subtext dark:text-slate-400">
-          <Paperclip size={13} /> {readOnly ? 'Tidak ada lampiran.' : 'Belum ada lampiran.'}
+          <Paperclip size={13} aria-hidden="true" /> {readOnly ? 'Tidak ada lampiran.' : 'Belum ada lampiran.'}
         </p>
       )}
 
       {value.length > 1 && (
-        <button
+        <Button
           type="button"
-          disabled={mergedBusy}
+          variant="outline"
+          size="sm"
+          isLoading={mergedBusy}
           onClick={() => handleViewMerged(value)}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white/70 px-3 py-1.5 text-xs font-medium text-office-primary hover:bg-emerald-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800/70 dark:text-emerald-400 dark:hover:bg-slate-700"
           title="Gabungkan semua lampiran jadi satu PDF untuk dilihat sekaligus"
+          className="w-full sm:w-auto"
         >
-          {mergedBusy ? <Loader2 size={13} className="animate-spin" /> : <Layers size={13} />}
+          {!mergedBusy && <Layers size={14} aria-hidden="true" />}
           {mergedBusy && mergeProgress
             ? `Menggabungkan ${mergeProgress.current}/${mergeProgress.total} dokumen...`
             : `Preview Semua (${value.length} dokumen)`}
-        </button>
+        </Button>
       )}
 
       {value.length > 0 && (
@@ -640,13 +701,18 @@ export function AttachmentField({ value, onChange, folder, disabled, readOnly }:
             const isPdf = a.type === 'application/pdf';
             const isEditing = editingPath === a.path;
             const isDragging = dragIndex === index;
-            const swipeOffset = swipe && swipe.path === a.path ? swipe.offset : revealedPath === a.path ? -SWIPE_MAX : 0;
+            const isRevealed = revealedPath === a.path;
+            const swipeOffset = swipe && swipe.path === a.path ? swipe.offset : isRevealed ? -SWIPE_MAX : 0;
+            const pages = pageCounts[a.path];
             return (
               <li key={a.path} className="relative overflow-hidden rounded-lg">
                 {/* Revealed by a left swipe; sits behind the row and only
                     acts as the actual delete trigger once tapped — the
-                    reveal itself is not a delete. */}
-                {!readOnly && (
+                    reveal itself is not a delete. Rendered only while the
+                    row is actually displaced: parked behind every row at all
+                    times, it was a tab stop for an invisible second delete
+                    button on every attachment. */}
+                {!readOnly && swipeOffset !== 0 && (
                   <div className="absolute inset-y-0 right-0 flex w-[88px] items-stretch">
                     <button
                       type="button"
@@ -656,7 +722,7 @@ export function AttachmentField({ value, onChange, folder, disabled, readOnly }:
                       }}
                       className="flex w-full flex-col items-center justify-center gap-0.5 bg-red-500 text-xs font-medium text-white active:bg-red-600"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={16} aria-hidden="true" />
                       Hapus
                     </button>
                   </div>
@@ -671,79 +737,115 @@ export function AttachmentField({ value, onChange, folder, disabled, readOnly }:
                   onTouchMove={(e) => handleSwipeMove(e, a.path)}
                   onTouchEnd={handleSwipeEnd}
                   style={{ transform: `translateX(${swipeOffset}px)` }}
-                  className={`flex items-center gap-2 touch-pan-y rounded-lg border border-office-border bg-slate-50 px-3 py-2 text-sm transition-transform dark:border-slate-700 dark:bg-slate-900/40 ${isDragging ? 'opacity-40' : ''} ${swipe?.path === a.path ? '' : 'duration-200'}`}
+                  className={`flex touch-pan-y items-center gap-2 rounded-lg border border-office-border bg-slate-50 px-2.5 py-2 text-sm transition-transform dark:border-slate-700 dark:bg-slate-900/40 ${isDragging ? 'opacity-40' : ''} ${swipe?.path === a.path ? '' : 'duration-200'}`}
                 >
+                  {/* Desktop only: reorder is HTML5 drag-and-drop, which
+                      mobile browsers never start from a touch — so on a phone
+                      this was a dead 15px column stealing width from the
+                      filename. */}
                   {!readOnly && (
-                  <span
-                    className="shrink-0 cursor-grab text-office-subtext active:cursor-grabbing dark:text-slate-500"
-                    title="Geser untuk mengubah urutan"
-                  >
-                    <GripVertical size={15} />
-                  </span>
-                )}
-                {a.thumbnail ? (
-                  <button
-                    type="button"
-                    onClick={() => handleView(a)}
-                    className="shrink-0 overflow-hidden rounded-md border border-office-border dark:border-slate-600"
-                    title="Lihat"
-                  >
-                    <img src={a.thumbnail} alt="" className="h-9 w-9 object-cover" />
-                  </button>
-                ) : isPdf ? (
-                  <FileText size={16} className="shrink-0 text-rose-500" />
-                ) : (
-                  <ImageIcon size={16} className="shrink-0 text-blue-500" />
-                )}
-                {isEditing ? (
-                  <input
-                    autoFocus
-                    value={editingName}
-                    onChange={(e) => setEditingName(e.target.value)}
-                    onBlur={() => commitRename(a)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') commitRename(a);
-                      if (e.key === 'Escape') cancelRename();
-                    }}
-                    className="flex-1 min-w-0 rounded-md border border-office-primary bg-white px-1.5 py-0.5 text-sm text-office-text focus:outline-none dark:border-emerald-500 dark:bg-slate-800 dark:text-slate-100"
-                  />
-                ) : (
-                  <span
-                    className={`flex-1 truncate text-office-text dark:text-slate-200 ${!readOnly ? 'cursor-text hover:underline' : ''}`}
-                    title={readOnly ? a.name : 'Klik untuk ubah nama'}
-                    onClick={() => !readOnly && startRename(a)}
-                  >
-                    {a.name}
-                  </span>
-                )}
-                {isPdf && pageCounts[a.path] !== undefined && (
-                  <span
-                    className="shrink-0 rounded-full bg-office-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-office-primary dark:bg-emerald-900/40 dark:text-emerald-400"
-                    title="Jumlah halaman"
-                  >
-                    {pageCounts[a.path]} hlm
-                  </span>
-                )}
-                <span className="shrink-0 text-xs text-office-subtext dark:text-slate-400">{formatSize(a.size)}</span>
-                <button
-                  type="button"
-                  onClick={() => handleView(a)}
-                  className="shrink-0 rounded-md p-1 text-office-subtext hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-900/40"
-                  title="Lihat"
-                >
-                  <Eye size={15} />
-                </button>
-                {!readOnly && (
-                  <button
-                    type="button"
-                    disabled={busyPath === a.path}
-                    onClick={() => handleDelete(a)}
-                    className="shrink-0 rounded-md p-1 text-office-subtext hover:bg-red-100 hover:text-red-600 disabled:opacity-50 dark:hover:bg-red-900/40"
-                    title="Hapus"
-                  >
-                    {busyPath === a.path ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
-                  </button>
-                )}
+                    <span
+                      aria-hidden="true"
+                      className="hidden shrink-0 cursor-grab text-office-subtext active:cursor-grabbing sm:inline-flex dark:text-slate-500"
+                      title="Geser untuk mengubah urutan"
+                    >
+                      <GripVertical size={15} />
+                    </span>
+                  )}
+                  {a.thumbnail ? (
+                    <button
+                      type="button"
+                      onClick={() => handleView(a)}
+                      aria-label={`Lihat ${a.name}`}
+                      title="Lihat"
+                      className="focus-ring flex h-11 w-11 shrink-0 items-center justify-center rounded-md sm:h-9 sm:w-9"
+                    >
+                      <img
+                        src={a.thumbnail}
+                        alt=""
+                        className="h-9 w-9 rounded-md border border-office-border object-cover dark:border-slate-600"
+                      />
+                    </button>
+                  ) : (
+                    <span
+                      aria-hidden="true"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center sm:h-9 sm:w-9"
+                    >
+                      {isPdf ? (
+                        <FileText size={18} className="text-rose-500" />
+                      ) : (
+                        <ImageIcon size={18} className="text-blue-500" />
+                      )}
+                    </span>
+                  )}
+
+                  {/* Name over meta, rather than one row of six competing
+                      items: at 44px the two actions no longer leave a usable
+                      single line for a filename on a phone. */}
+                  <div className="min-w-0 flex-1">
+                    {isEditing ? (
+                      <input
+                        autoFocus
+                        aria-label="Nama lampiran"
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        onBlur={() => commitRename(a)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') commitRename(a);
+                          if (e.key === 'Escape') cancelRename();
+                        }}
+                        className="w-full min-w-0 rounded-md border border-office-primary bg-white px-1.5 py-1 text-sm text-office-text focus:outline-none dark:border-emerald-500 dark:bg-slate-800 dark:text-slate-100"
+                      />
+                    ) : readOnly ? (
+                      <p className="truncate text-office-text dark:text-slate-200" title={a.name}>
+                        {a.name}
+                      </p>
+                    ) : (
+                      // Was a bare `<span onClick>`: the only way to rename an
+                      // attachment, and unreachable by keyboard.
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // A swipe that ends over the filename still fires a
+                          // click; while the row is open that tap belongs to
+                          // closing it, not to starting a rename.
+                          if (isRevealed) {
+                            setRevealedPath(null);
+                            return;
+                          }
+                          startRename(a);
+                        }}
+                        aria-label={`Ubah nama lampiran: ${a.name}`}
+                        title="Klik untuk ubah nama"
+                        className="focus-ring block w-full truncate rounded text-left text-office-text hover:underline dark:text-slate-200"
+                      >
+                        {a.name}
+                      </button>
+                    )}
+                    <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-office-subtext dark:text-slate-400">
+                      {isPdf && pages !== undefined && (
+                        <span
+                          className="rounded-full bg-office-primary/10 px-1.5 font-medium text-office-primary dark:bg-emerald-900/40 dark:text-emerald-400"
+                          title="Jumlah halaman"
+                        >
+                          {pages} hlm
+                        </span>
+                      )}
+                      <span>{formatSize(a.size)}</span>
+                    </p>
+                  </div>
+
+                  <IconButton icon={<Eye size={16} />} label="Lihat" size="row" onClick={() => handleView(a)} />
+                  {!readOnly && (
+                    <IconButton
+                      icon={<Trash2 size={16} />}
+                      label="Hapus"
+                      tone="danger"
+                      size="row"
+                      isLoading={busyPath === a.path}
+                      onClick={() => handleDelete(a)}
+                    />
+                  )}
                 </div>
               </li>
             );
@@ -765,18 +867,18 @@ export function AttachmentField({ value, onChange, folder, disabled, readOnly }:
                 <button
                   type="button"
                   onClick={() => handleDownload(preview.url as string, preview.attachment.name)}
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-office-primary hover:underline dark:text-emerald-400"
+                  className="focus-ring inline-flex min-h-11 items-center gap-1.5 rounded-control text-sm font-medium text-office-primary hover:underline sm:min-h-0 dark:text-emerald-400"
                 >
-                  <Download size={14} /> Unduh PDF Gabungan
+                  <Download size={14} aria-hidden="true" /> Unduh PDF Gabungan
                 </button>
               )}
               <a
                 href={preview.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-office-primary hover:underline dark:text-emerald-400"
+                className="focus-ring inline-flex min-h-11 items-center gap-1.5 rounded-control text-sm font-medium text-office-primary hover:underline sm:min-h-0 dark:text-emerald-400"
               >
-                <ExternalLink size={14} /> Buka di tab baru
+                <ExternalLink size={14} aria-hidden="true" /> Buka di tab baru
               </a>
             </>
           ) : undefined

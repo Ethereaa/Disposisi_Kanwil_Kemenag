@@ -10,6 +10,11 @@ interface ModalProps {
   children: ReactNode;
   footer?: ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
+  /** Points `aria-describedby` at the body, so assistive tech reads the
+   *  content along with the title when the dialog opens. For short, purely
+   *  informational bodies only (a confirmation prompt) — on a form modal it
+   *  would announce every field before the user has touched anything. */
+  describeBody?: boolean;
 }
 
 const sizes = {
@@ -45,8 +50,9 @@ function isTopmostPanel(panel: HTMLElement | null): boolean {
   return panels.length === 0 || panels[panels.length - 1] === panel;
 }
 
-export function Modal({ open, onClose, title, children, footer, size = 'md' }: ModalProps) {
+export function Modal({ open, onClose, title, children, footer, size = 'md', describeBody }: ModalProps) {
   const titleId = useId();
+  const bodyId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -81,7 +87,9 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: M
     const returnTo = document.activeElement as HTMLElement | null;
     const target =
       panel?.querySelector<HTMLElement>('[data-autofocus]') ?? focusablesIn(bodyRef.current)[0] ?? panel;
-    target?.focus();
+    // preventScroll: the dialog is in a fixed overlay, so letting focus()
+    // scroll would move the page underneath it instead.
+    target?.focus({ preventScroll: true });
 
     return () => {
       const nextCount = Math.max(0, Number(document.body.dataset.modalOpenCount || '1') - 1);
@@ -135,6 +143,7 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: M
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}
         aria-label={title ? undefined : 'Dialog'}
+        aria-describedby={describeBody ? bodyId : undefined}
         tabIndex={-1}
         data-modal-panel
         onKeyDown={trapTab}
@@ -159,7 +168,7 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: M
             </button>
           </div>
         )}
-        <div ref={bodyRef} className="flex-1 overflow-y-auto overscroll-contain px-5 py-4">
+        <div ref={bodyRef} id={bodyId} className="flex-1 overflow-y-auto overscroll-contain px-5 py-4">
           {children}
         </div>
         {footer && (
@@ -195,6 +204,7 @@ export function ConfirmModal({
       onClose={onClose}
       title={title}
       size="sm"
+      describeBody
       footer={
         <>
           {/* Cancel takes the initial focus; the destructive button always

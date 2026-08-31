@@ -49,9 +49,7 @@ const sizes: Record<IconButtonSize, string> = {
  *
  * Exists because the app hand-writes `p-1.5` / `p-1` icon buttons in a dozen
  * places, each repeating its own hover-colour strings and each landing under
- * the 44px touch minimum. Deliberately NOT applied to AttachmentField in this
- * phase — its rows combine swipe-to-delete, drag-to-reorder and inline rename
- * on the same element, and changing those hitboxes belongs to Phase 2F.
+ * the 44px touch minimum.
  */
 export function IconButton({
   icon,
