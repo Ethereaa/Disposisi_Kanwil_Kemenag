@@ -313,6 +313,32 @@ export async function runAgendaPreviewQuery(query: PreviewQuery): Promise<Agenda
   return (data as PublicAgendaRow[]).map(mapAgendaPublic);
 }
 
+// Furthest current-or-future agenda date, for the date range in the public
+// preview's header. Returns null when nothing is scheduled from `fromISO`
+// onward.
+//
+// Separate from the preview fetch on purpose: the preview renders at most
+// PREVIEW_TARGET rows and the selection algorithm trims the later-future tail
+// first, so the last row on screen is NOT necessarily the last agenda stored.
+// Deriving the header's end date from the rendered rows would understate the
+// range exactly when the office has the most scheduled.
+//
+// Same restricted view as the other two anonymous readers, and narrower still:
+// one column, one row. `fromISO` is a WITA calendar day resolved by the caller,
+// so the window follows the office rather than the visitor's device.
+export async function getFurthestAgendaDate(fromISO: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('agenda_pimpinan_public')
+    .select('tanggal_kegiatan')
+    .not('tanggal_kegiatan', 'is', null)
+    .gte('tanggal_kegiatan', fromISO)
+    .order('tanggal_kegiatan', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as Pick<PublicAgendaRow, 'tanggal_kegiatan'> | null)?.tanggal_kegiatan ?? null;
+}
+
 // Used by the standalone Preview Agenda Pimpinan screen (public route,
 // works without login) to fetch a single agenda by id, instead of
 // depending on the authenticated app's already-loaded list.

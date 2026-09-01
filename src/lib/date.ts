@@ -161,6 +161,92 @@ export function dateProximityLabel(
   return null;
 }
 
+// --- Indonesian long-form dates --------------------------------------
+//
+// Used by the public Agenda Pimpinan preview header, which has to read as an
+// official notice ("1–15 September 2026") rather than as the DD/MM/YYYY the
+// data-entry screens use.
+
+const BULAN_ID = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+];
+
+type IsoParts = { y: number; m: number; d: number };
+
+/**
+ * Strict yyyy-mm-dd split. Returns null for anything else, including a
+ * well-shaped string with an impossible month, so the formatters below can
+ * never index BULAN_ID out of bounds.
+ */
+function isoParts(iso: string | null | undefined): IsoParts | null {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+  const y = Number(iso.slice(0, 4));
+  const m = Number(iso.slice(5, 7));
+  const d = Number(iso.slice(8, 10));
+  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+  return { y, m, d };
+}
+
+function longForm(p: IsoParts): string {
+  return `${p.d} ${BULAN_ID[p.m - 1]} ${p.y}`;
+}
+
+/** Chronological ordering key. Only meaningful against another of these. */
+function ordinal(p: IsoParts): number {
+  return p.y * 10000 + p.m * 100 + p.d;
+}
+
+/** `2026-09-01` -> `1 September 2026`. Day is not zero-padded. */
+export function formatIndonesianDate(iso: string | null | undefined): string {
+  const p = isoParts(iso);
+  return p ? longForm(p) : '';
+}
+
+/**
+ * A date range in Indonesian long form, collapsing whatever the two endpoints
+ * already share:
+ *
+ *   same month and year   1–15 September 2026
+ *   same year             1 September – 18 Oktober 2026
+ *   different years       20 Desember 2026 – 8 Januari 2027
+ *
+ * Falls back to the start date alone when `endISO` is missing, unparseable,
+ * equal to the start, or earlier than it — the public preview passes an end
+ * that comes from the data, so "no future agenda stored" has to render as a
+ * single day rather than as a backwards range.
+ *
+ * Pure in both arguments: no clock, no timezone. The caller decides which day
+ * "today" is.
+ */
+export function formatIndonesianDateRange(
+  startISO: string | null | undefined,
+  endISO: string | null | undefined,
+): string {
+  const s = isoParts(startISO);
+  if (!s) return '';
+  const e = isoParts(endISO);
+  if (!e || ordinal(e) <= ordinal(s)) return longForm(s);
+
+  if (s.y !== e.y) return `${longForm(s)} – ${longForm(e)}`;
+  if (s.m !== e.m) {
+    return `${s.d} ${BULAN_ID[s.m - 1]} – ${e.d} ${BULAN_ID[e.m - 1]} ${e.y}`;
+  }
+  return `${s.d}–${e.d} ${BULAN_ID[s.m - 1]} ${s.y}`;
+}
+
+/**
+ * An instant as `1 September 2026 08:45 WITA`.
+ *
+ * Deliberately NOT formatDateTime(): that one shifts by the visitor's
+ * getTimezoneOffset(), so a phone set to WIB would render a "… WITA" label
+ * showing a WIB clock. This composes the two WITA helpers above instead, so
+ * the label matches the office no matter what device opens the link.
+ */
+export function witaDateTimeLabel(ms: number = Date.now()): string {
+  return `${formatIndonesianDate(witaTodayISO(ms))} ${witaTimeHHMM(ms)} WITA`;
+}
+
 export function formatDateTime(value: string | number): string {
   const d = new Date(value);
   const tz = d.getTimezoneOffset() * 60000;
