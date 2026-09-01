@@ -16,6 +16,26 @@ interface AuthScreenProps {
 // are shared-access), so accounts are provisioned by an admin in the
 // Supabase dashboard rather than claimed by whoever finds the URL. See
 // the note above updateUsername() in src/lib/storage.ts.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+// PRESENTATION: deliberately the pre-Big-Root-2 login screen (the version at
+// c0b793b^ / 8436bdc), restored by user decision after the Root-2 redesign was
+// rejected. Do not "modernise" this file to match the rest of the app: the
+// radial-gradient canvas, the two blurred accent blobs, the always-visible
+// gradient hero, the translucent glass card and the absolutely-positioned
+// footer are all intentional here and intentionally NOT the Root-2 language.
+//
+// The card styling is written out as local utilities rather than the shared
+// `.glass-card` class on purpose. Root-2 redefined `.glass-card` in index.css
+// (it now aliases `.surface-overlay`: opaque, no blur, heavier shadow), and
+// that class is also used by Modal and Agenda Preview — so reverting it in the
+// stylesheet would drag every dialog in the app back with it. These utilities
+// reproduce the ORIGINAL `.glass-card` definition, scoped to this screen only.
+//
+// Auth behaviour is CURRENT, not historical: loginUser, the login-only flow,
+// native `required`, autoComplete, the Button `isLoading` contract and the
+// show/hide toggle all match the rest of the app today.
+// ─────────────────────────────────────────────────────────────────────────────
 export function AuthScreen({ onAuthed }: AuthScreenProps) {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -38,24 +58,19 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
   }
 
   return (
-    // Column flow, not an absolutely-positioned footer over a centred card.
-    // At 360px the old layout stacked a 300px-tall gradient hero above the
-    // form and then floated the credits on top of it, so the first thing a
-    // phone user saw was branding and the password field could sit under the
-    // footer. The hero is now desktop-only and the footer is in flow.
-    <div className="app-canvas flex min-h-screen flex-col items-center justify-center gap-6 p-4 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))] sm:p-8">
-      <div className="glass-card w-full max-w-md p-2 lg:max-w-5xl lg:p-3">
-        <div className="grid overflow-hidden rounded-xl lg:grid-cols-[1.05fr_0.95fr]">
-          <div className="brand-gradient-hero hidden flex-col justify-center p-10 text-white lg:flex">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.20),_transparent_40%),linear-gradient(135deg,_#f8fcf9,_#eef6f0_50%,_#f5f8ff)] p-4 sm:p-8 dark:bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.20),_transparent_40%),linear-gradient(135deg,_#0f172a,_#111827_60%,_#0b1220)]">
+      <div className="absolute left-[-5%] top-[-10%] h-56 w-56 rounded-full bg-emerald-300/30 blur-3xl" />
+      <div className="absolute bottom-[-5%] right-[-5%] h-64 w-64 rounded-full bg-teal-300/25 blur-3xl" />
+
+      {/* The original `.glass-card`, inlined — see the note above the component. */}
+      <div className="relative w-full max-w-5xl rounded-2xl border border-white/70 bg-white/70 p-3 shadow-[0_10px_30px_rgba(15,23,42,0.07)] backdrop-blur-xl dark:border-slate-700 dark:bg-slate-800/70">
+        <div className="grid overflow-hidden rounded-xl lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="flex flex-col justify-center brand-gradient-hero p-8 text-white sm:p-10">
             <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur">
               <Logo size={44} />
             </div>
-            <h1 className="max-w-md text-4xl font-semibold leading-tight">{APP_SHORT}</h1>
-            {/* The one sanctioned use of the restricted gold accent: a
-                hairline institutional rule on the hero. Not a button, not a
-                card, not body text. */}
-            <div className="accent-rule-gold mt-4 h-px w-24" />
-            <p className="mt-3 max-w-md text-base leading-6 text-emerald-50/90">
+            <h1 className="max-w-md text-3xl font-semibold leading-tight sm:text-4xl">{APP_SHORT}</h1>
+            <p className="mt-3 max-w-md text-sm leading-6 text-emerald-50/90 sm:text-base">
               Platform Disposisi & Agenda Pimpinan.
             </p>
             <div className="mt-8 rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
@@ -66,33 +81,16 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
             </div>
           </div>
 
-          <div className="bg-white p-5 sm:p-7 lg:p-8 dark:bg-slate-900">
-            {/* Mobile/tablet brand line. Carries the logo and product name in
-                one row so the form itself stays above the fold at 360px. It is
-                the <h1> below `lg:`, where the hero (and its own <h1>) is
-                display:none and therefore not exposed to a screen reader —
-                exactly one heading is live at any breakpoint. */}
-            <div className="mb-5 flex items-center gap-3 border-b border-office-border pb-4 dark:border-slate-700 lg:hidden">
-              <Logo size={40} />
-              <div className="min-w-0">
-                <h1 className="truncate text-heading text-slate-800 dark:text-slate-100">{APP_SHORT}</h1>
-                <p className="truncate text-xs text-slate-500 dark:text-slate-400">Platform Disposisi &amp; Agenda Pimpinan</p>
-              </div>
-            </div>
-
-            <div className="mb-5 flex flex-col items-start gap-1.5">
-              <p className="text-label uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400">Akses sistem</p>
+          <div className="bg-white/85 p-6 sm:p-8 dark:bg-slate-900/70">
+            <div className="mb-6 flex flex-col items-start gap-2">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-emerald-600 dark:text-emerald-400">Akses sistem</p>
               <h2 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">Masuk ke akun</h2>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <Field label="Email atau Username" required>
                 <div className="relative">
-                  <Mail
-                    size={16}
-                    aria-hidden="true"
-                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400"
-                  />
+                  <Mail size={16} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
                   <Input
                     type="text"
                     value={identifier}
@@ -108,32 +106,28 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
 
               <Field label="Password" required>
                 <div className="relative">
-                  <Lock
-                    size={16}
-                    aria-hidden="true"
-                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400"
-                  />
+                  <Lock size={16} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
                   <Input
                     type={showPw ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Masukkan password"
-                    className="pl-9 pr-12 sm:pr-11"
+                    className="pl-9 pr-9"
                     autoComplete="current-password"
                     required
                   />
-                  {/* 44px square on touch (36 from `sm:`) — the reveal toggle
-                      was a bare 16px icon, the smallest target on the login
-                      screen, then 40px, still under the floor. `pr-12` on the
-                      input reserves exactly the 44 + right-1 it occupies. */}
+                  {/* Original position and hitbox. `aria-label`/`aria-pressed` are
+                      kept from the current version: they are invisible, so they
+                      cost nothing against the pre-Root-2 look, and dropping them
+                      would leave the toggle unnamed for a screen reader. */}
                   <button
                     type="button"
                     onClick={() => setShowPw((s) => !s)}
                     aria-label={showPw ? 'Sembunyikan password' : 'Tampilkan password'}
                     aria-pressed={showPw}
-                    className="focus-ring absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-chip text-slate-500 transition-colors hover:text-emerald-700 sm:h-9 sm:w-9 dark:text-slate-400 dark:hover:text-slate-200"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition-colors hover:text-emerald-700 dark:text-slate-400 dark:hover:text-slate-200"
                   >
-                    {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                    {showPw ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
                   </button>
                 </div>
               </Field>
@@ -143,7 +137,7 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
               </Button>
             </form>
 
-            <div className="mt-5 flex items-start gap-2 rounded-control border border-emerald-100 bg-emerald-50/70 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+            <div className="mt-4 flex items-start gap-2 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
               <Users size={16} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
               <p className="text-xs leading-5 text-emerald-800 dark:text-emerald-200">
                 Akun dibuat oleh admin. Hubungi admin jika Anda belum memiliki akses.
@@ -153,13 +147,9 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
         </div>
       </div>
 
-      {/* text-micro replaces the arbitrary text-[11px]/text-[10px] pair.
-          font-normal + tracking-normal hold the rendered weight and tracking
-          exactly where they were — the token is the source of the size, not a
-          restyle of the footer. */}
-      <div className="flex shrink-0 flex-col items-center gap-1 text-center text-micro font-normal tracking-normal text-slate-500 dark:text-slate-400">
+      <div className="absolute bottom-4 flex flex-col items-center gap-1 text-center text-[11px] text-slate-500 dark:text-slate-400">
         <p>{APP_TITLE}</p>
-        <p className="text-slate-400 dark:text-slate-500">Dikembangkan oleh Luthfi Alfikri</p>
+        <p className="text-[10px] text-slate-400 dark:text-slate-500">Created by Luthfi Alfikri for Personal Use Only</p>
       </div>
     </div>
   );

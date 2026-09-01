@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { FileSpreadsheet, FileText, Download, CalendarRange, Database, Inbox, Send, CalendarClock, Check } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { FileSpreadsheet, FileText, Download, CalendarRange, Database, Inbox, Send, CalendarClock } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Surface } from '@/components/ui/Surface';
 import { Field, Input } from '@/components/ui/Form';
+import { SelectionCardGroup, type SelectionCardOption } from '@/components/ui/SelectionCard';
 import { useToast } from '@/components/ui/Toast';
 import { displayToISO, isoToDisplay } from '@/lib/date';
 import { exportData } from '@/lib/export';
@@ -18,8 +18,9 @@ interface Props {
 }
 
 type Scope = 'all' | 'masuk' | 'keluar' | 'agenda' | 'range';
+type Format = 'xlsx' | 'docx';
 
-const scopeOptions: { key: Scope; label: string; desc: string; icon: LucideIcon }[] = [
+const scopeOptions: SelectionCardOption<Scope>[] = [
   { key: 'all', label: 'Semua Data', desc: 'Surat masuk, keluar & agenda pimpinan', icon: Database },
   { key: 'masuk', label: 'Surat Masuk', desc: 'Hanya surat masuk', icon: Inbox },
   { key: 'keluar', label: 'Surat Keluar', desc: 'Hanya surat keluar', icon: Send },
@@ -27,7 +28,7 @@ const scopeOptions: { key: Scope; label: string; desc: string; icon: LucideIcon 
   { key: 'range', label: 'Rentang Tanggal', desc: 'Filter berdasarkan tanggal', icon: CalendarRange },
 ];
 
-const formatOptions: { key: 'xlsx' | 'docx'; label: string; desc: string; icon: LucideIcon }[] = [
+const formatOptions: SelectionCardOption<Format>[] = [
   { key: 'xlsx', label: 'Excel (.xlsx)', desc: 'Spreadsheet, mudah diolah', icon: FileSpreadsheet },
   { key: 'docx', label: 'Word (.docx)', desc: 'Dokumen, siap cetak', icon: FileText },
 ];
@@ -40,6 +41,10 @@ const formatOptions: { key: 'xlsx' | 'docx'; label: string; desc: string; icon: 
 // "chosen" had two different colours on the same page, and the real primary
 // action sat unframed on the canvas underneath. Now the whole choice lives in
 // one Surface with numbered bands, and the export action has its own footer.
+//
+// The tiles themselves moved to ui/SelectionCard: the local ChoiceTile carried
+// radiogroup ARIA with no arrow-key behaviour behind it. ChoiceBand stays here
+// — it is this page's step chrome, not a selection primitive.
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ChoiceBand({ step, title, hint, children }: { step: number; title: string; hint: string; children: React.ReactNode }) {
@@ -62,84 +67,67 @@ function ChoiceBand({ step, title, hint, children }: { step: number; title: stri
   );
 }
 
-/** A selectable tile. `role="radio"` because that is what it is — a set of
- *  mutually exclusive choices — so arrow-key/screen-reader users get the same
- *  grouping the visual layout implies. */
-function ChoiceTile({
-  active,
-  icon: Icon,
-  label,
-  desc,
-  onSelect,
-}: {
-  active: boolean;
-  icon: LucideIcon;
-  label: string;
-  desc: string;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={active}
-      onClick={onSelect}
-      className={`focus-ring flex min-h-[3.5rem] items-center gap-3 rounded-control border p-3 text-left transition-[background-color,border-color,box-shadow] duration-fast ease-brand ${
-        active
-          ? 'border-office-primary bg-emerald-50 ring-1 ring-office-primary dark:border-emerald-400 dark:bg-emerald-500/10 dark:ring-emerald-400'
-          : 'border-office-border bg-white hover:border-office-borderStrong hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600'
-      }`}
-    >
-      <span
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-chip ${
-          active
-            ? 'brand-solid text-white'
-            : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
-        }`}
-      >
-        <Icon size={17} aria-hidden="true" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span
-          className={`block truncate text-body-strong ${active ? 'text-emerald-800 dark:text-emerald-200' : 'text-office-text dark:text-slate-100'}`}
-        >
-          {label}
-        </span>
-        <span className="block truncate text-xs text-office-subtext dark:text-slate-400">{desc}</span>
-      </span>
-      {active && (
-        <Check size={16} className="shrink-0 text-office-primary dark:text-emerald-400" aria-hidden="true" />
-      )}
-    </button>
-  );
-}
-
 export function ExportPage({ suratMasuk, suratKeluar, agendaPimpinan }: Props) {
   const [scope, setScope] = useState<Scope>('all');
-  const [format, setFormat] = useState<'xlsx' | 'docx'>('xlsx');
-  const [startDisplay, setStartDisplay] = useState('');
-  const [endDisplay, setEndDisplay] = useState('');
+  const [format, setFormat] = useState<Format>('xlsx');
+  // Native date inputs, so these hold ISO yyyy-mm-dd (they were free-text
+  // DD/MM/YYYY — the only date control in the app that wasn't native).
+  const [startInput, setStartInput] = useState('');
+  const [endInput, setEndInput] = useState('');
+  const [dateErrors, setDateErrors] = useState<{ start?: string; end?: string }>({});
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
 
+  // Still routed through displayToISO even though a native date input already
+  // yields ISO: displayToISO passes a yyyy-mm-dd string through untouched
+  // (date.ts), so the exact same function produces the exact same value that
+  // reaches exportData as before. Evaluated once here instead of eight times
+  // across validation, payload and the preview line.
+  const startISO = displayToISO(startInput);
+  const endISO = displayToISO(endInput);
+
+  function updateStart(value: string) {
+    setStartInput(value);
+    setDateErrors({});
+  }
+  function updateEnd(value: string) {
+    setEndInput(value);
+    setDateErrors({});
+  }
+  function updateScope(next: Scope) {
+    setScope(next);
+    // Leaving the range scope drops a stale "wajib diisi" that no longer
+    // applies to the choice now selected.
+    if (next !== 'range') setDateErrors({});
+  }
+
   async function handleExport() {
+    // Same two conditions, in the same order, with the same early return and
+    // the same toasts as before — the messages are now also published inline on
+    // the offending field instead of only in a toast that vanishes.
     if (scope === 'range') {
-      if (!displayToISO(startDisplay) || !displayToISO(endDisplay)) {
+      if (!startISO || !endISO) {
+        setDateErrors({
+          start: !startISO ? 'Tanggal mulai wajib diisi' : undefined,
+          end: !endISO ? 'Tanggal akhir wajib diisi' : undefined,
+        });
         toast('Isi tanggal mulai dan tanggal akhir.', 'error');
         return;
       }
-      if (displayToISO(startDisplay) > displayToISO(endDisplay)) {
+      if (startISO > endISO) {
+        setDateErrors({ end: 'Tanggal akhir harus setelah tanggal mulai' });
         toast('Tanggal mulai harus sebelum tanggal akhir.', 'error');
         return;
       }
     }
+    setDateErrors({});
     setBusy(true);
     try {
       await exportData({
         scope,
         format,
-        startDate: displayToISO(startDisplay),
-        endDate: displayToISO(endDisplay),
+        startDate: startISO,
+        endDate: endISO,
         suratMasuk,
         suratKeluar,
         agendaPimpinan,
@@ -162,42 +150,24 @@ export function ExportPage({ suratMasuk, suratKeluar, agendaPimpinan }: Props) {
 
       <Surface className="overflow-hidden">
         <ChoiceBand step={1} title="Pilih data" hint="Menentukan baris mana yang masuk ke berkas.">
-          <div role="radiogroup" aria-label="Data yang diekspor" className="grid gap-2.5 sm:grid-cols-2">
-            {scopeOptions.map((opt) => (
-              <ChoiceTile
-                key={opt.key}
-                active={scope === opt.key}
-                icon={opt.icon}
-                label={opt.label}
-                desc={opt.desc}
-                onSelect={() => setScope(opt.key)}
-              />
-            ))}
-          </div>
+          <SelectionCardGroup
+            label="Data yang diekspor"
+            value={scope}
+            onChange={updateScope}
+            options={scopeOptions}
+          />
 
           {scope === 'range' && (
             <div className="mt-3.5 grid gap-3 rounded-control border border-office-border bg-slate-50 p-3.5 dark:border-slate-700 dark:bg-slate-900/40 sm:grid-cols-2">
-              <Field label="Tanggal Mulai" hint="DD/MM/YYYY">
-                <Input
-                  type="text"
-                  value={startDisplay}
-                  onChange={(e) => setStartDisplay(e.target.value)}
-                  placeholder="DD/MM/YYYY"
-                  inputMode="numeric"
-                />
+              <Field label="Tanggal Mulai" error={dateErrors.start}>
+                <Input type="date" value={startInput} onChange={(e) => updateStart(e.target.value)} />
               </Field>
-              <Field label="Tanggal Akhir" hint="DD/MM/YYYY">
-                <Input
-                  type="text"
-                  value={endDisplay}
-                  onChange={(e) => setEndDisplay(e.target.value)}
-                  placeholder="DD/MM/YYYY"
-                  inputMode="numeric"
-                />
+              <Field label="Tanggal Akhir" error={dateErrors.end}>
+                <Input type="date" value={endInput} onChange={(e) => updateEnd(e.target.value)} />
               </Field>
-              {startDisplay && endDisplay && (
+              {startISO && endISO && (
                 <p className="text-xs text-office-subtext dark:text-slate-400 sm:col-span-2">
-                  Rentang: {isoToDisplay(displayToISO(startDisplay))} s/d {isoToDisplay(displayToISO(endDisplay))}
+                  Rentang: {isoToDisplay(startISO)} s/d {isoToDisplay(endISO)}
                 </p>
               )}
             </div>
@@ -206,18 +176,7 @@ export function ExportPage({ suratMasuk, suratKeluar, agendaPimpinan }: Props) {
 
         <div className="border-t border-office-border dark:border-slate-700">
           <ChoiceBand step={2} title="Pilih format" hint="Menentukan jenis berkas yang diunduh.">
-            <div role="radiogroup" aria-label="Format berkas" className="grid gap-2.5 sm:grid-cols-2">
-              {formatOptions.map((opt) => (
-                <ChoiceTile
-                  key={opt.key}
-                  active={format === opt.key}
-                  icon={opt.icon}
-                  label={opt.label}
-                  desc={opt.desc}
-                  onSelect={() => setFormat(opt.key)}
-                />
-              ))}
-            </div>
+            <SelectionCardGroup label="Format berkas" value={format} onChange={setFormat} options={formatOptions} />
           </ChoiceBand>
         </div>
 
@@ -230,7 +189,7 @@ export function ExportPage({ suratMasuk, suratKeluar, agendaPimpinan }: Props) {
             agenda pimpinan
           </p>
           <Button size="lg" className="w-full sm:w-auto sm:shrink-0" onClick={handleExport} isLoading={busy}>
-            {!busy && <Download size={18} />} {busy ? 'Memproses...' : 'Export Sekarang'}
+            {!busy && <Download size={18} aria-hidden="true" />} {busy ? 'Memproses…' : 'Export Sekarang'}
           </Button>
         </div>
       </Surface>

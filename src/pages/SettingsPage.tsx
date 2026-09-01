@@ -299,7 +299,7 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      toast('File harus berupa gambar (PNG, JPG, atau SVG).', 'error');
+      toast('File harus berupa gambar (PNG, JPG, WebP, atau SVG).', 'error');
       return;
     }
     if (file.size > 2 * 1024 * 1024) {
@@ -422,14 +422,15 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
                 autoFocus
               />
               <div className="flex gap-2">
-                <Button type="submit" size="sm" disabled={busyUsername} className="flex-1 sm:flex-none">
-                  <Save size={14} /> Simpan
+                <Button type="submit" isLoading={busyUsername} className="flex-1 sm:flex-none">
+                  {!busyUsername && <Save size={16} aria-hidden="true" />}
+                  {busyUsername ? 'Menyimpan…' : 'Simpan'}
                 </Button>
                 <Button
                   type="button"
                   variant="secondary"
-                  size="sm"
                   className="flex-1 sm:flex-none"
+                  disabled={busyUsername}
                   onClick={() => { setEditingUsername(false); setUsernameEdit(user?.username ?? ''); }}
                 >
                   Batal
@@ -445,7 +446,7 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
                 readOnly
                 className={readOnlyInput}
               />
-              <Button variant="outline" size="sm" className="shrink-0" onClick={() => setEditingUsername(true)}>
+              <Button variant="outline" className="shrink-0" onClick={() => setEditingUsername(true)}>
                 Ubah
               </Button>
             </div>
@@ -488,8 +489,9 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
               autoComplete="new-password"
               required
             />
-            <Button type="submit" size="sm" disabled={busyPw} className="w-full sm:w-auto">
-              <Save size={14} /> {busyPw ? 'Menyimpan...' : 'Ubah Password'}
+            <Button type="submit" isLoading={busyPw} className="w-full sm:w-auto">
+              {!busyPw && <Save size={16} aria-hidden="true" />}
+              {busyPw ? 'Menyimpan…' : 'Ubah Password'}
             </Button>
           </form>
         </SettingRow>
@@ -500,14 +502,18 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
           label="Mode Tampilan"
           hint={`Saat ini: ${theme === 'dark' ? 'Dark Mode' : 'Light Mode'}.`}
         >
-          <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={onToggleTheme}>
-            {theme === 'dark' ? <><Sun size={15} /> Ganti ke Light</> : <><Moon size={15} /> Ganti ke Dark</>}
+          <Button variant="outline" className="w-full sm:w-auto" onClick={onToggleTheme}>
+            {theme === 'dark' ? (
+              <><Sun size={16} aria-hidden="true" /> Ganti ke Light</>
+            ) : (
+              <><Moon size={16} aria-hidden="true" /> Ganti ke Dark</>
+            )}
           </Button>
         </SettingRow>
 
         <SettingRow
           label="Logo Aplikasi"
-          hint="Tampil di sidebar, halaman login, dan tab browser. PNG/JPG/SVG, maks. 2 MB."
+          hint="Tampil di sidebar, halaman login, dan tab browser. PNG/JPG/WebP/SVG, maks. 2 MB."
         >
           <div className="space-y-3">
             <div className="flex items-center gap-3">
@@ -522,12 +528,12 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
                   onChange={handleLogoChange}
                   className="hidden"
                 />
-                <Button variant="outline" size="sm" onClick={() => logoInputRef.current?.click()}>
-                  <Upload size={15} /> Unggah
+                <Button variant="outline" onClick={() => logoInputRef.current?.click()}>
+                  <Upload size={16} aria-hidden="true" /> Unggah
                 </Button>
                 {isCustomLogo && (
-                  <Button variant="ghost" size="sm" onClick={handleResetLogo}>
-                    <RotateCcw size={15} /> Default
+                  <Button variant="ghost" onClick={handleResetLogo}>
+                    <RotateCcw size={16} aria-hidden="true" /> Default
                   </Button>
                 )}
               </div>
@@ -539,14 +545,18 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
                 </label>
                 <span className="text-xs tabular-nums text-slate-500 dark:text-slate-400">{logoSize}px</span>
               </div>
+              {/* 44px of vertical hit area on touch (the track itself stays thin);
+                  back to the compact height from `sm:` up. It was h-6 — 24px,
+                  the smallest target left on this page. */}
               <input
                 id="set-logo-size"
                 type="range"
                 min="24"
                 max="220"
                 value={logoSize}
+                aria-valuetext={`${logoSize} piksel`}
                 onChange={(e) => handleLogoSizeChange(Number(e.target.value))}
-                className="mt-2 h-6 w-full accent-emerald-600"
+                className="mt-2 h-11 w-full cursor-pointer accent-emerald-600 sm:h-6"
               />
             </div>
           </div>
@@ -581,12 +591,17 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
             <div className="space-y-2">
               <Button
                 variant={reminderSubscribed ? 'secondary' : 'primary'}
-                size="sm"
                 className="w-full sm:w-auto"
                 onClick={handleToggleReminder}
-                disabled={reminderBusy}
+                isLoading={reminderBusy}
               >
-                {reminderSubscribed ? <><BellOff size={15} /> Nonaktifkan</> : <><BellRing size={15} /> Aktifkan</>}
+                {reminderBusy ? (
+                  'Memproses…'
+                ) : reminderSubscribed ? (
+                  <><BellOff size={16} aria-hidden="true" /> Nonaktifkan</>
+                ) : (
+                  <><BellRing size={16} aria-hidden="true" /> Aktifkan</>
+                )}
               </Button>
               <p
                 className={`text-xs font-medium ${reminderSubscribed ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}`}
@@ -617,13 +632,14 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
                 <span className="text-body text-office-subtext dark:text-slate-400">hari kerja</span>
               </div>
               <Button
-                size="sm"
                 variant="outline"
                 className="w-full sm:w-auto"
                 onClick={handleSaveThreshold}
-                disabled={savingThreshold || overdueThresholdInput === String(overdueThreshold)}
+                isLoading={savingThreshold}
+                disabled={overdueThresholdInput === String(overdueThreshold)}
               >
-                <Save size={14} /> Simpan
+                {!savingThreshold && <Save size={16} aria-hidden="true" />}
+                {savingThreshold ? 'Menyimpan…' : 'Simpan'}
               </Button>
             </div>
           ) : (
@@ -659,7 +675,6 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
             <div className="space-y-2">
               <Button
                 variant="outline"
-                size="sm"
                 className="w-full sm:w-auto"
                 onClick={handleInstallApp}
                 disabled={!installable}
@@ -688,7 +703,9 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
             {recentActivity.map((item) => (
               <li key={item.id} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                 <div className="min-w-0">
-                  <p className="truncate text-body text-office-text dark:text-slate-200">{item.label}</p>
+                  <p className="truncate text-body text-office-text dark:text-slate-200" title={item.label}>
+                    {item.label}
+                  </p>
                   <p className="text-xs text-office-subtext dark:text-slate-400">oleh {item.by}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2 sm:flex-col sm:items-end sm:gap-1">

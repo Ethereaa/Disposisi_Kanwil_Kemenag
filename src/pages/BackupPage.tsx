@@ -27,11 +27,11 @@ interface Props {
 
 /** One line of the "what the backup file contains" ledger in the restore
  *  confirmation. Label left, count right, so three of them scan as a column. */
-function CountRow({ label, value, accent = '' }: { label: string; value: number; accent?: string }) {
+function CountRow({ label, value }: { label: string; value: number }) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-2">
       <span className="text-body text-office-subtext dark:text-slate-400">{label}</span>
-      <span className={`text-body-strong tabular-nums ${accent || 'text-office-text dark:text-slate-100'}`}>{value}</span>
+      <span className="text-body-strong tabular-nums text-office-text dark:text-slate-100">{value}</span>
     </div>
   );
 }
@@ -45,7 +45,11 @@ export function BackupPage({ suratMasuk, suratKeluar, agendaPimpinan, onRefresh,
   async function handleBackup() {
     setBusy(true);
     try {
-      const user = await getCurrentUser();
+      // Kept for its side effect, not its value: getCurrentUser() signs the
+      // session out if the profile behind it has disappeared (see
+      // lib/storage.ts), so it doubles as a freshness probe before we hand the
+      // user a file. Only the unused binding was dropped.
+      await getCurrentUser();
       const data: BackupData = {
         version: 1,
         exportedAt: new Date().toISOString(),
@@ -118,8 +122,14 @@ export function BackupPage({ suratMasuk, suratKeluar, agendaPimpinan, onRefresh,
               Menyimpan seluruh data sebagai satu file JSON di perangkat Anda. Tidak mengubah apa pun di cloud.
             </p>
           </div>
-          <Button className="w-full sm:w-auto sm:shrink-0" onClick={handleBackup} disabled={busy || total === 0}>
-            <Download size={16} /> Buat File Backup
+          <Button
+            className="w-full sm:w-auto sm:shrink-0"
+            onClick={handleBackup}
+            isLoading={busy}
+            disabled={total === 0}
+          >
+            {!busy && <Download size={16} aria-hidden="true" />}
+            {busy ? 'Menyiapkan…' : 'Buat File Backup'}
           </Button>
         </div>
         {/* The ledger doubles as the page's data summary — three counts on one
@@ -188,7 +198,7 @@ export function BackupPage({ suratMasuk, suratKeluar, agendaPimpinan, onRefresh,
 
             <input ref={fileRef} type="file" accept=".json,application/json" onChange={handleFile} className="hidden" />
             <Button variant="outline" className="w-full sm:w-auto" onClick={() => fileRef.current?.click()} disabled={busy}>
-              <FileJson size={16} /> Pilih File Backup…
+              <FileJson size={16} aria-hidden="true" /> Pilih File Backup…
             </Button>
             <p className="text-xs text-office-subtext dark:text-slate-400">
               File akan diperiksa dan Anda masih harus mengonfirmasi sebelum data diganti.
@@ -216,8 +226,15 @@ export function BackupPage({ suratMasuk, suratKeluar, agendaPimpinan, onRefresh,
         size="md"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setPendingRestore(null)}>Batal</Button>
-            <Button variant="danger" onClick={confirmRestore} disabled={busy}>Ganti Seluruh Data</Button>
+            {/* Batal takes the initial focus so the button that wipes every
+                record for every user is never the pre-armed one. Same
+                convention as ConfirmModal. */}
+            <Button variant="secondary" onClick={() => setPendingRestore(null)} disabled={busy} data-autofocus>
+              Batal
+            </Button>
+            <Button variant="danger" onClick={confirmRestore} isLoading={busy}>
+              {busy ? 'Memulihkan…' : 'Ganti Seluruh Data'}
+            </Button>
           </>
         }
       >
