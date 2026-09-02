@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Plus, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Field, Input, Select, FormSection, FormErrorSummary, FormActions } from '@/components/ui/Form';
+import { Field, Input, Select, FormSection, FormActions } from '@/components/ui/Form';
 import { AttachmentField } from '@/components/ui/AttachmentField';
 import { useToast } from '@/components/ui/Toast';
 import { AGENDA_KETERANGAN_OPTIONS, type AgendaPimpinan, type Attachment } from '@/types';
@@ -29,10 +29,9 @@ const emptyForm = {
 export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
   const [nomorUrut, setNomorUrut] = useState(1);
   const [form, setForm] = useState(emptyForm);
-  const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
-  // Validated controls, so a failed submit can put the cursor on the first
-  // field that actually needs attention instead of only colouring it.
+  // Only the date control is registered: nothing here is validated any more, so
+  // the sole focus target left is the one "Simpan & Input Berikutnya" returns to.
   const { register, focusField } = useFieldRefs();
   const { toast } = useToast();
 
@@ -52,46 +51,29 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
       setNomorUrut(1);
       setForm((prev) => ({ ...prev, tanggalKegiatan: todayISO() }));
     }
-    setErrors({});
   }, [editing]);
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
-    if (errors[key]) setErrors((e) => ({ ...e, [key]: '' }));
   }
 
-  // Exactly the same six conditions that already gated submission — split per
-  // field so the message lands next to the empty control instead of only in a
-  // toast that says "lengkapi semua kolom wajib" and leaves you hunting.
-  function validate(): boolean {
-    const e: Record<string, string> = {};
-    if (!form.tanggalKegiatan) e.tanggalKegiatan = 'Tanggal kegiatan wajib diisi';
-    if (!form.waktuKegiatan) e.waktuKegiatan = 'Waktu kegiatan wajib diisi';
-    if (!form.namaKegiatan.trim()) e.namaKegiatan = 'Nama kegiatan wajib diisi';
-    if (!form.tempatKegiatan.trim()) e.tempatKegiatan = 'Tempat kegiatan wajib diisi';
-    if (!form.keterangan) e.keterangan = 'Keterangan wajib dipilih';
-    if (!form.disposisiPegawai) e.disposisiPegawai = 'Disposisi pegawai wajib diisi';
-    setErrors(e);
-    const firstInvalid = Object.keys(e)[0];
-    if (firstInvalid) focusField(firstInvalid);
-    return Object.keys(e).length === 0;
-  }
-
-  // `stay` is the "Simpan & Input Berikutnya" path: same validation, same
-  // insert, but the form is recycled for the next entry instead of handing
-  // control back to the parent. Mirrors SuratKeluarForm.save().
+  // `stay` is the "Simpan & Input Berikutnya" path: same insert, but the form is
+  // recycled for the next entry instead of handing control back to the parent.
+  // Mirrors SuratKeluarForm.save().
+  //
+  // Nothing gates this. Every business field on an agenda is optional (3C), so a
+  // partially filled — or even entirely empty — agenda is a legitimate save.
   async function save(stay: boolean) {
-    if (!validate()) {
-      toast('Lengkapi semua kolom wajib.', 'error');
-      return;
-    }
-
     setBusy(true);
     try {
+      // The one value that cannot go through as typed: the RPC and the column are
+      // PostgreSQL `date`, and a cleared date input reads '', not null.
+      const tanggalKegiatan = form.tanggalKegiatan || null;
+
       if (editing) {
         const payload = {
           nomorUrut,
-          tanggalKegiatan: form.tanggalKegiatan,
+          tanggalKegiatan,
           waktuKegiatan: form.waktuKegiatan,
           namaKegiatan: form.namaKegiatan.trim(),
           tempatKegiatan: form.tempatKegiatan.trim(),
@@ -102,7 +84,7 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
         await updateAgendaPimpinan(editing.id, payload);
       } else {
         const inserted = await insertAgendaPimpinanSorted({
-          tanggalKegiatan: form.tanggalKegiatan,
+          tanggalKegiatan,
           waktuKegiatan: form.waktuKegiatan,
           namaKegiatan: form.namaKegiatan.trim(),
           tempatKegiatan: form.tempatKegiatan.trim(),
@@ -125,7 +107,6 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
         // Same fresh-create state the mount effect builds: emptyForm with
         // today's date, which also clears lampiran back to [].
         setForm({ ...emptyForm, tanggalKegiatan: todayISO() });
-        setErrors({});
         // Deferred like SuratKeluarForm's reset focus, so the focus lands after
         // React has committed the cleared form.
         setTimeout(() => focusField('tanggalKegiatan'), 50);
@@ -145,17 +126,11 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
     save(false);
   }
 
-  const fieldErrors = Object.entries(errors)
-    .filter(([, message]) => !!message)
-    .map(([key, message]) => ({ key, message }));
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <FormErrorSummary errors={fieldErrors} onJump={focusField} />
-
-      <FormSection title="Jadwal" hint="Semua kolom pada bagian ini wajib">
+      <FormSection title="Jadwal" hint="Isi sesuai informasi yang tersedia">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Tanggal Kegiatan" required error={errors.tanggalKegiatan}>
+          <Field label="Tanggal Kegiatan">
             <Input
               ref={register('tanggalKegiatan')}
               type="date"
@@ -163,25 +138,22 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
               onChange={(e) => update('tanggalKegiatan', e.target.value)}
             />
           </Field>
-          <Field label="Waktu Kegiatan" required hint="Format 24 jam, contoh 14:30" error={errors.waktuKegiatan}>
+          <Field label="Waktu Kegiatan" hint="Format 24 jam, contoh 14:30">
             <Input
-              ref={register('waktuKegiatan')}
               type="time"
               value={form.waktuKegiatan}
               onChange={(e) => update('waktuKegiatan', e.target.value)}
             />
           </Field>
-          <Field label="Nama Kegiatan" required error={errors.namaKegiatan}>
+          <Field label="Nama Kegiatan">
             <Input
-              ref={register('namaKegiatan')}
               value={form.namaKegiatan}
               onChange={(e) => update('namaKegiatan', e.target.value)}
               placeholder="Nama kegiatan"
             />
           </Field>
-          <Field label="Tempat Kegiatan" required error={errors.tempatKegiatan}>
+          <Field label="Tempat Kegiatan">
             <Input
-              ref={register('tempatKegiatan')}
               value={form.tempatKegiatan}
               onChange={(e) => update('tempatKegiatan', e.target.value)}
               placeholder="Tempat kegiatan"
@@ -192,18 +164,16 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
 
       <FormSection title="Penugasan">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Keterangan" required error={errors.keterangan}>
+          <Field label="Keterangan">
             <Select
-              ref={register('keterangan')}
               value={form.keterangan}
               onChange={(e) => update('keterangan', e.target.value)}
               placeholder="-- Pilih Keterangan --"
               options={AGENDA_KETERANGAN_OPTIONS.map((opt) => ({ value: opt, label: opt }))}
             />
           </Field>
-          <Field label="Disposisi Pegawai" required error={errors.disposisiPegawai}>
+          <Field label="Disposisi Pegawai">
             <Input
-              ref={register('disposisiPegawai')}
               value={form.disposisiPegawai}
               onChange={(e) => update('disposisiPegawai', e.target.value)}
               placeholder="Nama pegawai / disposisi"

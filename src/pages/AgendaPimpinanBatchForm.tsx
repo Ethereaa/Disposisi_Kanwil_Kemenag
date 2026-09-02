@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { AlertTriangle, Plus, Save, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { IconButton } from '@/components/ui/IconButton';
-import { Field, Input, Select, FormErrorSummary, FormActions } from '@/components/ui/Form';
+import { Field, Input, Select, FormActions } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
 import { AGENDA_KETERANGAN_OPTIONS } from '@/types';
 import { insertAgendaPimpinanSorted } from '@/lib/db';
@@ -11,10 +11,13 @@ import { getErrorMessage } from '@/lib/error';
 import { useFieldRefs } from '@/lib/useFieldRefs';
 
 // Batch entry for Agenda Pimpinan. Deliberately thin: it collects N sets of the
-// same six required fields the single form collects, then writes them one at a
-// time through the one create path that exists — insertAgendaPimpinanSorted().
+// same six fields the single form collects, then writes them one at a time
+// through the one create path that exists — insertAgendaPimpinanSorted().
 // No new insert helper, no Promise.all, no bulk RPC: the server function has to
 // place each row in date order, and it can only do that for one row at a time.
+//
+// Every field is optional (3C), so rows go in exactly as typed, including rows
+// left entirely blank. The only thing that can stop a save is the database.
 //
 // There is no attachment picker here on purpose (Root #3F removes the whole
 // attachment system), so every batch row is written with `lampiran: []`.
@@ -64,25 +67,14 @@ function makeRow(): BatchRow {
   };
 }
 
-// The same six conditions and the same messages as AgendaPimpinanForm.validate().
-// 3B.2 does not relax any of them — optional fields belong to 3C.
-const REQUIRED: { field: EditableField; message: string }[] = [
-  { field: 'tanggalKegiatan', message: 'Tanggal kegiatan wajib diisi' },
-  { field: 'waktuKegiatan', message: 'Waktu kegiatan wajib diisi' },
-  { field: 'namaKegiatan', message: 'Nama kegiatan wajib diisi' },
-  { field: 'tempatKegiatan', message: 'Tempat kegiatan wajib diisi' },
-  { field: 'keterangan', message: 'Keterangan wajib dipilih' },
-  { field: 'disposisiPegawai', message: 'Disposisi pegawai wajib diisi' },
-];
-
-// One flat error map for every row, keyed `<uid>.<field>`. useFieldRefs()
-// memoizes a ref callback per key, so dynamic keys like these register and
-// focus exactly like the single form's static ones.
-const errKey = (uid: string, field: EditableField) => `${uid}.${field}`;
+// One flat ref key per control, `<uid>.<field>`. useFieldRefs() memoizes a ref
+// callback per key, so dynamic keys like these register and focus exactly like
+// the single form's static ones. Only the date input is registered — it is the
+// one field a newly added row focuses.
+const fieldKey = (uid: string, field: EditableField) => `${uid}.${field}`;
 
 export function AgendaPimpinanBatchForm({ onCompleted, onPartial, onCancel, onBusyChange }: Props) {
   const [rows, setRows] = useState<BatchRow[]>(() => [makeRow()]);
-  const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const { register, focusField } = useFieldRefs();
   const { toast } = useToast();
@@ -94,54 +86,24 @@ export function AgendaPimpinanBatchForm({ onCompleted, onPartial, onCancel, onBu
 
   function update(uid: string, field: EditableField, value: string) {
     setRows((rs) => rs.map((r) => (r.uid === uid ? { ...r, [field]: value } : r)));
-    const key = errKey(uid, field);
-    if (errors[key]) setErrors((e) => ({ ...e, [key]: '' }));
   }
 
   function addRow() {
     const row = makeRow();
     setRows((rs) => [...rs, row]);
     // Deferred so the focus lands after React has committed the new card.
-    setTimeout(() => focusField(errKey(row.uid, 'tanggalKegiatan')), 50);
+    setTimeout(() => focusField(fieldKey(row.uid, 'tanggalKegiatan')), 50);
   }
 
   // Guarded as well as hidden: the list must never reach zero rows.
   function removeRow(uid: string) {
     setRows((rs) => (rs.length > 1 ? rs.filter((r) => r.uid !== uid) : rs));
-    setErrors((e) => {
-      const next = { ...e };
-      for (const { field } of REQUIRED) delete next[errKey(uid, field)];
-      return next;
-    });
-  }
-
-  /** Validates every row. Nothing is written unless this comes back empty. */
-  function validateAll(list: BatchRow[]): Record<string, string> {
-    const e: Record<string, string> = {};
-    for (const row of list) {
-      for (const { field, message } of REQUIRED) {
-        if (!row[field].trim()) e[errKey(row.uid, field)] = message;
-      }
-    }
-    return e;
   }
 
   async function saveAll() {
     // Second line of defence against a double submit; the button is already
     // disabled while busy.
     if (busy) return;
-
-    // Validate-all-then-write, never validate-as-you-go: one bad row anywhere
-    // in the batch means zero inserts, so the user can fix it without having to
-    // reason about which agendas already went through.
-    const found = validateAll(rows);
-    setErrors(found);
-    const firstInvalid = Object.keys(found)[0];
-    if (firstInvalid) {
-      focusField(firstInvalid);
-      toast('Lengkapi semua kolom wajib pada setiap agenda.', 'error');
-      return;
-    }
 
     setSaving(true);
     // Snapshot the queue: the loop below must iterate over a fixed list rather
@@ -155,7 +117,10 @@ export function AgendaPimpinanBatchForm({ onCompleted, onPartial, onCancel, onBu
         const row = pending[i];
         try {
           await insertAgendaPimpinanSorted({
-            tanggalKegiatan: row.tanggalKegiatan,
+            // The RPC parameter and the column are PostgreSQL `date`; a cleared
+            // date input reads '', which is not a date. Everything else goes in
+            // as typed, empty strings included.
+            tanggalKegiatan: row.tanggalKegiatan || null,
             waktuKegiatan: row.waktuKegiatan,
             namaKegiatan: row.namaKegiatan.trim(),
             tempatKegiatan: row.tempatKegiatan.trim(),
@@ -172,7 +137,6 @@ export function AgendaPimpinanBatchForm({ onCompleted, onPartial, onCancel, onBu
           // failure; rows after it were never attempted and are untouched. The
           // remaining cards simply renumber, because the labels are positions.
           setRows(pending.slice(i).map((r, offset) => (offset === 0 ? { ...r, failed: message } : r)));
-          setErrors({});
           toast(message, 'error');
           // Something did land in the database, so the list behind the modal is
           // now stale. Refresh it, but leave the modal open for the retry.
@@ -188,27 +152,13 @@ export function AgendaPimpinanBatchForm({ onCompleted, onPartial, onCancel, onBu
     }
   }
 
-  // Positions for the summary lines, so "Nama kegiatan wajib diisi" x4 is
-  // attributable. The inline Field error stays unprefixed — it already sits
-  // inside the card that names the agenda.
-  // `as const` so this is a tuple list, which is what Map's constructor takes.
-  const positions = new Map(rows.map((r, i) => [r.uid, i + 1] as const));
-  const fieldErrors = Object.entries(errors)
-    .filter(([, message]) => !!message)
-    .map(([key, message]) => {
-      const pos = positions.get(key.slice(0, key.indexOf('.')));
-      return { key, message: pos ? `Agenda ${pos}: ${message}` : message };
-    });
-
   return (
     // Not a <form>: Enter inside any of 6xN inputs would submit the whole
     // batch, which is the one action here that must always be deliberate.
     <div className="space-y-5">
-      <FormErrorSummary errors={fieldErrors} onJump={focusField} />
-
       <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">
-        Isi beberapa agenda sekaligus. Semua kolom wajib diisi pada setiap agenda — tidak ada data yang
-        dikirim sebelum seluruh agenda lengkap. Lampiran tidak tersedia pada input batch.
+        Isi informasi yang tersedia pada setiap agenda. Kolom yang belum diketahui dapat dikosongkan. Lampiran
+        tidak tersedia pada input batch.
       </p>
 
       <div className="space-y-4">
@@ -248,50 +198,41 @@ export function AgendaPimpinanBatchForm({ onCompleted, onPartial, onCancel, onBu
             {/* Cards and a 2-up grid rather than a wide table, so 360px gets a
                 readable stack instead of a horizontal scroller. */}
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
-              <Field label="Tanggal Kegiatan" required error={errors[errKey(row.uid, 'tanggalKegiatan')]}>
+              <Field label="Tanggal Kegiatan">
                 <Input
-                  ref={register(errKey(row.uid, 'tanggalKegiatan'))}
+                  ref={register(fieldKey(row.uid, 'tanggalKegiatan'))}
                   type="date"
                   value={row.tanggalKegiatan}
                   disabled={busy}
                   onChange={(e) => update(row.uid, 'tanggalKegiatan', e.target.value)}
                 />
               </Field>
-              <Field
-                label="Waktu Kegiatan"
-                required
-                hint="Format 24 jam, contoh 14:30"
-                error={errors[errKey(row.uid, 'waktuKegiatan')]}
-              >
+              <Field label="Waktu Kegiatan" hint="Format 24 jam, contoh 14:30">
                 <Input
-                  ref={register(errKey(row.uid, 'waktuKegiatan'))}
                   type="time"
                   value={row.waktuKegiatan}
                   disabled={busy}
                   onChange={(e) => update(row.uid, 'waktuKegiatan', e.target.value)}
                 />
               </Field>
-              <Field label="Nama Kegiatan" required error={errors[errKey(row.uid, 'namaKegiatan')]}>
+              <Field label="Nama Kegiatan">
                 <Input
-                  ref={register(errKey(row.uid, 'namaKegiatan'))}
                   value={row.namaKegiatan}
                   disabled={busy}
                   onChange={(e) => update(row.uid, 'namaKegiatan', e.target.value)}
                   placeholder="Nama kegiatan"
                 />
               </Field>
-              <Field label="Tempat Kegiatan" required error={errors[errKey(row.uid, 'tempatKegiatan')]}>
+              <Field label="Tempat Kegiatan">
                 <Input
-                  ref={register(errKey(row.uid, 'tempatKegiatan'))}
                   value={row.tempatKegiatan}
                   disabled={busy}
                   onChange={(e) => update(row.uid, 'tempatKegiatan', e.target.value)}
                   placeholder="Tempat kegiatan"
                 />
               </Field>
-              <Field label="Keterangan" required error={errors[errKey(row.uid, 'keterangan')]}>
+              <Field label="Keterangan">
                 <Select
-                  ref={register(errKey(row.uid, 'keterangan'))}
                   value={row.keterangan}
                   disabled={busy}
                   onChange={(e) => update(row.uid, 'keterangan', e.target.value)}
@@ -299,9 +240,8 @@ export function AgendaPimpinanBatchForm({ onCompleted, onPartial, onCancel, onBu
                   options={AGENDA_KETERANGAN_OPTIONS.map((opt) => ({ value: opt, label: opt }))}
                 />
               </Field>
-              <Field label="Disposisi Pegawai" required error={errors[errKey(row.uid, 'disposisiPegawai')]}>
+              <Field label="Disposisi Pegawai">
                 <Input
-                  ref={register(errKey(row.uid, 'disposisiPegawai'))}
                   value={row.disposisiPegawai}
                   disabled={busy}
                   onChange={(e) => update(row.uid, 'disposisiPegawai', e.target.value)}
