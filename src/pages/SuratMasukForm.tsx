@@ -149,8 +149,6 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
         subDisposisi: form.tujuanDisposisi === 'Kabag TU' ? (form.subDisposisi as SubDisposisi) : null,
         isiDisposisi: form.isiDisposisi.trim(),
         keterangan: form.keterangan.trim(),
-        // Still required by the model; the field itself goes away in 3F.2.
-        lampiran: [],
       };
       if (editing) {
         await updateMasuk(editing.id, payload);

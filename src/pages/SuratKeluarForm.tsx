@@ -113,8 +113,6 @@ export function SuratKeluarForm({ editing, onSaved, onCancel }: Props) {
         perihal: form.perihal.trim(),
         ditandatangani: form.ditandatangani,
         keterangan: form.keterangan.trim(),
-        // Still required by the model; the field itself goes away in 3F.2.
-        lampiran: [],
       };
       if (editing) {
         await updateKeluar(editing.id, payload);

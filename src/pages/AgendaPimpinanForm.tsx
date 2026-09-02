@@ -76,8 +76,6 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
           tempatKegiatan: form.tempatKegiatan.trim(),
           keterangan: form.keterangan,
           disposisiPegawai: form.disposisiPegawai.trim(),
-          // Still required by the model; the field itself goes away in 3F.2.
-          lampiran: [],
         };
         await updateAgendaPimpinan(editing.id, payload);
       } else {
@@ -88,7 +86,6 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
           tempatKegiatan: form.tempatKegiatan.trim(),
           keterangan: form.keterangan,
           disposisiPegawai: form.disposisiPegawai.trim(),
-          lampiran: [],
         });
       }
 

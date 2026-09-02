@@ -1,6 +1,5 @@
 import { supabase } from './supabase';
-import type { AgendaPimpinan, AgendaPimpinanPublic, SuratMasuk, SuratKeluar, Attachment } from '@/types';
-import { normalizeLampiran } from './attachments';
+import type { AgendaPimpinan, AgendaPimpinanPublic, SuratMasuk, SuratKeluar } from '@/types';
 import type { PreviewQuery } from './agendaPreview';
 
 export type SuratTable = 'surat_masuk' | 'surat_keluar';
@@ -14,7 +13,6 @@ interface DBRow {
   pengirim: string;
   perihal: string;
   keterangan: string;
-  lampiran: unknown;
   created_by_email: string;
   created_at: string;
   updated_at: string;
@@ -43,7 +41,6 @@ interface AgendaRow {
   tempat_kegiatan: string;
   keterangan: string;
   disposisi_pegawai: string;
-  lampiran: unknown;
   created_by_email: string;
   created_at: string;
   updated_at: string;
@@ -51,7 +48,7 @@ interface AgendaRow {
 
 // Rows from public.agenda_pimpinan_public, the restricted view the two
 // no-login routes read. Deliberately NOT AgendaRow: the view exposes 8 of
-// agenda_pimpinan's 16 columns, so `data as AgendaRow` would type lampiran,
+// agenda_pimpinan's columns, so `data as AgendaRow` would type
 // created_by_email, created_at and updated_at as present when they are
 // `undefined` at runtime — the compiler would then wave through
 // `row.created_at.slice(...)` and it would throw in the browser.
@@ -89,7 +86,6 @@ function mapMasuk(r: MasukRow): SuratMasuk {
     subDisposisi: r.sub_disposisi as SuratMasuk['subDisposisi'] ?? null,
     isiDisposisi: r.isi_disposisi ?? '',
     keterangan: r.keterangan ?? '',
-    lampiran: normalizeLampiran(r.lampiran),
     statusDisposisi: (r.status_disposisi as SuratMasuk['statusDisposisi']) || 'baru',
     statusUpdatedAt: r.status_updated_at ?? r.updated_at,
     createdByEmail: r.created_by_email || undefined,
@@ -108,7 +104,6 @@ function mapKeluar(r: KeluarRow): SuratKeluar {
     perihal: r.perihal ?? '',
     ditandatangani: r.ditandatangani ?? false,
     keterangan: r.keterangan ?? '',
-    lampiran: normalizeLampiran(r.lampiran),
     createdByEmail: r.created_by_email || undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -125,7 +120,6 @@ function mapAgenda(r: AgendaRow): AgendaPimpinan {
     tempatKegiatan: r.tempat_kegiatan ?? '',
     keterangan: r.keterangan ?? '',
     disposisiPegawai: r.disposisi_pegawai ?? '',
-    lampiran: normalizeLampiran(r.lampiran),
     createdByEmail: r.created_by_email || undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -133,7 +127,7 @@ function mapAgenda(r: AgendaRow): AgendaPimpinan {
 }
 
 // Public counterpart of mapAgenda(), for view rows. Separate on purpose:
-// mapAgenda() reads four columns the view does not expose, so reusing it on a
+// mapAgenda() reads three columns the view does not expose, so reusing it on a
 // public row would hand the UI `undefined` values typed as `string`. The
 // null-coalescing mirrors mapAgenda() because the view passes the base
 // columns through unchanged.
@@ -283,10 +277,11 @@ export async function getAllAgendaPimpinan(): Promise<AgendaPimpinan[]> {
 // day boundary follows the office rather than the visitor's device.
 //
 // Reads the restricted agenda_pimpinan_public view, not the base table: this
-// runs for anonymous visitors, and the base table holds staff emails and
-// attachment paths that have no business leaving the building. Filters and
-// ordering are unchanged — the view passes all 8 columns through untouched, so
-// tanggal_kegiatan/waktu_kegiatan behave exactly as before.
+// runs for anonymous visitors, and the base table holds internal metadata
+// (staff emails, bookkeeping timestamps) that has no business leaving the
+// building. Filters and ordering are unchanged — the view passes all 8 columns
+// through untouched, so tanggal_kegiatan/waktu_kegiatan behave exactly as
+// before.
 export async function runAgendaPreviewQuery(query: PreviewQuery): Promise<AgendaPimpinanPublic[]> {
   let q = supabase
     .from('agenda_pimpinan_public')
@@ -384,7 +379,6 @@ export async function insertMasuk(record: Omit<SuratMasuk, 'id' | 'createdAt' | 
       sub_disposisi: record.subDisposisi ?? null,
       isi_disposisi: record.isiDisposisi,
       keterangan: record.keterangan,
-      lampiran: record.lampiran ?? [],
       created_by_email: email,
     })
     .select('*')
@@ -434,7 +428,6 @@ export async function updateMasuk(id: string, record: Omit<SuratMasuk, 'id' | 'c
       sub_disposisi: record.subDisposisi ?? null,
       isi_disposisi: record.isiDisposisi,
       keterangan: record.keterangan,
-      lampiran: record.lampiran ?? [],
       updated_at: new Date().toISOString(),
     })
     .eq('id', id);
@@ -473,7 +466,6 @@ export async function insertKeluar(record: Omit<SuratKeluar, 'id' | 'createdAt' 
       perihal: record.perihal,
       ditandatangani: record.ditandatangani,
       keterangan: record.keterangan,
-      lampiran: record.lampiran ?? [],
       created_by_email: email,
     })
     .select('*')
@@ -515,7 +507,6 @@ export async function updateKeluar(id: string, record: Omit<SuratKeluar, 'id' | 
       perihal: record.perihal,
       ditandatangani: record.ditandatangani,
       keterangan: record.keterangan,
-      lampiran: record.lampiran ?? [],
       updated_at: new Date().toISOString(),
     })
     .eq('id', id);
@@ -537,7 +528,6 @@ export async function insertAgendaPimpinan(record: Omit<AgendaPimpinan, 'id' | '
       tempat_kegiatan: record.tempatKegiatan,
       keterangan: record.keterangan,
       disposisi_pegawai: record.disposisiPegawai,
-      lampiran: record.lampiran ?? [],
       created_by_email: email,
     })
     .select('*')
@@ -579,7 +569,6 @@ export async function updateAgendaPimpinan(id: string, record: Omit<AgendaPimpin
       tempat_kegiatan: record.tempatKegiatan,
       keterangan: record.keterangan,
       disposisi_pegawai: record.disposisiPegawai,
-      lampiran: record.lampiran ?? [],
       updated_at: new Date().toISOString(),
     })
     .eq('id', id);
@@ -595,15 +584,6 @@ export async function deleteRow(table: SuratTable, id: string): Promise<void> {
 
 export async function deleteAgendaPimpinan(id: string): Promise<void> {
   const { error } = await supabase.from('agenda_pimpinan').delete().eq('id', id);
-  if (error) throw error;
-}
-
-// insertMasukSorted / insertKeluarSorted / insertAgendaPimpinanSorted go
-// through a DB function (RPC) that doesn't know about `lampiran`, so any
-// attachments picked in the form before the row existed are saved with
-// this follow-up call right after the sorted insert succeeds.
-export async function updateLampiran(table: SuratTable | AgendaTable, id: string, lampiran: Attachment[]): Promise<void> {
-  const { error } = await supabase.from(table).update({ lampiran }).eq('id', id);
   if (error) throw error;
 }
 
@@ -667,7 +647,6 @@ export async function bulkInsertMasuk(items: SuratMasuk[]): Promise<void> {
     sub_disposisi: r.subDisposisi ?? null,
     isi_disposisi: r.isiDisposisi,
     keterangan: r.keterangan,
-    lampiran: r.lampiran ?? [],
     // Older backups made before this field existed won't have it — default
     // to 'baru' rather than leaving it undefined, so the insert never trips
     // the NOT NULL constraint on status_disposisi.
@@ -690,7 +669,6 @@ export async function bulkInsertAgendaPimpinan(items: AgendaPimpinan[]): Promise
     tempat_kegiatan: r.tempatKegiatan,
     keterangan: r.keterangan,
     disposisi_pegawai: r.disposisiPegawai,
-    lampiran: r.lampiran ?? [],
     created_by_email: email,
   }));
   const { error } = await supabase.from('agenda_pimpinan').insert(rows);
@@ -709,7 +687,6 @@ export async function bulkInsertKeluar(items: SuratKeluar[]): Promise<void> {
     perihal: r.perihal,
     ditandatangani: r.ditandatangani,
     keterangan: r.keterangan,
-    lampiran: r.lampiran ?? [],
     created_by_email: email,
   }));
   const { error } = await supabase.from('surat_keluar').insert(rows);

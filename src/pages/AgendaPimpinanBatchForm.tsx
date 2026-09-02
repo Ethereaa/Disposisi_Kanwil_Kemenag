@@ -123,8 +123,6 @@ export function AgendaPimpinanBatchForm({ onCompleted, onPartial, onCancel, onBu
             tempatKegiatan: row.tempatKegiatan.trim(),
             keterangan: row.keterangan,
             disposisiPegawai: row.disposisiPegawai.trim(),
-            // Still required by the model; the field itself goes away in 3F.2.
-            lampiran: [],
           });
         } catch (err) {
           const message = getErrorMessage(err, 'Gagal menyimpan agenda.');

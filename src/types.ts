@@ -1,3 +1,8 @@
+// DEPRECATED — the attachment feature is being removed. No active record type
+// references this any more; it is kept only so the files still importing it
+// (components/ui/AttachmentField.tsx, components/ui/LampiranCell.tsx,
+// lib/attachments.ts) keep type-checking until they are deleted in 3F.3.
+//
 // Metadata for one scanned/uploaded file attached to a record. The file
 // itself lives in the `lampiran-surat` Supabase Storage bucket; only the
 // path + display info is kept here.
@@ -26,7 +31,6 @@ export interface SuratMasuk {
   subDisposisi?: SubDisposisi | null;
   isiDisposisi: string;
   keterangan: string;
-  lampiran: Attachment[];
   statusDisposisi: StatusDisposisi;
   statusUpdatedAt: string; // ISO timestamp — when statusDisposisi last changed
   createdByEmail?: string;
@@ -43,7 +47,6 @@ export interface SuratKeluar {
   perihal: string;
   ditandatangani: boolean;
   keterangan: string;
-  lampiran: Attachment[];
   createdByEmail?: string;
   createdAt: string; // ISO timestamp
   updatedAt: string; // ISO timestamp
@@ -94,7 +97,6 @@ export interface AgendaPimpinan {
   tempatKegiatan: string;
   keterangan: string;
   disposisiPegawai: string;
-  lampiran: Attachment[];
   createdByEmail?: string;
   createdAt: string; // ISO timestamp
   updatedAt: string; // ISO timestamp

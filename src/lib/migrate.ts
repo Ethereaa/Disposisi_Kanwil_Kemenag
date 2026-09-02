@@ -97,7 +97,6 @@ export async function migrateLocalDataToCloud(): Promise<{ masuk: number; keluar
       subDisposisi: (r.subDisposisi ?? null) as SuratMasuk['subDisposisi'],
       isiDisposisi: r.isiDisposisi,
       keterangan: r.keterangan,
-      lampiran: [],
       // Legacy pre-Supabase local records predate the disposisi status
       // workflow entirely, so there's no real status to carry over —
       // 'baru' with "now" as the status timestamp is the closest honest
@@ -121,7 +120,6 @@ export async function migrateLocalDataToCloud(): Promise<{ masuk: number; keluar
       perihal: r.perihal,
       ditandatangani: r.ditandatangani,
       keterangan: r.keterangan,
-      lampiran: [],
       createdAt: new Date(r.createdAt).toISOString(),
       updatedAt: new Date(r.updatedAt).toISOString(),
     }));
