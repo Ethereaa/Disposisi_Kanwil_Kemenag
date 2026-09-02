@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Surface } from '@/components/ui/Surface';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
-import { exportBackup, parseBackup } from '@/lib/export';
+import { exportBackup, parseBackup } from '@/lib/backup';
 import { getErrorMessage } from '@/lib/error';
 import { restoreBackup } from '@/lib/restore';
 import { getCurrentUser } from '@/lib/storage';

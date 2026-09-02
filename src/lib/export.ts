@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { Packer, Document, Paragraph, Table, TableRow, TableCell, TextRun, HeadingLevel } from 'docx';
 import { isoToDisplay, isWithinRange } from './date';
-import type { AgendaPimpinan, SuratMasuk, SuratKeluar, BackupData } from '@/types';
+import type { AgendaPimpinan, SuratMasuk, SuratKeluar } from '@/types';
 
 type ExportScope = 'all' | 'masuk' | 'keluar' | 'agenda' | 'range';
 type ExportFormat = 'xlsx' | 'docx';
@@ -234,23 +234,4 @@ async function exportDocx(masuk: SuratMasuk[], keluar: SuratKeluar[], agenda: Ag
   const blob = await Packer.toBlob(doc);
   const scopeLabel = scope === 'all' ? 'Semua' : scope === 'masuk' ? 'SuratMasuk' : scope === 'keluar' ? 'SuratKeluar' : scope === 'agenda' ? 'AgendaPimpinan' : 'Rentang';
   saveAs(blob, `Disposisi_${scopeLabel}_${stampStr}.docx`);
-}
-
-// --- Backup / Restore ---
-export function exportBackup(data: BackupData): void {
-  const json = JSON.stringify(data, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
-  saveAs(blob, `Backup_Disposisi_${stamp()}.json`);
-}
-
-export function parseBackup(text: string): BackupData {
-  const data = JSON.parse(text) as BackupData;
-  if (!data || typeof data !== 'object') throw new Error('File backup tidak valid.');
-  if (!Array.isArray(data.suratMasuk) || !Array.isArray(data.suratKeluar)) {
-    throw new Error('Format backup tidak valid: data surat tidak ditemukan.');
-  }
-  if (!Array.isArray(data.agendaPimpinan)) {
-    data.agendaPimpinan = [];
-  }
-  return data;
 }
