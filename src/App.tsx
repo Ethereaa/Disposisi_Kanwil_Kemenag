@@ -61,8 +61,10 @@ const BASE_PATH = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '') || '/';
 // (DashboardSnapshot) and never the three tables that summary is computed
 // from, so opening it no longer downloads Surat Masuk, Surat Keluar and Agenda
 // Pimpinan in full. Each list route loads its own table and nothing else.
-// Export, Backup and Settings still take all three full datasets as props, so
-// they still load all three — trimming those is 4C.5D and 4C.5E.
+// Export and Backup load nothing: neither renders rows, so each now fetches
+// exactly what its file needs at the moment the action runs, and drops it again
+// (loadExportData / loadBackupData below). Settings is the last route still
+// taking all three full datasets as props — trimming it is 4C.5E.
 interface RouteData {
   snapshot: boolean;
   masuk: boolean;
@@ -75,10 +77,23 @@ const routeData: Record<PageKey, RouteData> = {
   'surat-masuk': { snapshot: false, masuk: true, keluar: false, agenda: false },
   'surat-keluar': { snapshot: false, masuk: false, keluar: true, agenda: false },
   'agenda-pimpinan': { snapshot: false, masuk: false, keluar: false, agenda: true },
-  export: { snapshot: false, masuk: true, keluar: true, agenda: true },
-  backup: { snapshot: false, masuk: true, keluar: true, agenda: true },
+  export: { snapshot: false, masuk: false, keluar: false, agenda: false },
+  backup: { snapshot: false, masuk: false, keluar: false, agenda: false },
   settings: { snapshot: false, masuk: true, keluar: true, agenda: true },
 };
+
+// What an Export or Backup action pulls from the cloud for the one file it is
+// about to write. Structural on purpose: ExportPage and BackupPage declare the
+// same shape locally, so neither page has to import a type out of App.
+interface ActionDatasets {
+  suratMasuk: SuratMasuk[];
+  suratKeluar: SuratKeluar[];
+  agendaPimpinan: AgendaPimpinan[];
+}
+
+// Mirrors ExportPage's own Scope union. A divergence is a compile error at the
+// <ExportPage> call site, not a silent mismatch.
+type ExportScope = 'all' | 'masuk' | 'keluar' | 'agenda' | 'range';
 
 const EMPTY_WORK_COUNTS: GlobalWorkCounts = { unsignedKeluar: 0, agendaToday: 0 };
 
@@ -312,6 +327,39 @@ function Root() {
       toast(err instanceof Error ? err.message : 'Gagal memuat Agenda Pimpinan.', 'error');
     }
   }, [refreshWorkCounts, surfaceTruncationWarnings, toast]);
+
+  // ── Action-local loads ────────────────────────────────────────────────────
+  // Export and Backup no longer hold the three datasets, so they no longer make
+  // opening the route download them. They ask for the rows at the moment the
+  // person actually starts an export or a backup, and only the ones that file
+  // needs. Deliberately NOT written into setSuratMasuk/setSuratKeluar/
+  // setAgendaPimpinan: this data belongs to one click and dies with the file it
+  // produced. Truncation warnings still surface, on the same shared surface as
+  // every other load, once the fetches have succeeded.
+  const loadExportData = useCallback(
+    async (scope: ExportScope): Promise<ActionDatasets> => {
+      // 'range' still takes all three in full: the date filter is applied
+      // client-side by exportData(), which is unchanged in this phase.
+      const wantsAll = scope === 'all' || scope === 'range';
+      const [m, k, a] = await Promise.all([
+        wantsAll || scope === 'masuk' ? getAllMasuk() : null,
+        wantsAll || scope === 'keluar' ? getAllKeluar() : null,
+        wantsAll || scope === 'agenda' ? getAllAgendaPimpinan() : null,
+      ]);
+      surfaceTruncationWarnings();
+      return { suratMasuk: m ?? [], suratKeluar: k ?? [], agendaPimpinan: a ?? [] };
+    },
+    [surfaceTruncationWarnings],
+  );
+
+  // A backup file is by definition everything, so this one has no scope to
+  // narrow by. Restore is the opposite direction and reads none of this — it
+  // works from the uploaded file.
+  const loadBackupData = useCallback(async (): Promise<ActionDatasets> => {
+    const [m, k, a] = await Promise.all([getAllMasuk(), getAllKeluar(), getAllAgendaPimpinan()]);
+    surfaceTruncationWarnings();
+    return { suratMasuk: m, suratKeluar: k, agendaPimpinan: a };
+  }, [surfaceTruncationWarnings]);
 
   // Old-local-data check, and the logged-out reset. Keyed on `authed` alone:
   // the route loader below runs on every navigation, and this must not.
@@ -646,8 +694,8 @@ function Root() {
                 {page === 'surat-masuk' && <SuratMasukPage rows={suratMasuk} onRefresh={refreshMasuk} canDelete={user?.role === 'admin'} quickAddSignal={quickAdd?.target === 'surat-masuk' ? quickAdd.token : undefined} onQuickAddHandled={clearQuickAdd} />}
                 {page === 'surat-keluar' && <SuratKeluarPage rows={suratKeluar} onRefresh={refreshKeluar} canDelete={user?.role === 'admin'} quickAddSignal={quickAdd?.target === 'surat-keluar' ? quickAdd.token : undefined} onQuickAddHandled={clearQuickAdd} />}
                 {page === 'agenda-pimpinan' && <AgendaPimpinanPage rows={agendaPimpinan} onRefresh={refreshAgenda} canDelete={user?.role === 'admin'} quickAddSignal={quickAdd?.target === 'agenda-pimpinan' ? quickAdd.token : undefined} onQuickAddHandled={clearQuickAdd} />}
-                {page === 'export' && <ExportPage suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} />}
-                {page === 'backup' && <BackupPage suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} onRefresh={refreshAll} canRestore={user?.role === 'admin'} />}
+                {page === 'export' && <ExportPage loadData={loadExportData} />}
+                {page === 'backup' && <BackupPage loadData={loadBackupData} onRefresh={refreshAll} canRestore={user?.role === 'admin'} />}
                 {page === 'settings' && <SettingsPage theme={theme} onToggleTheme={toggleTheme} onUserUpdated={handleUserUpdated} suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} />}
               </div>
             </Suspense>

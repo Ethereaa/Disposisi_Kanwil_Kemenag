@@ -11,10 +11,20 @@ import { exportData } from '@/lib/export';
 import { getErrorMessage } from '@/lib/error';
 import type { AgendaPimpinan, SuratMasuk, SuratKeluar } from '@/types';
 
-interface Props {
+interface ExportDatasets {
   suratMasuk: SuratMasuk[];
   suratKeluar: SuratKeluar[];
   agendaPimpinan: AgendaPimpinan[];
+}
+
+interface Props {
+  /**
+   * Fetches the rows for one export, on the click that starts it, and only the
+   * tables the chosen scope actually needs. This page used to receive all three
+   * datasets as props, which meant merely opening it downloaded every row in
+   * the system for a file the person may never have asked for.
+   */
+  loadData: (scope: Scope) => Promise<ExportDatasets>;
 }
 
 type Scope = 'all' | 'masuk' | 'keluar' | 'agenda' | 'range';
@@ -67,7 +77,7 @@ function ChoiceBand({ step, title, hint, children }: { step: number; title: stri
   );
 }
 
-export function ExportPage({ suratMasuk, suratKeluar, agendaPimpinan }: Props) {
+export function ExportPage({ loadData }: Props) {
   const [scope, setScope] = useState<Scope>('all');
   const [format, setFormat] = useState<Format>('xlsx');
   // Native date inputs, so these hold ISO yyyy-mm-dd (they were free-text
@@ -123,6 +133,11 @@ export function ExportPage({ suratMasuk, suratKeluar, agendaPimpinan }: Props) {
     setDateErrors({});
     setBusy(true);
     try {
+      // Validation first, then the fetch: an unfilled or inverted range must
+      // still cost zero queries. What comes back is passed straight to
+      // exportData() and never stored — the scope/format/range semantics below
+      // are byte-for-byte what they were when the arrays arrived as props.
+      const { suratMasuk, suratKeluar, agendaPimpinan } = await loadData(scope);
       await exportData({
         scope,
         format,
@@ -185,8 +200,7 @@ export function ExportPage({ suratMasuk, suratKeluar, agendaPimpinan }: Props) {
             loose button on the canvas. Full-width on mobile. */}
         <div className="flex flex-col-reverse gap-3 border-t border-office-border bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/40 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <p className="text-xs leading-5 text-office-subtext dark:text-slate-400">
-            Tersedia: {suratMasuk.length} surat masuk · {suratKeluar.length} surat keluar · {agendaPimpinan.length}{' '}
-            agenda pimpinan
+            Data terbaru akan dimuat dari cloud saat ekspor dimulai.
           </p>
           <Button size="lg" className="w-full sm:w-auto sm:shrink-0" onClick={handleExport} isLoading={busy}>
             {!busy && <Download size={18} aria-hidden="true" />} {busy ? 'Memproses…' : 'Export Sekarang'}

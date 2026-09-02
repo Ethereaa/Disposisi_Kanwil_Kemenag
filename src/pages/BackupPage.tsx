@@ -12,10 +12,20 @@ import { getCurrentUser } from '@/lib/storage';
 import { formatDateTime } from '@/lib/date';
 import type { AgendaPimpinan, SuratMasuk, SuratKeluar, BackupData } from '@/types';
 
-interface Props {
+interface BackupDatasets {
   suratMasuk: SuratMasuk[];
   suratKeluar: SuratKeluar[];
   agendaPimpinan: AgendaPimpinan[];
+}
+
+interface Props {
+  /**
+   * Fetches all three tables, on the click that builds the file. This page used
+   * to receive them as props, so merely opening it downloaded every row in the
+   * system — for a backup nobody had asked for yet. Restore does not use this:
+   * it works from the uploaded file and reads nothing from the cloud first.
+   */
+  loadData: () => Promise<BackupDatasets>;
   onRefresh: () => void;
   /**
    * Restore replaces every record in all three tables. Only an admin may do it.
@@ -36,10 +46,15 @@ function CountRow({ label, value }: { label: string; value: number }) {
   );
 }
 
-export function BackupPage({ suratMasuk, suratKeluar, agendaPimpinan, onRefresh, canRestore = false }: Props) {
+export function BackupPage({ loadData, onRefresh, canRestore = false }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [pendingRestore, setPendingRestore] = useState<BackupData | null>(null);
   const [busy, setBusy] = useState(false);
+  // What the last backup made here actually contained. The page has no row
+  // counts of its own any more — asking for three counts just to print them
+  // would reintroduce the queries this phase removed — so the ledger below is
+  // blank until an action has genuinely produced the numbers.
+  const [lastCounts, setLastCounts] = useState<{ masuk: number; keluar: number; agenda: number } | null>(null);
   const { toast } = useToast();
 
   async function handleBackup() {
@@ -50,6 +65,16 @@ export function BackupPage({ suratMasuk, suratKeluar, agendaPimpinan, onRefresh,
       // lib/storage.ts), so it doubles as a freshness probe before we hand the
       // user a file. Only the unused binding was dropped.
       await getCurrentUser();
+      const { suratMasuk, suratKeluar, agendaPimpinan } = await loadData();
+      const total = suratMasuk.length + suratKeluar.length + agendaPimpinan.length;
+      // The empty case is answered here rather than by a disabled button:
+      // nothing on this page knows whether the database is empty until this
+      // load returns, and three count queries to pre-decide it would defeat the
+      // point. Falls through the finally below, so busy still clears.
+      if (total === 0) {
+        toast('Tidak ada data untuk dicadangkan.', 'error');
+        return;
+      }
       const data: BackupData = {
         version: 1,
         exportedAt: new Date().toISOString(),
@@ -58,6 +83,7 @@ export function BackupPage({ suratMasuk, suratKeluar, agendaPimpinan, onRefresh,
         agendaPimpinan,
       };
       exportBackup(data);
+      setLastCounts({ masuk: suratMasuk.length, keluar: suratKeluar.length, agenda: agendaPimpinan.length });
       toast('Backup berhasil diunduh.', 'success');
     } catch (err) {
       toast(getErrorMessage(err, 'Gagal membuat backup.'), 'error');
@@ -103,14 +129,18 @@ export function BackupPage({ suratMasuk, suratKeluar, agendaPimpinan, onRefresh,
     }
   }
 
-  const total = suratMasuk.length + suratKeluar.length + agendaPimpinan.length;
+  const lastTotal = lastCounts ? lastCounts.masuk + lastCounts.keluar + lastCounts.agenda : null;
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-5">
       <PageHeader
         title="Backup Data"
         icon={DatabaseBackup}
-        description={`${total} data tersimpan di cloud · cadangkan atau pulihkan seluruh isi sistem.`}
+        description={
+          lastTotal === null
+            ? 'Cadangkan atau pulihkan seluruh isi sistem. Data diambil dari cloud saat file backup dibuat.'
+            : `${lastTotal} data tersalin ke backup terakhir · cadangkan atau pulihkan seluruh isi sistem.`
+        }
       />
 
       {/* SAFE PATH — download. Available to everyone, so it leads. */}
@@ -119,36 +149,44 @@ export function BackupPage({ suratMasuk, suratKeluar, agendaPimpinan, onRefresh,
           <div className="min-w-0">
             <h2 className="text-heading text-office-text dark:text-slate-100">Unduh Backup</h2>
             <p className="mt-0.5 text-xs leading-5 text-office-subtext dark:text-slate-400">
-              Menyimpan seluruh data sebagai satu file JSON di perangkat Anda. Tidak mengubah apa pun di cloud.
+              Menyimpan seluruh data sebagai satu file JSON di perangkat Anda. Data terbaru diambil dari cloud saat
+              tombol ditekan. Tidak mengubah apa pun di cloud.
             </p>
           </div>
           <Button
             className="w-full sm:w-auto sm:shrink-0"
             onClick={handleBackup}
             isLoading={busy}
-            disabled={total === 0}
           >
             {!busy && <Download size={16} aria-hidden="true" />}
             {busy ? 'Menyiapkan…' : 'Buat File Backup'}
           </Button>
         </div>
         {/* The ledger doubles as the page's data summary — three counts on one
-            divided strip instead of three separate stat cards. */}
+            divided strip instead of three separate stat cards. The numbers are
+            now the last backup's, not a live row count: this page loads nothing
+            on open, so before the first backup there is nothing honest to put
+            here and the cells read "—". */}
         <div className="grid divide-y divide-office-border border-t border-office-border dark:divide-slate-700/60 dark:border-slate-700 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
           {[
-            { label: 'Surat Masuk', value: suratMasuk.length, accent: 'text-blue-600 dark:text-blue-400' },
-            { label: 'Surat Keluar', value: suratKeluar.length, accent: 'text-emerald-600 dark:text-emerald-400' },
-            { label: 'Agenda Pimpinan', value: agendaPimpinan.length, accent: 'text-amber-600 dark:text-amber-400' },
+            { label: 'Surat Masuk', value: lastCounts?.masuk, accent: 'text-blue-600 dark:text-blue-400' },
+            { label: 'Surat Keluar', value: lastCounts?.keluar, accent: 'text-emerald-600 dark:text-emerald-400' },
+            { label: 'Agenda Pimpinan', value: lastCounts?.agenda, accent: 'text-amber-600 dark:text-amber-400' },
           ].map((s) => (
             <div
               key={s.label}
               className="flex items-baseline justify-between gap-3 px-4 py-3 sm:block sm:px-5 sm:py-3.5"
             >
               <span className="text-xs text-office-subtext dark:text-slate-400">{s.label}</span>
-              <span className={`text-title tabular-nums sm:mt-0.5 sm:block ${s.accent}`}>{s.value}</span>
+              <span className={`text-title tabular-nums sm:mt-0.5 sm:block ${s.accent}`}>{s.value ?? '—'}</span>
             </div>
           ))}
         </div>
+        <p className="border-t border-office-border px-4 py-2.5 text-xs leading-5 text-office-subtext dark:border-slate-700 dark:text-slate-400 sm:px-5">
+          {lastCounts
+            ? 'Jumlah baris pada file backup terakhir yang dibuat di sini.'
+            : 'Jumlah baris dihitung saat file backup dibuat.'}
+        </p>
       </Surface>
 
       {/* DESTRUCTIVE PATH — admin only. Hidden entirely rather than disabled:
