@@ -305,8 +305,8 @@ export function DataTable<T extends { id: string }>({
                       {subtitleCol.header}
                     </span>
                     {/* div, not span: a column's render may legitimately return
-                        a block element (a chip stacked over a sub-line, an
-                        attachment cell), and phrasing content can't hold that. */}
+                        a block element (for example, a chip stacked over a sub-line),
+                        and phrasing content can't hold that. */}
                     <div className="min-w-0">{cell(subtitleCol, row)}</div>
                   </div>
                 )}

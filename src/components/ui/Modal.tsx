@@ -42,7 +42,7 @@ function focusablesIn(root: HTMLElement | null): HTMLElement[] {
 }
 
 /** True when no other open dialog panel sits deeper in document order. A
- *  nested dialog (the attachment preview opened from inside a form modal)
+ *  nested dialog rendered from inside another modal
  *  renders inside its parent's panel, so it is always last. */
 function isTopmostPanel(panel: HTMLElement | null): boolean {
   if (!panel) return false;
@@ -72,9 +72,8 @@ export function Modal({ open, onClose, title, children, footer, size = 'md', des
 
   useEffect(() => {
     if (!open) return;
-    // Reference-counted so a nested modal (e.g. the attachment preview
-    // lightbox opened from inside a detail/form modal) doesn't reset
-    // overflow while an outer modal is still open.
+    // Reference-counted so a nested modal doesn't reset body overflow while
+    // an outer modal is still open.
     const prevCount = Number(document.body.dataset.modalOpenCount || '0');
     document.body.dataset.modalOpenCount = String(prevCount + 1);
     document.body.style.overflow = 'hidden';

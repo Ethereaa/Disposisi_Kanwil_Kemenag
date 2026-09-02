@@ -68,7 +68,7 @@ interface FieldProps {
   /** Non-blocking heads-up (e.g. "nomor ini sudah dipakai") shown in amber, separate from a hard `error`. */
   warning?: string;
   /** Set when the field wraps something other than one labellable control
-   *  (e.g. the lampiran picker). Renders group semantics instead of a
+   *  (e.g. a composite control). Renders group semantics instead of a
    *  `<label for>` pointing at an id that never appears in the DOM. */
   asGroup?: boolean;
   children: ReactNode;
