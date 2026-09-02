@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Save, X } from 'lucide-react';
+import { Plus, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Field, Input, Select, FormSection, FormErrorSummary, FormActions } from '@/components/ui/Form';
 import { AttachmentField } from '@/components/ui/AttachmentField';
@@ -77,9 +77,10 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
     return Object.keys(e).length === 0;
   }
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-
+  // `stay` is the "Simpan & Input Berikutnya" path: same validation, same
+  // insert, but the form is recycled for the next entry instead of handing
+  // control back to the parent. Mirrors SuratKeluarForm.save().
+  async function save(stay: boolean) {
     if (!validate()) {
       toast('Lengkapi semua kolom wajib.', 'error');
       return;
@@ -116,12 +117,32 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
         }
       }
 
-      toast('Agenda berhasil disimpan.', 'success');
-      onSaved();
-    } catch (err) {toast(getErrorMessage(err, 'Gagal menyimpan agenda.'), 'error');
+      // `&& !editing` is belt and braces: the button that passes true is not
+      // rendered in edit mode, so this can only ever be a create.
+      if (stay && !editing) {
+        toast('Agenda berhasil disimpan. Silakan input agenda berikutnya.', 'success');
+        setNomorUrut(1);
+        // Same fresh-create state the mount effect builds: emptyForm with
+        // today's date, which also clears lampiran back to [].
+        setForm({ ...emptyForm, tanggalKegiatan: todayISO() });
+        setErrors({});
+        // Deferred like SuratKeluarForm's reset focus, so the focus lands after
+        // React has committed the cleared form.
+        setTimeout(() => focusField('tanggalKegiatan'), 50);
+      } else {
+        toast('Agenda berhasil disimpan.', 'success');
+        onSaved();
+      }
+    } catch (err) {
+      toast(getErrorMessage(err, 'Gagal menyimpan agenda.'), 'error');
     } finally {
       setBusy(false);
     }
+  }
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    save(false);
   }
 
   const fieldErrors = Object.entries(errors)
@@ -206,6 +227,11 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
         <Button type="submit" disabled={busy} className="w-full sm:w-auto">
           <Save size={16} aria-hidden="true" /> {busy ? 'Menyimpan...' : 'Simpan'}
         </Button>
+        {!editing && (
+          <Button type="button" variant="outline" disabled={busy} onClick={() => save(true)} className="w-full sm:w-auto">
+            <Plus size={16} aria-hidden="true" /> Simpan &amp; Input Berikutnya
+          </Button>
+        )}
         <Button type="button" variant="secondary" onClick={onCancel} disabled={busy} className="w-full sm:w-auto">
           <X size={16} aria-hidden="true" /> Batal
         </Button>
