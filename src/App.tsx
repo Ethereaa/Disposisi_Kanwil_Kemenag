@@ -117,7 +117,6 @@ function Root() {
   const [loading, setLoading] = useState(true);
   const [previewAgendaId, setPreviewAgendaId] = useState<string | null>(() => resolvePreviewRoute());
   const [migrationInfo, setMigrationInfo] = useState<{ masuk: number; keluar: number } | null>(null);
-  const [routePage, setRoutePage] = useState<PageKey>('dashboard');
   const [migrating, setMigrating] = useState(false);
   const [migrationDismissed, setMigrationDismissed] = useState(false);
   const [quickAdd, setQuickAdd] = useState<{ target: QuickAddTarget; token: number } | null>(null);
@@ -136,7 +135,6 @@ function Root() {
       syncPreviewFromHash();
       const route = getPathRoute(window.location.pathname);
       if (route.type === 'page') {
-        setRoutePage(route.page);
         setPage(route.page);
       }
     };
@@ -272,7 +270,6 @@ function Root() {
 
   function handleNavigate(p: PageKey) {
     setPage(p);
-    setRoutePage(p);
     window.history.pushState({}, '', buildRoutePath(pagePathMap[p]));
     setSidebarOpen(false);
   }
@@ -308,7 +305,9 @@ function Root() {
     if (targetPath && targetPath !== currentRoute) {
       window.history.replaceState({}, '', buildRoutePath(targetPath));
     }
-    setPage('dashboard');
+
+    const targetRoute = getPathRoute(targetPath);
+    setPage(targetRoute.type === 'page' ? targetRoute.page : 'dashboard');
   }
 
   async function handleLogout() {
@@ -316,7 +315,6 @@ function Root() {
     setUser(null);
     setAuthed(false);
     setPage('dashboard');
-    setRoutePage('dashboard');
     window.history.replaceState({}, '', buildRoutePath('/login'));
   }
 
