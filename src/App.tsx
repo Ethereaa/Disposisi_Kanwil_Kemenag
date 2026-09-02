@@ -248,18 +248,20 @@ function Root() {
     }
   }, [authed, refreshAll]);
 
-  // Realtime sync: refresh when any table changes (other family members editing)
+  // Realtime sync: only refetch the dataset whose table changed.
   useEffect(() => {
     if (!authed) return;
     const channel = supabase
-      .channel('surat-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'surat_masuk' }, () => refreshAll())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'surat_keluar' }, () => refreshAll())
+      .channel('data-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'surat_masuk' }, () => refreshMasuk())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'surat_keluar' }, () => refreshKeluar())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'agenda_pimpinan' }, () => refreshAgenda())
       .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [authed, refreshAll]);
+  }, [authed, refreshMasuk, refreshKeluar, refreshAgenda]);
 
   function toggleTheme() {
     const next: Theme = theme === 'dark' ? 'light' : 'dark';
