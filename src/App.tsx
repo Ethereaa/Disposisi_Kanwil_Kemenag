@@ -174,31 +174,65 @@ function Root() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  const refresh = useCallback(async () => {
+  const surfaceTruncationWarnings = useCallback(() => {
+    const truncatedTables = consumeTruncationWarnings();
+    if (truncatedTables.length > 0) {
+      toast(
+        `Data ${truncatedTables.join(', ')} sangat banyak — sebagian data terbaru mungkin belum ditampilkan. Hubungi admin untuk penanganan lebih lanjut.`,
+        'error',
+      );
+    }
+  }, [toast]);
+
+  const refreshAll = useCallback(async () => {
     setLoading(true);
     try {
       const [m, k, a] = await Promise.all([getAllMasuk(), getAllKeluar(), getAllAgendaPimpinan()]);
       setSuratMasuk(m);
       setSuratKeluar(k);
       setAgendaPimpinan(a);
-      const truncatedTables = consumeTruncationWarnings();
-      if (truncatedTables.length > 0) {
-        toast(
-          `Data ${truncatedTables.join(', ')} sangat banyak — sebagian data terbaru mungkin belum ditampilkan. Hubungi admin untuk penanganan lebih lanjut.`,
-          'error',
-        );
-      }
+      surfaceTruncationWarnings();
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Gagal memuat data.', 'error');
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [surfaceTruncationWarnings, toast]);
+
+  const refreshMasuk = useCallback(async () => {
+    try {
+      const rows = await getAllMasuk();
+      setSuratMasuk(rows);
+      surfaceTruncationWarnings();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Gagal memuat Surat Masuk.', 'error');
+    }
+  }, [surfaceTruncationWarnings, toast]);
+
+  const refreshKeluar = useCallback(async () => {
+    try {
+      const rows = await getAllKeluar();
+      setSuratKeluar(rows);
+      surfaceTruncationWarnings();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Gagal memuat Surat Keluar.', 'error');
+    }
+  }, [surfaceTruncationWarnings, toast]);
+
+  const refreshAgenda = useCallback(async () => {
+    try {
+      const rows = await getAllAgendaPimpinan();
+      setAgendaPimpinan(rows);
+      surfaceTruncationWarnings();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Gagal memuat Agenda Pimpinan.', 'error');
+    }
+  }, [surfaceTruncationWarnings, toast]);
 
   // Load data when authed
   useEffect(() => {
     if (authed) {
-      refresh();
+      refreshAll();
       // Check for old local data to migrate
       getLocalMigrationData().then((info) => {
         if (info && (info.masuk > 0 || info.keluar > 0)) {
@@ -212,20 +246,20 @@ function Root() {
       setMigrationInfo(null);
       setMigrationDismissed(false);
     }
-  }, [authed, refresh]);
+  }, [authed, refreshAll]);
 
   // Realtime sync: refresh when any table changes (other family members editing)
   useEffect(() => {
     if (!authed) return;
     const channel = supabase
       .channel('surat-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'surat_masuk' }, () => refresh())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'surat_keluar' }, () => refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'surat_masuk' }, () => refreshAll())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'surat_keluar' }, () => refreshAll())
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [authed, refresh]);
+  }, [authed, refreshAll]);
 
   function toggleTheme() {
     const next: Theme = theme === 'dark' ? 'light' : 'dark';
@@ -296,7 +330,7 @@ function Root() {
       toast(`${result.masuk} surat masuk dan ${result.keluar} surat keluar berhasil dipindahkan ke cloud.`, 'success');
       setMigrationInfo(null);
       setMigrationDismissed(true);
-      refresh();
+      refreshAll();
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Gagal memindahkan data.', 'error');
     } finally {
@@ -431,11 +465,11 @@ function Root() {
                   effectively nothing for anyone who has asked for that. */}
               <div key={page} className="animate-page-in">
                 {page === 'dashboard' && <Dashboard suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} onNavigate={handleNavigate} />}
-                {page === 'surat-masuk' && <SuratMasukPage rows={suratMasuk} onRefresh={refresh} canDelete={user?.role === 'admin'} quickAddSignal={quickAdd?.target === 'surat-masuk' ? quickAdd.token : undefined} onQuickAddHandled={clearQuickAdd} />}
-                {page === 'surat-keluar' && <SuratKeluarPage rows={suratKeluar} onRefresh={refresh} canDelete={user?.role === 'admin'} quickAddSignal={quickAdd?.target === 'surat-keluar' ? quickAdd.token : undefined} onQuickAddHandled={clearQuickAdd} />}
-                {page === 'agenda-pimpinan' && <AgendaPimpinanPage rows={agendaPimpinan} onRefresh={refresh} canDelete={user?.role === 'admin'} quickAddSignal={quickAdd?.target === 'agenda-pimpinan' ? quickAdd.token : undefined} onQuickAddHandled={clearQuickAdd} />}
+                {page === 'surat-masuk' && <SuratMasukPage rows={suratMasuk} onRefresh={refreshMasuk} canDelete={user?.role === 'admin'} quickAddSignal={quickAdd?.target === 'surat-masuk' ? quickAdd.token : undefined} onQuickAddHandled={clearQuickAdd} />}
+                {page === 'surat-keluar' && <SuratKeluarPage rows={suratKeluar} onRefresh={refreshKeluar} canDelete={user?.role === 'admin'} quickAddSignal={quickAdd?.target === 'surat-keluar' ? quickAdd.token : undefined} onQuickAddHandled={clearQuickAdd} />}
+                {page === 'agenda-pimpinan' && <AgendaPimpinanPage rows={agendaPimpinan} onRefresh={refreshAgenda} canDelete={user?.role === 'admin'} quickAddSignal={quickAdd?.target === 'agenda-pimpinan' ? quickAdd.token : undefined} onQuickAddHandled={clearQuickAdd} />}
                 {page === 'export' && <ExportPage suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} />}
-                {page === 'backup' && <BackupPage suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} onRefresh={refresh} canRestore={user?.role === 'admin'} />}
+                {page === 'backup' && <BackupPage suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} onRefresh={refreshAll} canRestore={user?.role === 'admin'} />}
                 {page === 'settings' && <SettingsPage theme={theme} onToggleTheme={toggleTheme} onUserUpdated={handleUserUpdated} suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} />}
               </div>
             </Suspense>
