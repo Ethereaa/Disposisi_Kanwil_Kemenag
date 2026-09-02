@@ -1,8 +1,11 @@
-import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import { Packer, Document, Paragraph, Table, TableRow, TableCell, TextRun, HeadingLevel } from 'docx';
 import { isoToDisplay, isWithinRange } from './date';
 import type { AgendaPimpinan, SuratMasuk, SuratKeluar } from '@/types';
+
+type XlsxModule = typeof import('xlsx');
+type XlsxWorkSheet = import('xlsx').WorkSheet;
+type DocxParagraph = import('docx').Paragraph;
+type DocxTable = import('docx').Table;
 
 type ExportScope = 'all' | 'masuk' | 'keluar' | 'agenda' | 'range';
 type ExportFormat = 'xlsx' | 'docx';
@@ -98,7 +101,7 @@ function createExcelCellStyle(fillColor: string, fontColor = '000000', bold = fa
   };
 }
 
-function styleExcelSheet(ws: XLSX.WorkSheet, headers: string[], rows: (string | number)[][]) {
+function styleExcelSheet(XLSX: XlsxModule, ws: XlsxWorkSheet, headers: string[], rows: (string | number)[][]) {
   const dataRows = rows.length;
   const range = XLSX.utils.decode_range(ws['!ref'] ?? `A1:${XLSX.utils.encode_cell({ r: dataRows, c: headers.length - 1 })}`);
 
@@ -161,6 +164,7 @@ export async function exportData(params: ExportParams): Promise<void> {
 }
 
 async function exportXlsx(masuk: SuratMasuk[], keluar: SuratKeluar[], agenda: AgendaPimpinan[], scope: ExportScope, stampStr: string) {
+  const XLSX = await import('xlsx');
   const wb = XLSX.utils.book_new();
 
   const addSheet = (name: string, rows: Record<string, string | number>[]) => {
@@ -168,7 +172,7 @@ async function exportXlsx(masuk: SuratMasuk[], keluar: SuratKeluar[], agenda: Ag
     const headers = Object.keys(rows[0]);
     const data = rows.map((row) => headers.map((header) => row[header] ?? '-'));
     const sheet = XLSX.utils.aoa_to_sheet([headers, ...data]);
-    styleExcelSheet(sheet, headers, data);
+    styleExcelSheet(XLSX, sheet, headers, data);
     XLSX.utils.book_append_sheet(wb, sheet, name);
   };
 
@@ -187,17 +191,76 @@ async function exportXlsx(masuk: SuratMasuk[], keluar: SuratKeluar[], agenda: Ag
   saveAs(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `Disposisi_${scopeLabel}_${stampStr}.xlsx`);
 }
 
-function createTable(headers: string[], rows: (string | number)[][]): Table {
-  const headerCells = headers.map((h) => new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: h, bold: true, color: 'FFFFFF', size: 22 })], spacing: { after: 80 } })], shading: { type: 'solid', color: '2F855A' }, margins: { top: 100, bottom: 100, left: 100, right: 100 } }));
-
-  const rowCells = rows.map((r, rowIndex) => new TableRow({ children: r.map((c) => new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: String(c), size: 20, color: '1F2937' })], spacing: { after: 60 } })], shading: { type: 'solid', color: rowIndex % 2 === 0 ? 'F6FFF6' : 'FFFFFF' }, margins: { top: 100, bottom: 100, left: 100, right: 100 } })) }));
-
-  return new Table({ rows: [new TableRow({ children: headerCells }), ...rowCells], width: { size: 100, type: 'pct' }, borders: { top: { style: 'single', size: 1, color: 'C6EAD6' }, bottom: { style: 'single', size: 1, color: 'C6EAD6' }, left: { style: 'single', size: 1, color: 'C6EAD6' }, right: { style: 'single', size: 1, color: 'C6EAD6' }, insideHorizontal: { style: 'single', size: 1, color: 'DCEFE0' }, insideVertical: { style: 'single', size: 1, color: 'DCEFE0' } } });
-}
-
 async function exportDocx(masuk: SuratMasuk[], keluar: SuratKeluar[], agenda: AgendaPimpinan[], scope: ExportScope, stampStr: string) {
+  const {
+    Packer,
+    Document,
+    Paragraph,
+    Table,
+    TableRow,
+    TableCell,
+    TextRun,
+  } = await import('docx');
+
+  function createTable(headers: string[], rows: (string | number)[][]) {
+    const headerCells = headers.map((h) => new TableCell({
+      children: [
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: h,
+              bold: true,
+              color: 'FFFFFF',
+              size: 22,
+            }),
+          ],
+          spacing: { after: 80 },
+        }),
+      ],
+      shading: { type: 'solid', color: '2F855A' },
+      margins: { top: 100, bottom: 100, left: 100, right: 100 },
+    }));
+
+    const rowCells = rows.map((r, rowIndex) => new TableRow({
+      children: r.map((c) => new TableCell({
+        children: [
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: String(c),
+                size: 20,
+                color: '1F2937',
+              }),
+            ],
+            spacing: { after: 60 },
+          }),
+        ],
+        shading: {
+          type: 'solid',
+          color: rowIndex % 2 === 0 ? 'F6FFF6' : 'FFFFFF',
+        },
+        margins: { top: 100, bottom: 100, left: 100, right: 100 },
+      })),
+    }));
+
+    return new Table({
+      rows: [
+        new TableRow({ children: headerCells }),
+        ...rowCells,
+      ],
+      width: { size: 100, type: 'pct' },
+      borders: {
+        top: { style: 'single', size: 1, color: 'C6EAD6' },
+        bottom: { style: 'single', size: 1, color: 'C6EAD6' },
+        left: { style: 'single', size: 1, color: 'C6EAD6' },
+        right: { style: 'single', size: 1, color: 'C6EAD6' },
+        insideHorizontal: { style: 'single', size: 1, color: 'DCEFE0' },
+        insideVertical: { style: 'single', size: 1, color: 'DCEFE0' },
+      },
+    });
+  }
   const title = 'Disposisi Surat - Kanwil Kementerian Agama Provinsi Gorontalo';
-  const children: (Paragraph | Table)[] = [];
+  const children: (DocxParagraph | DocxTable)[] = [];
 
   children.push(new Paragraph({ children: [new TextRun({ text: title, bold: true, size: 30, color: '2F855A' })], alignment: 'center', spacing: { after: 120 } }));
   children.push(new Paragraph({ children: [new TextRun({ text: `Diekspor: ${new Date().toLocaleString('id-ID')}`, italics: true, color: '4B5563', size: 20 })], alignment: 'center', spacing: { after: 240 } }));
