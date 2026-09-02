@@ -77,20 +77,22 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
         <div className="grid overflow-hidden rounded-xl lg:grid-cols-[1.1fr_0.9fr]">
           <div className="flex flex-col justify-center brand-gradient-hero p-6 text-white sm:p-10">
             {/* Institutional lockup: WHO owns the application, kept above and
-                visually separate from WHAT it is. The plate is white, not the
-                old 15%-white tile — that reads as pale green over this gradient,
-                and the emblem is a full-colour traced mark whose dark greens
-                vanished into it. Same treatment as the sidebar brand header, so
-                the two lockups agree.
+                visually separate from WHAT it is.
 
-                60px mobile / 72px desktop with ~12–14px of breathing room around
-                the mark. At 320px that leaves ~152px for the text beside it,
-                which both lines clear at these sizes — the tracking on line one
-                is the value that has to stay modest to keep it on one line. */}
+                The emblem sits DIRECTLY on the hero gradient — no plate, no
+                tile, no ring. It wore a white card for a while and that read as
+                a box pasted onto the banner: heavier than the mark inside it,
+                and a second card within the login card. `drop-shadow-emblem`
+                does the separating now, following the artwork's own silhouette
+                rather than a rectangle. See the token in tailwind.config.js.
+
+                48px mobile / 60px desktop. Bare, the mark needs slightly more
+                size than it did inside a 60/72px plate to hold the same weight
+                beside the title — and it still leaves the text column wider
+                than the plate did, so line one clears 320px more comfortably
+                than before. */}
             <div className="flex items-center gap-3 sm:gap-4">
-              <span className="flex h-[3.75rem] w-[3.75rem] shrink-0 items-center justify-center rounded-2xl border border-white/60 bg-white shadow-[0_8px_20px_-8px_rgba(15,23,42,0.45)] sm:h-[4.5rem] sm:w-[4.5rem]">
-                <Logo size={36} alt="" className="h-9 w-9 sm:h-11 sm:w-11" />
-              </span>
+              <Logo size={48} alt="" className="h-12 w-12 drop-shadow-emblem sm:h-[3.75rem] sm:w-[3.75rem]" />
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase leading-4 tracking-[0.06em] text-white sm:text-xs sm:tracking-[0.14em]">
                   Kementerian Agama RI
@@ -107,8 +109,12 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
                 tablet, where 36px broke the product name across four lines.
                 Two tiers inside one <h1> — the second line is the deployment,
                 not a separate heading, so it must not become an <h2> that
-                outranks the form's own "Masuk ke akun". */}
-            <h1 className="mt-7 max-w-md break-words text-2xl font-semibold leading-tight sm:mt-9 sm:text-3xl lg:text-4xl">
+                outranks the form's own "Masuk ke akun".
+
+                mt-6/mt-8 rather than mt-7/mt-9: without the plate's visual mass
+                the lockup is lighter, so it wants to sit a little closer to the
+                title and read as one block with it. */}
+            <h1 className="mt-6 max-w-md break-words text-2xl font-semibold leading-tight sm:mt-8 sm:text-3xl lg:text-4xl">
               Disposisi Surat
               <span className="mt-1 block text-base font-medium leading-snug text-emerald-50/90 sm:text-xl lg:text-2xl">
                 Kanwil Kemenag Gorontalo

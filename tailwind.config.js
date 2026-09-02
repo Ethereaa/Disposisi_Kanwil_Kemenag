@@ -74,6 +74,23 @@ export default {
         overlay: '0 16px 40px -8px rgb(15 23 42 / 0.18), 0 4px 12px -4px rgb(15 23 42 / 0.10)',
       },
 
+      // The one treatment the official emblem gets. `drop-shadow`, not
+      // `box-shadow`: the SVG is transparent around the artwork, so a box-shadow
+      // would draw the outline of its bounding rectangle — exactly the pasted-on
+      // white tile look this replaced. A filter follows the alpha silhouette
+      // instead, so the mark reads as a stamp pressed into the surface.
+      //
+      // Two passes, in this order. The white one is a whisper, not a glow: the
+      // emblem is a full-colour traced mark whose dark greens (#006315) and
+      // near-blacks would otherwise sit flat against the two dark brand
+      // surfaces it appears on (the emerald login hero, the navy top of the
+      // sidebar). The slate one is the actual lift. Both are theme-independent
+      // because both of those surfaces are, so there is no dark: variant to
+      // keep in step.
+      dropShadow: {
+        emblem: ['0 0 10px rgb(255 255 255 / 0.20)', '0 3px 6px rgb(15 23 42 / 0.32)'],
+      },
+
       colors: {
         office: {
           bg: '#F8FAFC',

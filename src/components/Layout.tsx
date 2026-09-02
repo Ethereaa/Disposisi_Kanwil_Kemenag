@@ -109,22 +109,26 @@ export function Sidebar({ active, onNavigate, open, onToggle, username, onLogout
             column is gone — the sidebar gradient is the only treatment it
             needs, and two stacked gradients washed out the active state.
 
-            The emblem sits on a WHITE plate. The sidebar gradient starts at
-            near-navy here, and the mark is a full-colour traced emblem whose
-            dark greens and darks disappeared against it; the old plate was a
-            10%-white tile, which is grey-blue, not light. White is also what
-            the login hero uses, so the two lockups now agree. */}
-        <div className="flex items-center gap-2.5 border-b border-white/10 px-4 py-3.5">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-control bg-white">
-            <Logo size={28} alt="" />
-          </span>
+            The emblem sits DIRECTLY on the gradient. Every tile it has been
+            given here has looked pasted on: a 10%-white one, which is grey-blue
+            rather than light, then a solid white card, which turned the top of
+            the sidebar into a box. `drop-shadow-emblem` separates it instead,
+            following the artwork's own silhouette rather than a rectangle — the
+            same treatment as the login hero, so the two lockups agree. See the
+            token in tailwind.config.js.
+
+            36px bare, against a 36px two-line text block, so `items-center`
+            lands the mark and the text on the same optical centre with no
+            nudging. It is also narrower than the plate it replaces, which is
+            what keeps "Kanwil Kemenag" off `truncate` in a 256px column. */}
+        <div className="flex items-center gap-3 border-b border-white/10 px-4 py-4">
+          <Logo size={36} alt="" className="drop-shadow-emblem" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-body-strong text-white">Kanwil Kemenag</p>
             <p className="truncate text-micro font-normal tracking-normal text-slate-300">Provinsi Gorontalo</p>
           </div>
           {/* -mr-1 buys the text column 4px back from this button's 44px touch
-              target, which is what keeps "Kanwil Kemenag" off `truncate` at
-              256px. The button is mobile-only, so desktop has the room anyway. */}
+              target. The button is mobile-only, so desktop has the room anyway. */}
           <button
             onClick={onToggle}
             aria-label="Tutup menu"
