@@ -334,6 +334,18 @@ export async function getFurthestAgendaDate(fromISO: string): Promise<string | n
   return (data as Pick<PublicAgendaRow, 'tanggal_kegiatan'> | null)?.tanggal_kegiatan ?? null;
 }
 
+// Creation time of the newest agenda currently stored. This intentionally
+// comes from a separate one-value public metadata view rather than widening
+// agenda_pimpinan_public with bookkeeping timestamps on every public row.
+export async function getAgendaPreviewLastCreatedAt(): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('agenda_pimpinan_public_meta')
+    .select('last_created_at')
+    .maybeSingle();
+  if (error) throw error;
+  return (data as { last_created_at: string | null } | null)?.last_created_at ?? null;
+}
+
 // Used by the standalone Preview Agenda Pimpinan screen (public route,
 // works without login) to fetch a single agenda by id, instead of
 // depending on the authenticated app's already-loaded list.

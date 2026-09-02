@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CalendarDays, Clock, MapPin, Users } from 'lucide-react';
-import { getFurthestAgendaDate, runAgendaPreviewQuery } from '@/lib/db';
+import { getAgendaPreviewLastCreatedAt, getFurthestAgendaDate, runAgendaPreviewQuery } from '@/lib/db';
 import type { AgendaPimpinanPublic } from '@/types';
 import {
   formatIndonesianDateRange,
@@ -44,9 +44,9 @@ export function AgendaPreviewHome() {
   const [rows, setRows] = useState<AgendaPimpinanPublic[]>([]);
   const [furthestISO, setFurthestISO] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  // The instant the fetch actually succeeded, pinned so the footer reports when
-  // this page's data was read rather than when it happened to re-render.
-  const [loadedAtMs, setLoadedAtMs] = useState<number | null>(null);
+  // Creation time of the newest agenda currently stored. This comes from
+  // database metadata, not from the moment this public page was opened.
+  const [lastCreatedAtMs, setLastCreatedAtMs] = useState<number | null>(null);
   const [filter, setFilter] = useState<FilterKey>('semua');
   // Pinned once per mount so the fetch, the selection and the badges all
   // classify days against the same instant. Recomputing witaTodayISO() at
@@ -60,21 +60,28 @@ export function AgendaPreviewHome() {
       // allSettled, not all: the header's date range is decoration over the
       // list, so a failure there must not empty a list that loaded fine — and
       // vice versa.
-      const [agendas, furthest] = await Promise.allSettled([
+      const [agendas, furthest, lastCreated] = await Promise.allSettled([
         // Several small bounded queries, one per protected WITA day plus one
         // filler — see lib/agendaPreview.ts for why a single windowed query
         // cannot guarantee Besok/Lusa are reachable.
         loadPreviewAgendas(runAgendaPreviewQuery, nowMs),
         getFurthestAgendaDate(witaTodayISO(nowMs)),
+        getAgendaPreviewLastCreatedAt(),
       ]);
       if (!mounted) return;
       if (agendas.status === 'fulfilled') {
         setRows(agendas.value);
-        setLoadedAtMs(Date.now());
       } else {
         setRows([]);
       }
       setFurthestISO(furthest.status === 'fulfilled' ? furthest.value : null);
+
+      if (lastCreated.status === 'fulfilled' && lastCreated.value) {
+        const parsed = Date.parse(lastCreated.value);
+        setLastCreatedAtMs(Number.isNaN(parsed) ? null : parsed);
+      } else {
+        setLastCreatedAtMs(null);
+      }
       setLoading(false);
     })();
     return () => { mounted = false; };
@@ -242,7 +249,7 @@ export function AgendaPreviewHome() {
           <p className="text-[11px] text-slate-500 dark:text-slate-400">
             Terakhir diperbarui:{' '}
             <span className="font-medium text-slate-600 dark:text-slate-300">
-              {loadedAtMs === null ? '-' : witaDateTimeLabel(loadedAtMs)}
+              {lastCreatedAtMs === null ? '-' : witaDateTimeLabel(lastCreatedAtMs)}
             </span>
           </p>
           <div className="flex items-center gap-2.5">
