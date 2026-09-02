@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Eye, Pencil, Trash2, ExternalLink, CalendarCheck, Briefcase } from 'lucide-react';
+import { Plus, Eye, Pencil, Trash2, ExternalLink, CalendarCheck, Briefcase, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { DataTable, type Column } from '@/components/ui/DataTable';
@@ -13,6 +13,7 @@ import { deleteAgendaPimpinan, resequenceAgendaPimpinan } from '@/lib/db';
 import { getErrorMessage } from '@/lib/error';
 import type { AgendaPimpinan } from '@/types';
 import { AgendaPimpinanForm } from './AgendaPimpinanForm';
+import { AgendaPimpinanBatchForm } from './AgendaPimpinanBatchForm';
 import { AgendaStatusBadge, DateProximityBadge } from '@/components/ui/StatusBadge';
 
 interface Props {
@@ -23,7 +24,9 @@ interface Props {
   quickAddSignal?: number;
 }
 
-type View = 'list' | 'form' | 'detail';
+// 'batch' is the multi-row entry modal. It is a peer of 'form', not a mode of
+// it: quickAddSignal and every empty-state action still land on 'form'.
+type View = 'list' | 'form' | 'batch' | 'detail';
 
 export function AgendaPimpinanPage({ rows, onRefresh, canDelete = false, quickAddSignal }: Props) {
   const [view, setView] = useState<View>('list');
@@ -31,6 +34,9 @@ export function AgendaPimpinanPage({ rows, onRefresh, canDelete = false, quickAd
   const [detail, setDetail] = useState<AgendaPimpinan | null>(null);
   const [toDelete, setToDelete] = useState<AgendaPimpinan | null>(null);
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
+  // Mirrors the batch form's in-flight save; only used to hold the batch modal
+  // open while rows are still being written.
+  const [batchBusy, setBatchBusy] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -182,6 +188,9 @@ export function AgendaPimpinanPage({ rows, onRefresh, canDelete = false, quickAd
             <Button variant="outline" onClick={() => window.open('/agenda-preview', '_blank', 'noopener,noreferrer')}>
               <ExternalLink size={16} /> Buka Preview Agenda
             </Button>
+            <Button variant="outline" onClick={() => setView('batch')}>
+              <Layers size={16} /> Input Batch
+            </Button>
             <Button onClick={() => { setEditing(null); setView('form'); }}>
               <Plus size={16} /> Tambah Agenda
             </Button>
@@ -224,6 +233,25 @@ export function AgendaPimpinanPage({ rows, onRefresh, canDelete = false, quickAd
           editing={editing}
           onSaved={() => { setView('list'); setEditing(null); onRefresh(); }}
           onCancel={() => { setView('list'); setEditing(null); }}
+        />
+      </Modal>
+
+      <Modal
+        open={view === 'batch'}
+        // Escape and the backdrop are refused mid-save: the sequential loop
+        // tracks which rows already committed, and unmounting it loses that.
+        onClose={() => { if (!batchBusy) setView('list'); }}
+        title="Input Batch Agenda Pimpinan"
+        size="xl"
+      >
+        <AgendaPimpinanBatchForm
+          onBusyChange={setBatchBusy}
+          // Whole batch landed: behave exactly like the single form's onSaved.
+          onCompleted={() => { setView('list'); onRefresh(); }}
+          // Some rows landed, then one failed. The list behind the modal is
+          // stale, but the modal keeps the un-saved rows for a retry.
+          onPartial={onRefresh}
+          onCancel={() => setView('list')}
         />
       </Modal>
 
