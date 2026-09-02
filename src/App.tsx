@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, lazy, Suspense } from 'react';
+import { useCallback, useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { Sidebar, Header, BottomNav } from '@/components/Layout';
 import { AuthScreen } from '@/components/AuthScreen';
 import { QuickAddFab, type QuickAddTarget } from '@/components/QuickAddFab';
@@ -9,8 +9,9 @@ import { SkeletonPage, SkeletonDashboard } from '@/components/ui/Skeleton';
 import { AgendaPimpinanPreview } from '@/pages/AgendaPimpinanPreview';
 import { AgendaPreviewHome } from '@/pages/AgendaPreviewHome';
 import { getAllMasuk, getAllKeluar, getAllAgendaPimpinan, consumeTruncationWarnings } from '@/lib/db';
+import { getDashboardSnapshot, getGlobalWorkCounts } from '@/lib/dashboardData';
+import type { DashboardSnapshot, GlobalWorkCounts } from '@/lib/dashboardData';
 import { supabase } from '@/lib/supabase';
-import { isToday } from '@/lib/date';
 import { getTheme, setTheme as persistTheme, applyTheme, getCurrentUser, logout } from '@/lib/storage';
 import { getLocalMigrationData, migrateLocalDataToCloud, deleteOldLocalDatabase } from '@/lib/migrate';
 import type { PageKey, Theme, SuratMasuk, SuratKeluar, AgendaPimpinan, AppUser } from '@/types';
@@ -52,6 +53,34 @@ const pagePathMap: Record<PageKey, string> = {
 };
 
 const BASE_PATH = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '') || '/';
+
+// Which datasets each route actually renders — this phase's route-aware
+// loading, in one table.
+//
+// The Dashboard is the point of it: it reads a single server-side summary
+// (DashboardSnapshot) and never the three tables that summary is computed
+// from, so opening it no longer downloads Surat Masuk, Surat Keluar and Agenda
+// Pimpinan in full. Each list route loads its own table and nothing else.
+// Export, Backup and Settings still take all three full datasets as props, so
+// they still load all three — trimming those is 4C.5D and 4C.5E.
+interface RouteData {
+  snapshot: boolean;
+  masuk: boolean;
+  keluar: boolean;
+  agenda: boolean;
+}
+
+const routeData: Record<PageKey, RouteData> = {
+  dashboard: { snapshot: true, masuk: false, keluar: false, agenda: false },
+  'surat-masuk': { snapshot: false, masuk: true, keluar: false, agenda: false },
+  'surat-keluar': { snapshot: false, masuk: false, keluar: true, agenda: false },
+  'agenda-pimpinan': { snapshot: false, masuk: false, keluar: false, agenda: true },
+  export: { snapshot: false, masuk: true, keluar: true, agenda: true },
+  backup: { snapshot: false, masuk: true, keluar: true, agenda: true },
+  settings: { snapshot: false, masuk: true, keluar: true, agenda: true },
+};
+
+const EMPTY_WORK_COUNTS: GlobalWorkCounts = { unsignedKeluar: 0, agendaToday: 0 };
 
 function normalizePath(pathname: string) {
   const withoutBase = pathname.startsWith(BASE_PATH) ? pathname.slice(BASE_PATH.length) : pathname;
@@ -114,6 +143,8 @@ function Root() {
   const [suratMasuk, setSuratMasuk] = useState<SuratMasuk[]>([]);
   const [suratKeluar, setSuratKeluar] = useState<SuratKeluar[]>([]);
   const [agendaPimpinan, setAgendaPimpinan] = useState<AgendaPimpinan[]>([]);
+  const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null);
+  const [workCounts, setWorkCounts] = useState<GlobalWorkCounts>(EMPTY_WORK_COUNTS);
   const [loading, setLoading] = useState(true);
   const [previewAgendaId, setPreviewAgendaId] = useState<string | null>(() => resolvePreviewRoute());
   const [migrationInfo, setMigrationInfo] = useState<{ masuk: number; keluar: number } | null>(null);
@@ -121,6 +152,16 @@ function Root() {
   const [migrationDismissed, setMigrationDismissed] = useState(false);
   const [quickAdd, setQuickAdd] = useState<{ target: QuickAddTarget; token: number } | null>(null);
   const { toast } = useToast();
+
+  // The active route, for the two listeners that have to survive navigation:
+  // the popstate handler (bound once, on mount) and the realtime handlers
+  // (bound once per session, so the channel is not torn down and rejoined on
+  // every navigation). Both need the CURRENT page, not the one that was in
+  // scope when they were created.
+  const pageRef = useRef<PageKey>(page);
+  useEffect(() => {
+    pageRef.current = page;
+  }, [page]);
 
   // Boot: theme + auth session
   useEffect(() => {
@@ -135,6 +176,13 @@ function Root() {
       syncPreviewFromHash();
       const route = getPathRoute(window.location.pathname);
       if (route.type === 'page') {
+        // Skeleton from the moment the route changes, not from when the load
+        // effect gets its turn: each route loads its own data now, so without
+        // this a back/forward step would commit one frame of the new route
+        // using whatever the previous one happened to leave in state. Guarded,
+        // because a popstate resolving to the same page starts no load and
+        // would otherwise leave the skeleton up for good.
+        if (pageRef.current !== route.page) setLoading(true);
         setPage(route.page);
       }
     };
@@ -182,10 +230,43 @@ function Root() {
     }
   }, [toast]);
 
+  const refreshWorkCounts = useCallback(async () => {
+    try {
+      setWorkCounts(await getGlobalWorkCounts());
+    } catch {
+      // Badge-only, and two count queries. A failure here must not replace
+      // live numbers with zeros, nor raise a toast over whatever the person is
+      // actually in the middle of.
+    }
+  }, []);
+
+  const refreshSnapshot = useCallback(async () => {
+    try {
+      setSnapshot(await getDashboardSnapshot());
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Gagal memuat ringkasan Dashboard.', 'error');
+    }
+  }, [toast]);
+
+  // Still a full three-table reload, and still the right shape for the two
+  // callers that have it: Backup restore replaces all three tables at once,
+  // and the old-local-data migration is a rare, explicit operation.
   const refreshAll = useCallback(async () => {
     setLoading(true);
+    // Invalidated up front — everything the summary describes is about to be
+    // replaced, so it must not sit there looking fresh. It is refreshed
+    // alongside, not inside, the three loads: refreshSnapshot() and
+    // refreshWorkCounts() report their own failures instead of rejecting, so a
+    // failed summary cannot make a completed restore reload look failed.
+    setSnapshot(null);
     try {
-      const [m, k, a] = await Promise.all([getAllMasuk(), getAllKeluar(), getAllAgendaPimpinan()]);
+      const [m, k, a] = await Promise.all([
+        getAllMasuk(),
+        getAllKeluar(),
+        getAllAgendaPimpinan(),
+        refreshSnapshot(),
+        refreshWorkCounts(),
+      ]);
       setSuratMasuk(m);
       setSuratKeluar(k);
       setAgendaPimpinan(a);
@@ -195,7 +276,7 @@ function Root() {
     } finally {
       setLoading(false);
     }
-  }, [surfaceTruncationWarnings, toast]);
+  }, [refreshSnapshot, refreshWorkCounts, surfaceTruncationWarnings, toast]);
 
   const refreshMasuk = useCallback(async () => {
     try {
@@ -207,59 +288,146 @@ function Root() {
     }
   }, [surfaceTruncationWarnings, toast]);
 
+  // Surat Keluar and Agenda each feed a Sidebar figure that is on screen on
+  // every route, so their refresh keeps the global counts in step — those
+  // counts can no longer be filtered out of the full arrays, because the full
+  // arrays are no longer always loaded. Surat Masuk feeds neither, which is
+  // why refreshMasuk() above has no such companion call.
   const refreshKeluar = useCallback(async () => {
     try {
-      const rows = await getAllKeluar();
+      const [rows] = await Promise.all([getAllKeluar(), refreshWorkCounts()]);
       setSuratKeluar(rows);
       surfaceTruncationWarnings();
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Gagal memuat Surat Keluar.', 'error');
     }
-  }, [surfaceTruncationWarnings, toast]);
+  }, [refreshWorkCounts, surfaceTruncationWarnings, toast]);
 
   const refreshAgenda = useCallback(async () => {
     try {
-      const rows = await getAllAgendaPimpinan();
+      const [rows] = await Promise.all([getAllAgendaPimpinan(), refreshWorkCounts()]);
       setAgendaPimpinan(rows);
       surfaceTruncationWarnings();
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Gagal memuat Agenda Pimpinan.', 'error');
     }
-  }, [surfaceTruncationWarnings, toast]);
+  }, [refreshWorkCounts, surfaceTruncationWarnings, toast]);
 
-  // Load data when authed
+  // Old-local-data check, and the logged-out reset. Keyed on `authed` alone:
+  // the route loader below runs on every navigation, and this must not.
   useEffect(() => {
     if (authed) {
-      refreshAll();
       // Check for old local data to migrate
       getLocalMigrationData().then((info) => {
         if (info && (info.masuk > 0 || info.keluar > 0)) {
           setMigrationInfo(info);
         }
       });
-    } else {
-      setSuratMasuk([]);
-      setSuratKeluar([]);
-      setAgendaPimpinan([]);
-      setMigrationInfo(null);
-      setMigrationDismissed(false);
+      return;
     }
-  }, [authed, refreshAll]);
+    setSuratMasuk([]);
+    setSuratKeluar([]);
+    setAgendaPimpinan([]);
+    setSnapshot(null);
+    setWorkCounts(EMPTY_WORK_COUNTS);
+    // Back to the loading state, so the next session opens on a skeleton
+    // rather than on this one's cleared arrays.
+    setLoading(true);
+    setMigrationInfo(null);
+    setMigrationDismissed(false);
+  }, [authed]);
 
-  // Realtime sync: only refetch the dataset whose table changed.
+  // Route-aware loading: each route loads exactly what it renders, and reloads
+  // it on every navigation. Deliberately not a cache — there is no
+  // invalidation to get wrong — and `loading`, set at navigation time, is what
+  // distinguishes "not fetched yet" from "fetched, and genuinely empty". Below,
+  // `null` marks a dataset this route did not ask for; `[]` is a real result
+  // and is stored as one.
   useEffect(() => {
     if (!authed) return;
+    const need = routeData[page];
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        const [m, k, a, snap] = await Promise.all([
+          need.masuk ? getAllMasuk() : null,
+          need.keluar ? getAllKeluar() : null,
+          need.agenda ? getAllAgendaPimpinan() : null,
+          need.snapshot ? getDashboardSnapshot() : null,
+          refreshWorkCounts(),
+        ]);
+        if (cancelled) return;
+        if (m) setSuratMasuk(m);
+        if (k) setSuratKeluar(k);
+        if (a) setAgendaPimpinan(a);
+        if (snap) setSnapshot(snap);
+        surfaceTruncationWarnings();
+      } catch (err) {
+        if (!cancelled) toast(err instanceof Error ? err.message : 'Gagal memuat data.', 'error');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authed, page, refreshWorkCounts, surfaceTruncationWarnings, toast]);
+
+  // Realtime sync, route-aware: a table change refreshes what the ACTIVE route
+  // is actually showing. On the Dashboard that is the summary, not the three
+  // tables behind it; on a list route it is that route's own table. A change to
+  // a table no visible route holds refreshes nothing but the global counts,
+  // which are two count queries and are on screen (as Sidebar badges)
+  // everywhere — realtime must never pull down a dataset the route never loaded.
+  useEffect(() => {
+    if (!authed) return;
+
+    const onMasukChange = () => {
+      const active = pageRef.current;
+      // Neither Sidebar figure counts Surat Masuk, so there is nothing else to
+      // keep in step here.
+      if (active === 'dashboard') refreshSnapshot();
+      else if (routeData[active].masuk) refreshMasuk();
+    };
+
+    const onKeluarChange = () => {
+      const active = pageRef.current;
+      if (active === 'dashboard') {
+        // The summary carries the Dashboard's own unsigned figure; the sidebar
+        // badge does not come from it, so it is refreshed alongside.
+        refreshSnapshot();
+        refreshWorkCounts();
+      } else if (routeData[active].keluar) {
+        refreshKeluar(); // refreshes the badge itself
+      } else {
+        refreshWorkCounts();
+      }
+    };
+
+    const onAgendaChange = () => {
+      const active = pageRef.current;
+      if (active === 'dashboard') {
+        refreshSnapshot();
+        refreshWorkCounts();
+      } else if (routeData[active].agenda) {
+        refreshAgenda(); // refreshes the count itself
+      } else {
+        refreshWorkCounts();
+      }
+    };
+
     const channel = supabase
       .channel('data-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'surat_masuk' }, () => refreshMasuk())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'surat_keluar' }, () => refreshKeluar())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'agenda_pimpinan' }, () => refreshAgenda())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'surat_masuk' }, onMasukChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'surat_keluar' }, onKeluarChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'agenda_pimpinan' }, onAgendaChange)
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [authed, refreshMasuk, refreshKeluar, refreshAgenda]);
+  }, [authed, refreshSnapshot, refreshMasuk, refreshKeluar, refreshAgenda, refreshWorkCounts]);
 
   function toggleTheme() {
     const next: Theme = theme === 'dark' ? 'light' : 'dark';
@@ -269,6 +437,11 @@ function Root() {
   }
 
   function handleNavigate(p: PageKey) {
+    // Skeleton from the moment navigation starts, for the same reason as in the
+    // popstate handler above. Guarded on an actual page change: navigating to
+    // the page already open (Quick Add does exactly that) starts no load, and
+    // an unguarded setLoading(true) would strand the skeleton there.
+    if (p !== page) setLoading(true);
     setPage(p);
     window.history.pushState({}, '', buildRoutePath(pagePathMap[p]));
     setSidebarOpen(false);
@@ -376,11 +549,12 @@ function Root() {
   }
 
   const showMigration = migrationInfo && !migrationDismissed;
-  const unsignedCount = suratKeluar.filter((s) => !s.ditandatangani).length;
   // Both counts feed the sidebar: the badge on "Surat Keluar" and the work card
-  // above the logout button. Pure derivations of state refresh() already loaded
-  // — the card gets its numbers here rather than fetching anything of its own.
-  const agendaTodayCount = agendaPimpinan.filter((a) => isToday(a.tanggalKegiatan)).length;
+  // above the logout button. They used to be filtered out of the full arrays,
+  // which only held while every route loaded every table. They are now two
+  // count-only queries (getGlobalWorkCounts), refreshed on every route load and
+  // on every change to either table, whichever route is open.
+
   // The Dashboard is the one route that isn't header-plus-table, so it gets a
   // skeleton shaped like itself. Purely which placeholder to draw — no new
   // state, and every other route keeps the shared one.
@@ -404,15 +578,15 @@ function Root() {
         onToggle={() => setSidebarOpen((o) => !o)}
         username={user?.username || ''}
         onLogout={handleLogout}
-        suratKeluarBadge={unsignedCount}
-        agendaTodayCount={agendaTodayCount}
+        suratKeluarBadge={workCounts.unsignedKeluar}
+        agendaTodayCount={workCounts.agendaToday}
       />
       <QuickAddFab onSelect={handleQuickAdd} />
       <BottomNav
         active={page}
         onNavigate={handleNavigate}
         onMore={() => setSidebarOpen(true)}
-        suratKeluarBadge={unsignedCount}
+        suratKeluarBadge={workCounts.unsignedKeluar}
       />
 
       <div className="flex-1 min-w-0 flex flex-col">
@@ -464,7 +638,11 @@ function Root() {
                   prefers-reduced-motion block in index.css overrides it to
                   effectively nothing for anyone who has asked for that. */}
               <div key={page} className="animate-page-in">
-                {page === 'dashboard' && <Dashboard suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} onNavigate={handleNavigate} />}
+                {/* The summary is the Dashboard's only data source, so there is
+                    nothing to render until it arrives. If the load failed the
+                    toast has already said so and the skeleton is the honest
+                    placeholder — better than a page of zeroes. */}
+                {page === 'dashboard' && (snapshot ? <Dashboard snapshot={snapshot} onNavigate={handleNavigate} /> : pageFallback)}
                 {page === 'surat-masuk' && <SuratMasukPage rows={suratMasuk} onRefresh={refreshMasuk} canDelete={user?.role === 'admin'} quickAddSignal={quickAdd?.target === 'surat-masuk' ? quickAdd.token : undefined} onQuickAddHandled={clearQuickAdd} />}
                 {page === 'surat-keluar' && <SuratKeluarPage rows={suratKeluar} onRefresh={refreshKeluar} canDelete={user?.role === 'admin'} quickAddSignal={quickAdd?.target === 'surat-keluar' ? quickAdd.token : undefined} onQuickAddHandled={clearQuickAdd} />}
                 {page === 'agenda-pimpinan' && <AgendaPimpinanPage rows={agendaPimpinan} onRefresh={refreshAgenda} canDelete={user?.role === 'admin'} quickAddSignal={quickAdd?.target === 'agenda-pimpinan' ? quickAdd.token : undefined} onQuickAddHandled={clearQuickAdd} />}

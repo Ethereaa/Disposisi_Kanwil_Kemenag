@@ -1,4 +1,3 @@
-import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -15,16 +14,9 @@ import {
   MapPin,
   Workflow,
 } from 'lucide-react';
-import type { SuratMasuk, SuratKeluar, AgendaPimpinan, PageKey } from '@/types';
-import {
-  isoToDisplay,
-  isoToDisplayWithDay,
-  isToday,
-  todayISO,
-  businessDaysSince,
-  witaTodayISO,
-} from '@/lib/date';
-import { getOverdueThresholdDays } from '@/lib/db';
+import type { PageKey } from '@/types';
+import { isoToDisplay, isoToDisplayWithDay, todayISO, witaTodayISO } from '@/lib/date';
+import type { DashboardSnapshot } from '@/lib/dashboardData';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Surface } from '@/components/ui/Surface';
@@ -33,137 +25,39 @@ import { WorkflowPipeline } from '@/components/ui/WorkflowPipeline';
 import { MiniBarChart, DualTrendChart } from '@/components/ui/MiniBarChart';
 import { SuratKeluarStatusBadge, DateProximityBadge } from '@/components/ui/StatusBadge';
 
+// A pure view over one server-side summary. This page used to take the three
+// full datasets as props and recompute every figure here, which meant opening
+// the Dashboard downloaded Surat Masuk, Surat Keluar and Agenda Pimpinan in
+// their entirety to render a handful of counts. lib/dashboardData computes the
+// same values from narrow projections; what is displayed is unchanged.
 interface DashboardProps {
-  suratMasuk: SuratMasuk[];
-  suratKeluar: SuratKeluar[];
-  agendaPimpinan?: AgendaPimpinan[];
+  snapshot: DashboardSnapshot;
   onNavigate: (p: PageKey) => void;
 }
 
-const HARI_SINGKAT = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+export function Dashboard({ snapshot, onNavigate }: DashboardProps) {
+  // Every figure below is read straight off the summary. The overdue rule
+  // (businessDaysSince past the office threshold), the 7-day trend, the per
+  // bidang breakdown, the two "terbaru" lists and the upcoming-agenda ordering
+  // all still exist — they are computed in lib/dashboardData now, from the same
+  // rules this page used to apply to the full arrays.
+  const {
+    stats,
+    statusStats,
+    trend,
+    perBidang,
+    recentMasuk,
+    recentKeluar,
+    agendaTerdekat,
+    overdueThreshold,
+  } = snapshot;
 
-/** How many upcoming agendas the "Agenda Terdekat" panel lists. */
-const AGENDA_PREVIEW_COUNT = 4;
-
-/**
- * Minutes since midnight for a `waktu_kegiatan` string, for ordering only.
- *
- * `waktu_kegiatan` is `text NOT NULL DEFAULT '00:00'`, so it can be '', a
- * well-formed 'HH:MM', or whatever a hand-edited row left behind. Anything
- * unparseable sorts as minute 0, alongside genuine all-day agendas.
- *
- * lib/agendaPreview.ts has the same helper, unexported. It stays that way:
- * this is Dashboard ordering, and reaching into the public preview's internals
- * would tie a presentation detail here to that module's locked business rules.
- */
-function agendaMinutes(waktu: string): number {
-  const m = /^(\d{1,2}):(\d{2})$/.exec(waktu.trim());
-  if (!m) return 0;
-  const h = Number(m[1]);
-  const min = Number(m[2]);
-  if (h > 23 || min > 59) return 0;
-  return h * 60 + min;
-}
-
-export function Dashboard({ suratMasuk, suratKeluar, agendaPimpinan, onNavigate }: DashboardProps) {
-  const [overdueThreshold, setOverdueThreshold] = useState(3);
-
-  useEffect(() => {
-    getOverdueThresholdDays().then(setOverdueThreshold).catch(() => {
-      // Non-critical — falls back to the component's default of 3.
-    });
-  }, []);
-
-  const stats = useMemo(() => {
-    const masukToday = suratMasuk.filter((s) => isToday(s.tanggalDiterima)).length;
-    const keluarToday = suratKeluar.filter((s) => isToday(s.tanggalSurat)).length;
-    const unsigned = suratKeluar.filter((s) => !s.ditandatangani).length;
-    return {
-      masuk: suratMasuk.length,
-      keluar: suratKeluar.length,
-      today: masukToday + keluarToday,
-      total: suratMasuk.length + suratKeluar.length,
-      unsigned,
-    };
-  }, [suratMasuk, suratKeluar]);
-
-  // Disposisi workflow breakdown (Baru/Diproses/Selesai) for Surat Masuk,
-  // plus how many "Diproses" records have sat past the overdue threshold —
-  // mirrors the isOverdue() logic in SuratMasukPage so the two screens
-  // never disagree about what counts as overdue.
-  const statusStats = useMemo(() => {
-    const baru = suratMasuk.filter((s) => s.statusDisposisi === 'baru').length;
-    const diproses = suratMasuk.filter((s) => s.statusDisposisi === 'diproses').length;
-    const selesai = suratMasuk.filter((s) => s.statusDisposisi === 'selesai').length;
-    const overdue = suratMasuk.filter(
-      (s) => s.statusDisposisi === 'diproses' && businessDaysSince(s.statusUpdatedAt) >= overdueThreshold,
-    ).length;
-    return { baru, diproses, selesai, overdue };
-  }, [suratMasuk, overdueThreshold]);
-
-  // Last 7 days trend (surat masuk vs surat keluar), oldest first.
-  const trend = useMemo(() => {
-    const days: { iso: string; label: string }[] = [];
-    const today = todayISO();
-    const [ty, tm, td] = today.split('-').map(Number);
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(ty, tm - 1, td - i, 12);
-      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      days.push({ iso, label: HARI_SINGKAT[d.getDay()] });
-    }
-    const seriesA = days.map((d) => suratMasuk.filter((s) => s.tanggalDiterima === d.iso).length);
-    const seriesB = days.map((d) => suratKeluar.filter((s) => s.tanggalSurat === d.iso).length);
-    return { labels: days.map((d) => d.label), seriesA, seriesB, hasData: seriesA.some((v) => v > 0) || seriesB.some((v) => v > 0) };
-  }, [suratMasuk, suratKeluar]);
-
-  // Breakdown of surat masuk per bidang (tujuan disposisi) — who receives the most.
-  const perBidang = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const s of suratMasuk) {
-      counts.set(s.tujuanDisposisi, (counts.get(s.tujuanDisposisi) ?? 0) + 1);
-    }
-    return [...counts.entries()]
-      .map(([label, value]) => ({ label, value }))
-      .sort((a, b) => b.value - a.value);
-  }, [suratMasuk]);
-
-  const recentMasuk = useMemo(
-    () => [...suratMasuk].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5),
-    [suratMasuk],
-  );
-  const recentKeluar = useMemo(
-    () => [...suratKeluar].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5),
-    [suratKeluar],
-  );
-
-  // The reference day for "upcoming", captured per render like todayISO() is
-  // in `trend` above — this page does not re-render on a midnight timer.
+  // Reference day for the proximity badges in the agenda panel, and the same
+  // WITA day getDashboardSnapshot() selected "upcoming" against. Still read
+  // from the clock here because it is presentation, not data: this page does
+  // not re-render on a midnight timer, so it is captured per render, exactly
+  // as todayISO() is in the header below.
   const witaToday = witaTodayISO();
-
-  // Upcoming agenda, from the agendaPimpinan prop App.tsx has always passed
-  // and this page has always ignored. No query, no RPC: the same array the
-  // Agenda Pimpinan page and the exporter already receive.
-  //
-  // "Upcoming" is a plain date comparison against the WITA day, so an agenda
-  // dated today stays listed for the whole working day even after its
-  // scheduled time — the same reading of the day the rest of the app uses.
-  // It is written out here rather than imported from lib/agendaPreview.ts so
-  // that a future change to the public preview's rules cannot silently
-  // reshape the Dashboard, and so this panel is not mistaken for part of
-  // that module's locked rule surface.
-  const agendaTerdekat = useMemo(() => {
-    const rows = agendaPimpinan ?? [];
-    return rows
-      .filter((a) => !!a.tanggalKegiatan && a.tanggalKegiatan >= witaToday)
-      .sort((a, b) => {
-        const byDate = (a.tanggalKegiatan ?? '').localeCompare(b.tanggalKegiatan ?? '');
-        if (byDate !== 0) return byDate;
-        const byTime = agendaMinutes(a.waktuKegiatan) - agendaMinutes(b.waktuKegiatan);
-        if (byTime !== 0) return byTime;
-        return a.nomorUrut - b.nomorUrut;
-      })
-      .slice(0, AGENDA_PREVIEW_COUNT);
-  }, [agendaPimpinan, witaToday]);
 
   const attentionCount = (statusStats.overdue > 0 ? 1 : 0) + (stats.unsigned > 0 ? 1 : 0);
 
@@ -329,8 +223,9 @@ export function Dashboard({ suratMasuk, suratKeluar, agendaPimpinan, onNavigate 
       </Surface>
 
       {/* ── E. AGENDA ──────────────────────────────────────────────────────
-          Presentation only: no create/edit here, and no change to how agenda
-          data is loaded or to the public preview's rules. */}
+          Presentation only: no create/edit here, and no change to the public
+          preview's rules — the upcoming selection is the summary's own, and
+          stays independent of that module's locked rule surface. */}
       <Surface as="section" aria-labelledby="agenda-heading" className="p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
           <h2 id="agenda-heading" className="flex items-center gap-2 text-heading text-office-text dark:text-slate-100">

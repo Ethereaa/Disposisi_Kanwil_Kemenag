@@ -6,6 +6,12 @@ const DASHBOARD_PAGE_SIZE = 1000;
 const DASHBOARD_ROW_CAP = 20000;
 const AGENDA_PREVIEW_COUNT = 4;
 
+// Mirrors the fallback Dashboard.tsx used to carry inline (`useState(3)` plus a
+// swallowed catch): the office threshold lives in app_settings, and a failed
+// read of it must not take the whole summary down with it. The overdue figure
+// is one card on the page, not the page.
+const OVERDUE_THRESHOLD_FALLBACK = 3;
+
 const HARI_SINGKAT = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 
 interface MasukProjectionRow {
@@ -106,7 +112,6 @@ export interface DashboardSnapshot {
   recentKeluar: DashboardRecentKeluar[];
   agendaTerdekat: DashboardAgendaItem[];
   overdueThreshold: number;
-  agendaTodayCount: number;
 }
 
 function assertWithinDashboardCap(table: string, rowCount: number): void {
@@ -246,6 +251,20 @@ async function fetchRecentKeluar(): Promise<DashboardRecentKeluar[]> {
   }));
 }
 
+/**
+ * Minutes since midnight for a `waktu_kegiatan` string, for ordering only.
+ *
+ * `waktu_kegiatan` is `text NOT NULL DEFAULT '00:00'`, so it can be '', a
+ * well-formed 'HH:MM', or whatever a hand-edited row left behind. Anything
+ * unparseable sorts as minute 0, alongside genuine all-day agendas. That is
+ * also why the upcoming-agenda ordering stays client-side: an
+ * `.order('waktu_kegiatan')` in Postgres is a text sort, which does not agree
+ * with this on blanks or on ties.
+ *
+ * lib/agendaPreview.ts has the same helper, unexported, and it stays that way:
+ * this is Dashboard ordering, and reaching into the public preview's internals
+ * would tie it to that module's locked business rules.
+ */
 function agendaMinutes(waktu: string): number {
   const match = /^(\d{1,2}):(\d{2})$/.exec(waktu.trim());
   if (!match) return 0;
@@ -325,7 +344,7 @@ export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
     fetchUpcomingAgenda(),
     fetchRecentMasuk(),
     fetchRecentKeluar(),
-    getOverdueThresholdDays(),
+    getOverdueThresholdDays().catch(() => OVERDUE_THRESHOLD_FALLBACK),
   ]);
 
   const today = todayISO();
@@ -414,8 +433,57 @@ export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
     recentKeluar,
     agendaTerdekat,
     overdueThreshold,
-    agendaTodayCount: upcomingAgenda.filter(
-      (row) => row.tanggal_kegiatan === witaTodayISO(),
-    ).length,
+  };
+}
+
+// --- Global work counts -------------------------------------------------
+//
+// The two numbers the Sidebar badge and work card (and the BottomNav badge)
+// show on EVERY route: unsigned Surat Keluar, and today's Agenda Pimpinan.
+// App.tsx used to filter both out of the full arrays, which only worked while
+// every route loaded every table. These are count-only reads instead —
+// `head: true` transfers no rows at all, PostgREST answers from the
+// Content-Range header — so the badges stay live on routes that deliberately
+// never load the dataset being counted.
+
+export interface GlobalWorkCounts {
+  unsignedKeluar: number;
+  agendaToday: number;
+}
+
+/**
+ * Both filters reproduce the expressions App.tsx ran over the full arrays,
+ * exactly:
+ *
+ *   unsigned  `suratKeluar.filter((s) => !s.ditandatangani)` — `ditandatangani`
+ *            is `boolean NOT NULL DEFAULT false`, so `.eq(false)` and
+ *            `!s.ditandatangani` cannot disagree on any row that can exist.
+ *
+ *   today    `agendaPimpinan.filter((a) => isToday(a.tanggalKegiatan))` —
+ *            isToday() compares against todayISO(), the calendar day in the
+ *            BROWSER's timezone, NOT witaTodayISO(). Kept deliberately: moving
+ *            this count to the WITA day boundary would change what the sidebar
+ *            reports for anyone on a device not set to WITA, which is a rules
+ *            decision, not a performance one. (The public agenda preview is
+ *            WITA-based and stays that way — a separate, locked surface.)
+ */
+export async function getGlobalWorkCounts(): Promise<GlobalWorkCounts> {
+  const [unsigned, today] = await Promise.all([
+    supabase
+      .from('surat_keluar')
+      .select('id', { count: 'exact', head: true })
+      .eq('ditandatangani', false),
+    supabase
+      .from('agenda_pimpinan')
+      .select('id', { count: 'exact', head: true })
+      .eq('tanggal_kegiatan', todayISO()),
+  ]);
+
+  if (unsigned.error) throw unsigned.error;
+  if (today.error) throw today.error;
+
+  return {
+    unsignedKeluar: unsigned.count ?? 0,
+    agendaToday: today.count ?? 0,
   };
 }
