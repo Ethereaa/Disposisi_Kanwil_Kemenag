@@ -10,7 +10,7 @@ import { AgendaPimpinanPreview } from '@/pages/AgendaPimpinanPreview';
 import { AgendaPreviewHome } from '@/pages/AgendaPreviewHome';
 import { getAllMasuk, getAllKeluar, getAllAgendaPimpinan, consumeTruncationWarnings } from '@/lib/db';
 import { supabase } from '@/lib/supabase';
-import { initLogo } from '@/lib/logo';
+import { isToday } from '@/lib/date';
 import { getTheme, setTheme as persistTheme, applyTheme, getCurrentUser, logout } from '@/lib/storage';
 import { getLocalMigrationData, migrateLocalDataToCloud, deleteOldLocalDatabase } from '@/lib/migrate';
 import type { PageKey, Theme, SuratMasuk, SuratKeluar, AgendaPimpinan, AppUser } from '@/types';
@@ -128,7 +128,6 @@ function Root() {
     const t = getTheme();
     setTheme(t);
     applyTheme(t);
-    initLogo();
     const syncPreviewFromHash = () => {
       setPreviewAgendaId(resolvePreviewRoute());
     };
@@ -344,6 +343,10 @@ function Root() {
 
   const showMigration = migrationInfo && !migrationDismissed;
   const unsignedCount = suratKeluar.filter((s) => !s.ditandatangani).length;
+  // Both counts feed the sidebar: the badge on "Surat Keluar" and the work card
+  // above the logout button. Pure derivations of state refresh() already loaded
+  // — the card gets its numbers here rather than fetching anything of its own.
+  const agendaTodayCount = agendaPimpinan.filter((a) => isToday(a.tanggalKegiatan)).length;
   // The Dashboard is the one route that isn't header-plus-table, so it gets a
   // skeleton shaped like itself. Purely which placeholder to draw — no new
   // state, and every other route keeps the shared one.
@@ -368,6 +371,7 @@ function Root() {
         username={user?.username || ''}
         onLogout={handleLogout}
         suratKeluarBadge={unsignedCount}
+        agendaTodayCount={agendaTodayCount}
       />
       <QuickAddFab onSelect={handleQuickAdd} />
       <BottomNav

@@ -119,9 +119,12 @@ export function AgendaPreviewHome() {
       <div className="relative mx-auto flex min-h-dvh max-w-3xl flex-col gap-4 p-4 sm:p-6">
         <header className={`${GLASS} p-5 sm:p-6`}>
           <div className="flex items-center gap-3.5">
-            {/* The fixed official mark from /public, deliberately not the
-                settings-configurable <Logo /> component: this page is a public
-                official notice and must not follow an in-app branding change.
+            {/* The fixed official mark, referenced straight from /public. The
+                <Logo /> component now resolves to this exact same file — the
+                settings-configurable logo subsystem it used to read is gone — so
+                the two are equivalent; this page keeps the direct <img> because
+                nothing about a public official notice should depend on an app
+                component it does not otherwise use.
                 Decorative here — the heading beside it already names the office,
                 and the footer carries the labelled copy. */}
             <img

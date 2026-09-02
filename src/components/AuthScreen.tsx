@@ -4,7 +4,7 @@ import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/Button';
 import { Field, Input } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
-import { APP_TITLE, APP_SHORT, type AppUser } from '@/types';
+import { APP_TITLE, type AppUser } from '@/types';
 import { loginUser } from '@/lib/storage';
 
 interface AuthScreenProps {
@@ -35,6 +35,11 @@ interface AuthScreenProps {
 // Auth behaviour is CURRENT, not historical: loginUser, the login-only flow,
 // native `required`, autoComplete, the Button `isLoading` contract and the
 // show/hide toggle all match the rest of the app today.
+//
+// So is the hero's BRAND LOCKUP (Root 3G.2): the white logo plate, the
+// "Kementerian Agama RI / Kanwil Provinsi Gorontalo" institutional label and the
+// two-tier product title are a deliberate revision inside the restored screen,
+// not the pre-Root-2 markup. The chrome around them is the historical part.
 // ─────────────────────────────────────────────────────────────────────────────
 export function AuthScreen({ onAuthed }: AuthScreenProps) {
   const [identifier, setIdentifier] = useState('');
@@ -71,23 +76,47 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
       <div className="relative w-full max-w-5xl rounded-2xl border border-white/70 bg-white/70 p-2 shadow-[0_10px_30px_rgba(15,23,42,0.07)] backdrop-blur-xl dark:border-slate-700 dark:bg-slate-800/70 sm:p-3">
         <div className="grid overflow-hidden rounded-xl lg:grid-cols-[1.1fr_0.9fr]">
           <div className="flex flex-col justify-center brand-gradient-hero p-6 text-white sm:p-10">
-            <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur sm:mb-6">
-              <Logo size={44} />
+            {/* Institutional lockup: WHO owns the application, kept above and
+                visually separate from WHAT it is. The plate is white, not the
+                old 15%-white tile — that reads as pale green over this gradient,
+                and the emblem is a full-colour traced mark whose dark greens
+                vanished into it. Same treatment as the sidebar brand header, so
+                the two lockups agree.
+
+                60px mobile / 72px desktop with ~12–14px of breathing room around
+                the mark. At 320px that leaves ~152px for the text beside it,
+                which both lines clear at these sizes — the tracking on line one
+                is the value that has to stay modest to keep it on one line. */}
+            <div className="flex items-center gap-3 sm:gap-4">
+              <span className="flex h-[3.75rem] w-[3.75rem] shrink-0 items-center justify-center rounded-2xl border border-white/60 bg-white shadow-[0_8px_20px_-8px_rgba(15,23,42,0.45)] sm:h-[4.5rem] sm:w-[4.5rem]">
+                <Logo size={36} alt="" className="h-9 w-9 sm:h-11 sm:w-11" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase leading-4 tracking-[0.06em] text-white sm:text-xs sm:tracking-[0.14em]">
+                  Kementerian Agama RI
+                </p>
+                <p className="mt-1 text-xs leading-4 text-emerald-50/80 sm:text-sm sm:leading-5">
+                  Kanwil Provinsi Gorontalo
+                </p>
+              </div>
             </div>
+
             {/* The ramp ends where the two-column grid begins, so the desktop
                 hero keeps its original 36px heading; the smaller steps below
                 only apply while the hero spans the full width of a phone or
-                tablet, where 36px broke APP_SHORT across four lines. */}
-            <h1 className="max-w-md break-words text-2xl font-semibold leading-tight sm:text-3xl lg:text-4xl">{APP_SHORT}</h1>
-            <p className="mt-3 max-w-md text-sm leading-6 text-emerald-50/90 sm:text-base">
-              Platform Disposisi &amp; Agenda Pimpinan.
+                tablet, where 36px broke the product name across four lines.
+                Two tiers inside one <h1> — the second line is the deployment,
+                not a separate heading, so it must not become an <h2> that
+                outranks the form's own "Masuk ke akun". */}
+            <h1 className="mt-7 max-w-md break-words text-2xl font-semibold leading-tight sm:mt-9 sm:text-3xl lg:text-4xl">
+              Disposisi Surat
+              <span className="mt-1 block text-base font-medium leading-snug text-emerald-50/90 sm:text-xl lg:text-2xl">
+                Kanwil Kemenag Gorontalo
+              </span>
+            </h1>
+            <p className="mt-3.5 max-w-md text-sm leading-6 text-emerald-50/90 sm:text-base">
+              Kelola surat dan agenda pimpinan dengan lebih cepat dan terstruktur.
             </p>
-            <div className="mt-6 rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur sm:mt-8">
-              <div className="flex items-center gap-3">
-                <Users size={18} className="shrink-0 text-emerald-100" aria-hidden="true" />
-                <p className="min-w-0 text-sm text-emerald-50/90">Kelola Surat Masuk, Surat Keluar, dan Agenda Pimpinan dengan flexibel.</p>
-              </div>
-            </div>
           </div>
 
           <div className="bg-white/85 p-5 sm:p-8 dark:bg-slate-900/70">

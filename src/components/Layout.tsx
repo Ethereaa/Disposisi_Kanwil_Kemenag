@@ -12,8 +12,6 @@ import {
   X,
   Moon,
   Sun,
-  Sunrise,
-  Sunset,
 } from 'lucide-react';
 import { Logo } from './Logo';
 import { IconButton } from './ui/IconButton';
@@ -29,6 +27,9 @@ interface SidebarProps {
   onLogout: () => void;
   /** Count of surat keluar belum ditandatangani — shown as a red badge on the menu item so it's visible from any page, not just the Dashboard. */
   suratKeluarBadge?: number;
+  /** Agenda pimpinan scheduled for today. Derived in App.tsx from state it
+   *  already holds, so the work card below costs no extra query. */
+  agendaTodayCount?: number;
 }
 
 const menu: { key: PageKey; label: string; icon: typeof LayoutDashboard }[] = [
@@ -41,54 +42,55 @@ const menu: { key: PageKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: 'settings', label: 'Settings', icon: SettingsIcon },
 ];
 
-// ── ACCOUNT GREETING ────────────────────────────────────────────────────────
-// Two constraints pull against each other: the caption has to feel alive (a
+// ── PERSONAL WORK CARD ──────────────────────────────────────────────────────
+// Two constraints pull against each other: the greeting has to feel alive (a
 // fixed string is not a greeting), and it must not change while someone is
 // looking at it — a line that re-rolls itself mid-glance reads as a glitch, not
-// as life. So the phrase is derived from two things that are both stable for
-// hours — the time-of-day slot and the calendar day — and then memoised for the
-// lifetime of the Sidebar, which mounts once per authenticated session. Steady
-// from login to logout; different at the next login on another day, or in
-// another part of the same day. A session left open overnight keeps the
+// as life. So it is derived from the time-of-day slot, which is stable for
+// hours, and then memoised for the lifetime of the Sidebar, which mounts once
+// per authenticated session. Steady from login to logout; different at the next
+// login in another part of the day. A session left open overnight keeps the
 // greeting it opened with, and that is the intended side of the trade.
-const GREETINGS = {
-  pagi: ['Selamat pagi', 'Pagi yang baik', 'Semangat pagi'],
-  siang: ['Selamat siang', 'Siang yang produktif', 'Semangat siang'],
-  sore: ['Selamat sore', 'Sore yang produktif', 'Menutup hari dengan baik'],
-  malam: ['Selamat malam', 'Malam yang tenang', 'Terima kasih untuk hari ini'],
-} as const;
-
-type GreetingSlot = keyof typeof GREETINGS;
-
-const greetingIcon: Record<GreetingSlot, typeof LayoutDashboard> = {
-  pagi: Sunrise,
-  siang: Sun,
-  sore: Sunset,
-  malam: Moon,
-};
-
-function greetingSlot(hour: number): GreetingSlot {
-  if (hour >= 5 && hour < 11) return 'pagi';
-  if (hour >= 11 && hour < 15) return 'siang';
-  if (hour >= 15 && hour < 19) return 'sore';
-  return 'malam';
+//
+// One canonical phrase per slot, not a rotating set of three picked by day
+// index. This is an official workspace: "Selamat sore" is what an office says,
+// and the variants ("Sore yang produktif", "Terima kasih untuk hari ini") bought
+// personality the setting does not want. The little weather icon beside it went
+// with them — the sentence already carries the time of day.
+function greetingFor(hour: number): string {
+  if (hour >= 5 && hour < 11) return 'Selamat pagi';
+  if (hour >= 11 && hour < 15) return 'Selamat siang';
+  if (hour >= 15 && hour < 19) return 'Selamat sore';
+  return 'Selamat malam';
 }
 
-function pickGreeting(now: Date) {
-  const slot = greetingSlot(now.getHours());
-  const phrases = GREETINGS[slot];
-  // The local calendar day as a single integer, so one phrase holds for the
-  // whole day and moves on tomorrow. Local rather than UTC on purpose: a UTC
-  // day index would roll over at 08:00 WITA, in the middle of the morning.
-  const dayIndex = Math.floor((now.getTime() - now.getTimezoneOffset() * 60_000) / 86_400_000);
-  return { text: phrases[dayIndex % phrases.length], Icon: greetingIcon[slot] };
-}
+// "Selasa, 2 September". No year: on a line someone reads every working day it
+// is the one part that carries no information. Module scope so the formatter is
+// built once, not per render — and deliberately not a new export in lib/date.ts,
+// which has no year-less variant and does not need one for a single caller.
+const workCardDate = new Intl.DateTimeFormat('id-ID', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+});
 
-export function Sidebar({ active, onNavigate, open, onToggle, username, onLogout, suratKeluarBadge = 0 }: SidebarProps) {
-  // Empty deps is the whole point — see the note above GREETINGS.
-  const greeting = useMemo(() => pickGreeting(new Date()), []);
-  const GreetingIcon = greeting.Icon;
+export function Sidebar({ active, onNavigate, open, onToggle, username, onLogout, suratKeluarBadge = 0, agendaTodayCount = 0 }: SidebarProps) {
+  // Empty deps is the whole point — see the note above greetingFor.
+  const now = useMemo(() => new Date(), []);
+  const greeting = greetingFor(now.getHours());
+  const dateLabel = workCardDate.format(now);
   const displayName = username || 'Pengguna Kanwil';
+  // First token only. "Selamat sore, Luthfi" is how a colleague says it, and a
+  // full name would not survive a 256px column.
+  const firstName = displayName.split(' ')[0];
+  // The workload line, assembled from counts App.tsx already had in state. Both
+  // facts are omitted when zero rather than printed as "0", and an empty day
+  // gets a plain statement instead of a blank row.
+  const workFacts = [
+    agendaTodayCount > 0 ? `${agendaTodayCount} agenda hari ini` : null,
+    suratKeluarBadge > 0 ? `${suratKeluarBadge} belum TTD` : null,
+  ].filter(Boolean);
+  const workSummary = workFacts.length > 0 ? workFacts.join(' · ') : 'Tidak ada agenda hari ini';
   return (
     <>
       {/* z-[35] sits between the bottom nav / FAB (z-30) and the drawer panel
@@ -105,20 +107,29 @@ export function Sidebar({ active, onNavigate, open, onToggle, username, onLogout
         {/* Institutional identity: the organisation, not the app's design
             name. The decorative emerald radial that used to sit behind this
             column is gone — the sidebar gradient is the only treatment it
-            needs, and two stacked gradients washed out the active state. */}
-        <div className="flex items-center gap-3 border-b border-white/10 px-4 py-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-control border border-white/15 bg-white/10">
-            <Logo size={32} />
-          </div>
+            needs, and two stacked gradients washed out the active state.
+
+            The emblem sits on a WHITE plate. The sidebar gradient starts at
+            near-navy here, and the mark is a full-colour traced emblem whose
+            dark greens and darks disappeared against it; the old plate was a
+            10%-white tile, which is grey-blue, not light. White is also what
+            the login hero uses, so the two lockups now agree. */}
+        <div className="flex items-center gap-2.5 border-b border-white/10 px-4 py-3.5">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-control bg-white">
+            <Logo size={28} alt="" />
+          </span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-body-strong text-white">Kanwil Kemenag</p>
             <p className="truncate text-micro font-normal tracking-normal text-slate-300">Provinsi Gorontalo</p>
           </div>
+          {/* -mr-1 buys the text column 4px back from this button's 44px touch
+              target, which is what keeps "Kanwil Kemenag" off `truncate` at
+              256px. The button is mobile-only, so desktop has the room anyway. */}
           <button
             onClick={onToggle}
             aria-label="Tutup menu"
             title="Tutup menu"
-            className="focus-ring-inverse flex h-11 w-11 shrink-0 items-center justify-center rounded-control text-slate-300 transition-colors duration-fast ease-brand hover:bg-white/10 hover:text-white lg:hidden"
+            className="focus-ring-inverse -mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-control text-slate-300 transition-colors duration-fast ease-brand hover:bg-white/10 hover:text-white lg:hidden"
           >
             <X size={18} />
           </button>
@@ -167,48 +178,52 @@ export function Sidebar({ active, onNavigate, open, onToggle, username, onLogout
           </ul>
         </nav>
 
-        {/* Account zone, separated from navigation by a rule and its own label
-            so the column reads as two zones (where to go / who you are)
-            instead of one long list that ends in a stray button. The theme
-            toggle that used to sit here as a full-width secondary Button moved
-            to the header command bar: it is an app-wide control, not an
+        {/* Personal work card. Separated from navigation by a rule and its own
+            label so the column reads as two zones (where to go / where you
+            stand) instead of one long list that ends in a stray button. The
+            theme toggle that used to sit here as a full-width secondary Button
+            moved to the header command bar: it is an app-wide control, not an
             account setting, and it was the loudest element in the sidebar.
 
-            The caption above the name is the greeting, NOT the email address.
-            An address is not something anyone needs read back to them on every
-            screen, and it was the one piece of PII parked permanently in the
-            chrome — on a shared office machine, permanently on someone else's
-            screen too. The card stays deliberately quiet otherwise: one tinted
-            surface, one brand-gradient avatar, and no second coloured accent to
-            compete with the active-menu rail. */}
+            Three lines, in the order someone actually wants them: who is signed
+            in, what day it is, and what is waiting. The caption is NOT the email
+            address — an address is not something anyone needs read back to them
+            on every screen, and it was the one piece of PII parked permanently
+            in the chrome; on a shared office machine, permanently on someone
+            else's screen too.
+
+            The gradient-emerald avatar disc that used to lead the card is gone.
+            It re-printed the first letter of the name sitting right beside it,
+            it was the brightest thing in the lower half of a column that is
+            already green, and its 36–40px plus the logout button left the
+            greeting under 120px inside a 256px sidebar — so it truncated the one
+            line the card exists to show. Without it every line fits. */}
         <div className="border-t border-white/10 p-3">
           <p className="px-2 pb-2 text-micro uppercase text-slate-400">Akun</p>
-          <div className="flex items-center gap-2.5 rounded-control border border-white/10 bg-gradient-to-br from-white/[0.10] to-white/[0.04] p-2">
-            {/* The brand gradient's own endpoints, so the avatar matches the
-                primary button and the FAB. Both stops are dark enough to keep
-                the white initial legible — a lighter emerald top-left would
-                not be. */}
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-office-primary to-office-accent text-body-strong text-white ring-1 ring-white/25">
-              {displayName.charAt(0).toUpperCase()}
+          <div className="rounded-panel border border-white/10 bg-gradient-to-b from-white/[0.09] to-white/[0.03] p-3">
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-body-strong text-white">
+                  {greeting}, {firstName}
+                </p>
+                <p className="mt-0.5 truncate text-micro font-normal tracking-normal text-slate-300">{dateLabel}</p>
+              </div>
+              {/* Negative margins keep the 44px touch target without letting it
+                  set the height of the row or steal width from the greeting. */}
+              <button
+                onClick={onLogout}
+                title="Keluar"
+                aria-label="Keluar"
+                className="focus-ring-inverse -my-1 -mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-control text-slate-300 transition-colors duration-fast ease-brand hover:bg-white/10 hover:text-white lg:h-9 lg:w-9"
+              >
+                <LogOut size={16} />
+              </button>
             </div>
-            <div className="min-w-0 flex-1">
-              {/* Slate, not emerald: the sidebar surface shifts toward green
-                  down the column, which is the same reason the active rail is
-                  white. */}
-              <p className="flex items-center gap-1 text-micro font-normal tracking-normal text-slate-300">
-                <GreetingIcon size={12} className="shrink-0" aria-hidden="true" />
-                <span className="truncate">{greeting.text}</span>
-              </p>
-              <p className="truncate text-label text-white">{displayName}</p>
-            </div>
-            <button
-              onClick={onLogout}
-              title="Keluar"
-              aria-label="Keluar"
-              className="focus-ring-inverse flex h-11 w-11 shrink-0 items-center justify-center rounded-control text-slate-300 transition-colors duration-fast ease-brand hover:bg-white/10 hover:text-white lg:h-9 lg:w-9"
-            >
-              <LogOut size={16} />
-            </button>
+            {/* Slate, not emerald: the sidebar surface shifts toward green down
+                the column, which is the same reason the active rail is white. */}
+            <p className="mt-2.5 border-t border-white/10 pt-2.5 text-micro font-normal tracking-normal text-slate-300">
+              {workSummary}
+            </p>
           </div>
         </div>
       </aside>

@@ -1,15 +1,13 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { Moon, Sun, Save, ShieldCheck, RotateCcw, Upload, History, ShieldAlert, BellRing, BellOff, Settings as SettingsIcon } from 'lucide-react';
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { Moon, Sun, Save, ShieldCheck, History, ShieldAlert, BellRing, BellOff, Settings as SettingsIcon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Surface } from '@/components/ui/Surface';
 import { Input } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
-import { Logo } from '@/components/Logo';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { getCurrentUser, changePassword, updateUsername } from '@/lib/storage';
-import { setCustomLogo, clearCustomLogo, getLogoSrc, getLogoSize, setLogoSize } from '@/lib/logo';
 import { formatDateTime } from '@/lib/date';
 import { getOverdueThresholdDays, setOverdueThresholdDays } from '@/lib/db';
 import {
@@ -143,8 +141,6 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
   const [busyUsername, setBusyUsername] = useState(false);
   const [newPw, setNewPw] = useState('');
   const [busyPw, setBusyPw] = useState(false);
-  const [logoSrc, setLogoSrc] = useState(getLogoSrc());
-  const [logoSize, setLogoSizeState] = useState(getLogoSize());
   const [installable, setInstallable] = useState(false);
   const [alreadyInstalled, setAlreadyInstalled] = useState(false);
   const [reminderSubscribed, setReminderSubscribed] = useState(false);
@@ -152,7 +148,6 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
   const [overdueThreshold, setOverdueThresholdState] = useState(3);
   const [overdueThresholdInput, setOverdueThresholdInput] = useState('3');
   const [savingThreshold, setSavingThreshold] = useState(false);
-  const logoInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   // The overdue threshold is one office-wide value, so changing it changes what
@@ -173,9 +168,6 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
   }, []);
 
   useEffect(() => {
-    setLogoSrc(getLogoSrc());
-    setLogoSizeState(getLogoSize());
-
     // Chrome/Edge Android only fire 'beforeinstallprompt' once, right after
     // the page loads — usually well before the user ever navigates to
     // Settings. main.tsx already captures that event into
@@ -295,42 +287,6 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
     }
   }
 
-  function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      toast('File harus berupa gambar (PNG, JPG, WebP, atau SVG).', 'error');
-      return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      toast('Ukuran gambar maksimal 2 MB.', 'error');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = String(reader.result);
-      setCustomLogo(dataUrl);
-      setLogoSrc(dataUrl);
-      toast('Logo berhasil diperbarui.', 'success');
-    };
-    reader.onerror = () => toast('Gagal memproses gambar.', 'error');
-    reader.readAsDataURL(file);
-    e.target.value = '';
-  }
-
-  function handleResetLogo() {
-    clearCustomLogo();
-    setLogoSrc(getLogoSrc());
-    setLogoSizeState(getLogoSize());
-    toast('Logo dikembalikan ke default.', 'info');
-  }
-
-  function handleLogoSizeChange(next: number) {
-    const normalized = Math.max(24, Math.min(220, next));
-    setLogoSizeState(normalized);
-    setLogoSize(normalized);
-  }
-
   async function handleInstallApp() {
     const event = window.deferredInstallPrompt as Event & { prompt?: () => Promise<void>; userChoice?: Promise<{ outcome: string }> } | undefined;
     if (!event?.prompt) {
@@ -393,7 +349,6 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
   }
 
   const notifPermission = getNotificationPermission();
-  const isCustomLogo = logoSrc !== '/kemenag-seeklogo.svg';
   const readOnlyInput = 'bg-slate-50 dark:bg-slate-900/40';
 
   return (
@@ -497,7 +452,11 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
         </SettingRow>
       </SettingsPanel>
 
-      <SettingsPanel icon={Sun} title="Tampilan" description="Tema dan identitas visual aplikasi.">
+      {/* Theme is the only display preference now. The "Logo Aplikasi" row that
+          used to sit beside it — upload, reset, and a global size slider — is
+          gone: the emblem is a government mark, so it is fixed in the build
+          rather than swappable per browser. */}
+      <SettingsPanel icon={Sun} title="Tampilan" description="Tema warna aplikasi.">
         <SettingRow
           label="Mode Tampilan"
           hint={`Saat ini: ${theme === 'dark' ? 'Dark Mode' : 'Light Mode'}.`}
@@ -509,57 +468,6 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
               <><Moon size={16} aria-hidden="true" /> Ganti ke Dark</>
             )}
           </Button>
-        </SettingRow>
-
-        <SettingRow
-          label="Logo Aplikasi"
-          hint="Tampil di sidebar, halaman login, dan tab browser. PNG/JPG/WebP/SVG, maks. 2 MB."
-        >
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-control border border-office-border bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40">
-                <Logo size={Math.max(28, Math.min(52, logoSize))} />
-              </span>
-              <div className="flex flex-wrap gap-2">
-                <input
-                  ref={logoInputRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/svg+xml,image/webp"
-                  onChange={handleLogoChange}
-                  className="hidden"
-                />
-                <Button variant="outline" onClick={() => logoInputRef.current?.click()}>
-                  <Upload size={16} aria-hidden="true" /> Unggah
-                </Button>
-                {isCustomLogo && (
-                  <Button variant="ghost" onClick={handleResetLogo}>
-                    <RotateCcw size={16} aria-hidden="true" /> Default
-                  </Button>
-                )}
-              </div>
-            </div>
-            <div>
-              <div className="flex items-baseline justify-between gap-2">
-                <label htmlFor="set-logo-size" className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                  Ukuran logo
-                </label>
-                <span className="text-xs tabular-nums text-slate-500 dark:text-slate-400">{logoSize}px</span>
-              </div>
-              {/* 44px of vertical hit area on touch (the track itself stays thin);
-                  back to the compact height from `sm:` up. It was h-6 — 24px,
-                  the smallest target left on this page. */}
-              <input
-                id="set-logo-size"
-                type="range"
-                min="24"
-                max="220"
-                value={logoSize}
-                aria-valuetext={`${logoSize} piksel`}
-                onChange={(e) => handleLogoSizeChange(Number(e.target.value))}
-                className="mt-2 h-11 w-full cursor-pointer accent-emerald-600 sm:h-6"
-              />
-            </div>
-          </div>
         </SettingRow>
       </SettingsPanel>
 
