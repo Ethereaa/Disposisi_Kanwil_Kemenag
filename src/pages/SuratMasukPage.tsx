@@ -6,8 +6,6 @@ import { DataTable, type Column } from '@/components/ui/DataTable';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Select } from '@/components/ui/Form';
 import { IconButton } from '@/components/ui/IconButton';
-import { AttachmentField } from '@/components/ui/AttachmentField';
-import { LampiranCell } from '@/components/ui/LampiranCell';
 import { DisposisiStatusBadge } from '@/components/ui/StatusBadge';
 import { useToast } from '@/components/ui/Toast';
 import type { SuratMasuk, StatusDisposisi } from '@/types';
@@ -193,12 +191,6 @@ export function SuratMasukPage({ rows, onRefresh, canDelete = false, quickAddSig
       },
     },
     {
-      key: 'lampiran',
-      header: 'Lampiran',
-      width: '90px',
-      render: (r) => <LampiranCell lampiran={r.lampiran} />,
-    },
-    {
       key: 'actions',
       header: 'Aksi',
       width: '150px',
@@ -292,13 +284,13 @@ export function SuratMasukPage({ rows, onRefresh, canDelete = false, quickAddSig
         onEmptyAction={() => { setEditing(null); setView('form'); }}
         initialSort={{ key: 'nomorUrut', dir: 'asc' }}
         // Mobile card hierarchy. PRIMARY: what is this letter about, and who
-        // is it for. SECONDARY: the two dates plus the attachment count.
-        // Status is the one thing on this page you also *change* from the
-        // list, so it goes in the footer band next to the actions. The
-        // numbers (urut / surat / agenda) fall through to SUPPORTING.
+        // is it for. SECONDARY: the two dates. Status is the one thing on this
+        // page you also *change* from the list, so it goes in the footer band
+        // next to the actions. The numbers (urut / surat / agenda) fall
+        // through to SUPPORTING.
         mobileTitleKey="perihal"
         mobileSubtitleKey="tujuanDisposisi"
-        mobileMetaKeys={['tanggalSurat', 'tanggalDiterima', 'lampiran']}
+        mobileMetaKeys={['tanggalSurat', 'tanggalDiterima']}
         mobileStatusKey="statusDisposisi"
         filters={
           // The `Select` primitive puts `className` on the <select> itself,
@@ -416,10 +408,6 @@ function DetailContent({ s, overdueThreshold }: { s: SuratMasuk; overdueThreshol
       <div>
         <p className="text-xs text-office-subtext dark:text-slate-400 mb-1">Keterangan</p>
         <p className="text-sm text-office-text dark:text-slate-200 whitespace-pre-wrap bg-slate-50 dark:bg-slate-900/40 rounded-lg p-3 border border-office-border dark:border-slate-700">{s.keterangan || '-'}</p>
-      </div>
-      <div>
-        <p className="text-xs text-office-subtext dark:text-slate-400 mb-1">Lampiran</p>
-        <AttachmentField folder="surat-masuk" value={s.lampiran} onChange={() => {}} readOnly />
       </div>
       <p className="text-xs text-office-subtext dark:text-slate-500 pt-2 border-t border-office-border dark:border-slate-700">
         Dibuat: {formatDateTime(s.createdAt)} · Diperbarui: {formatDateTime(s.updatedAt)}

@@ -18,9 +18,6 @@ import { useFieldRefs } from '@/lib/useFieldRefs';
 //
 // Every field is optional (3C), so rows go in exactly as typed, including rows
 // left entirely blank. The only thing that can stop a save is the database.
-//
-// There is no attachment picker here on purpose (Root #3F removes the whole
-// attachment system), so every batch row is written with `lampiran: []`.
 
 interface Props {
   /** Every pending agenda was written. Parent closes the modal and refreshes. */
@@ -126,6 +123,7 @@ export function AgendaPimpinanBatchForm({ onCompleted, onPartial, onCancel, onBu
             tempatKegiatan: row.tempatKegiatan.trim(),
             keterangan: row.keterangan,
             disposisiPegawai: row.disposisiPegawai.trim(),
+            // Still required by the model; the field itself goes away in 3F.2.
             lampiran: [],
           });
         } catch (err) {
@@ -157,8 +155,7 @@ export function AgendaPimpinanBatchForm({ onCompleted, onPartial, onCancel, onBu
     // batch, which is the one action here that must always be deliberate.
     <div className="space-y-5">
       <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">
-        Isi informasi yang tersedia pada setiap agenda. Kolom yang belum diketahui dapat dikosongkan. Lampiran
-        tidak tersedia pada input batch.
+        Isi informasi yang tersedia pada setiap agenda. Kolom yang belum diketahui dapat dikosongkan.
       </p>
 
       <div className="space-y-4">

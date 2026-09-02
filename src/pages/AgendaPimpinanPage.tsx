@@ -4,9 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { AttachmentField } from '@/components/ui/AttachmentField';
 import { IconButton } from '@/components/ui/IconButton';
-import { LampiranCell } from '@/components/ui/LampiranCell';
 import { useToast } from '@/components/ui/Toast';
 import { isoToDisplayWithDay, formatDateTime } from '@/lib/date';
 import { deleteAgendaPimpinan, resequenceAgendaPimpinan } from '@/lib/db';
@@ -110,12 +108,6 @@ export function AgendaPimpinanPage({ rows, onRefresh, canDelete = false, quickAd
       render: (r) => <span className="lg:inline-block lg:max-w-[220px] lg:truncate">{r.disposisiPegawai || '-'}</span>,
     },
     {
-      key: 'lampiran',
-      header: 'Lampiran',
-      width: '90px',
-      render: (r) => <LampiranCell lampiran={r.lampiran} />,
-    },
-    {
       key: 'actions',
       header: 'Aksi',
       width: '150px',
@@ -212,12 +204,12 @@ export function AgendaPimpinanPage({ rows, onRefresh, canDelete = false, quickAd
         // from a letter: not "what is it about?" but "where do I have to be,
         // and when?". So the title is the activity, the subtitle is the place
         // (it was the date, which then repeated itself two lines lower), and
-        // date + time + attachments form the meta strip. `keterangan` is the
-        // attendance state — dihadiri / diwakili / tentatif — so it belongs in
-        // the footer status slot, not buried mid-card.
+        // date + time form the meta strip. `keterangan` is the attendance
+        // state — dihadiri / diwakili / tentatif — so it belongs in the
+        // footer status slot, not buried mid-card.
         mobileTitleKey="namaKegiatan"
         mobileSubtitleKey="tempatKegiatan"
-        mobileMetaKeys={['tanggalKegiatan', 'waktuKegiatan', 'lampiran']}
+        mobileMetaKeys={['tanggalKegiatan', 'waktuKegiatan']}
         mobileStatusKey="keterangan"
         pageSize={10}
         onRowClick={(r) => setDetail(r)}
@@ -303,10 +295,6 @@ function DetailContent({ agenda }: { agenda: AgendaPimpinan }) {
             <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{item.value}</p>
           </div>
         ))}
-      </div>
-      <div>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Lampiran</p>
-        <AttachmentField folder="agenda-pimpinan" value={agenda.lampiran} onChange={() => {}} readOnly />
       </div>
       <p className="border-t border-slate-200 pt-2 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
         Dibuat: {formatDateTime(agenda.createdAt)} · Diperbarui: {formatDateTime(agenda.updatedAt)}

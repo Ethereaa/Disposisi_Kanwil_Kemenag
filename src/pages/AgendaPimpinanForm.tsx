@@ -2,10 +2,9 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Plus, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Field, Input, Select, FormSection, FormActions } from '@/components/ui/Form';
-import { AttachmentField } from '@/components/ui/AttachmentField';
 import { useToast } from '@/components/ui/Toast';
-import { AGENDA_KETERANGAN_OPTIONS, type AgendaPimpinan, type Attachment } from '@/types';
-import { insertAgendaPimpinanSorted, updateAgendaPimpinan, updateLampiran } from '@/lib/db';
+import { AGENDA_KETERANGAN_OPTIONS, type AgendaPimpinan } from '@/types';
+import { insertAgendaPimpinanSorted, updateAgendaPimpinan } from '@/lib/db';
 import { todayISO } from '@/lib/date';
 import { getErrorMessage } from '@/lib/error';
 import { useFieldRefs } from '@/lib/useFieldRefs';
@@ -23,7 +22,6 @@ const emptyForm = {
   tempatKegiatan: '',
   keterangan: '',
   disposisiPegawai: '',
-  lampiran: [] as Attachment[],
 };
 
 export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
@@ -45,7 +43,6 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
         tempatKegiatan: editing.tempatKegiatan,
         keterangan: editing.keterangan,
         disposisiPegawai: editing.disposisiPegawai,
-        lampiran: editing.lampiran ?? [],
       });
     } else {
       setNomorUrut(1);
@@ -79,24 +76,20 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
           tempatKegiatan: form.tempatKegiatan.trim(),
           keterangan: form.keterangan,
           disposisiPegawai: form.disposisiPegawai.trim(),
-          lampiran: form.lampiran,
+          // Still required by the model; the field itself goes away in 3F.2.
+          lampiran: [],
         };
         await updateAgendaPimpinan(editing.id, payload);
       } else {
-        const inserted = await insertAgendaPimpinanSorted({
+        await insertAgendaPimpinanSorted({
           tanggalKegiatan,
           waktuKegiatan: form.waktuKegiatan,
           namaKegiatan: form.namaKegiatan.trim(),
           tempatKegiatan: form.tempatKegiatan.trim(),
           keterangan: form.keterangan,
           disposisiPegawai: form.disposisiPegawai.trim(),
-          lampiran: form.lampiran,
+          lampiran: [],
         });
-        // insert_agenda_pimpinan_sorted() doesn't take lampiran, so attachments
-        // picked before the row existed are attached right after.
-        if (form.lampiran.length > 0) {
-          await updateLampiran('agenda_pimpinan', inserted.id, form.lampiran);
-        }
       }
 
       // `&& !editing` is belt and braces: the button that passes true is not
@@ -105,7 +98,7 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
         toast('Agenda berhasil disimpan. Silakan input agenda berikutnya.', 'success');
         setNomorUrut(1);
         // Same fresh-create state the mount effect builds: emptyForm with
-        // today's date, which also clears lampiran back to [].
+        // today's date.
         setForm({ ...emptyForm, tanggalKegiatan: todayISO() });
         // Deferred like SuratKeluarForm's reset focus, so the focus lands after
         // React has committed the cleared form.
@@ -180,17 +173,6 @@ export function AgendaPimpinanForm({ editing, onSaved, onCancel }: Props) {
             />
           </Field>
         </div>
-      </FormSection>
-
-      <FormSection title="Lampiran">
-        <Field label="Lampiran / Scan Dokumen" asGroup>
-          <AttachmentField
-            folder="agenda-pimpinan"
-            value={form.lampiran}
-            onChange={(next) => update('lampiran', next)}
-            disabled={busy}
-          />
-        </Field>
       </FormSection>
 
       <FormActions>

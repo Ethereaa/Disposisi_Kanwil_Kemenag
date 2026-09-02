@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Save, Plus, X, Zap, Repeat, FileSearch } from 'lucide-react';
+import { Save, Plus, X, Zap, Repeat } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Field, Input, Textarea, Select, FormSection, FormErrorSummary, FormActions } from '@/components/ui/Form';
-import { AttachmentField } from '@/components/ui/AttachmentField';
 import { useToast } from '@/components/ui/Toast';
 import {
   TUJUAN_DISPOSISI,
@@ -10,20 +9,16 @@ import {
   type SuratMasuk,
   type TujuanDisposisi,
   type SubDisposisi,
-  type Attachment,
 } from '@/types';
 import { todayISO } from '@/lib/date';
 import {
   insertMasukSorted,
   updateMasuk,
-  updateLampiran,
   getNextNomorUrut,
   suratMasukStore,
   checkNomorSuratDuplicate,
   checkNomorAgendaDuplicate,
 } from '@/lib/db';
-import { getAttachmentUrl } from '@/lib/attachments';
-import { extractTextFromAttachmentFile, parseSuratFields } from '@/lib/ocr';
 import { getErrorMessage } from '@/lib/error';
 import { useInputMode } from '@/lib/useInputMode';
 import { useDebounce } from '@/lib/useDebounce';
@@ -46,7 +41,6 @@ const emptyForm = {
   subDisposisi: '' as SubDisposisi | '',
   isiDisposisi: '',
   keterangan: '',
-  lampiran: [] as Attachment[],
 };
 
 export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
@@ -57,46 +51,11 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
   const [busy, setBusy] = useState(false);
   const [dupNomorSurat, setDupNomorSurat] = useState<number | null>(null);
   const [dupNomorAgenda, setDupNomorAgenda] = useState<number | null>(null);
-  const [ocrBusy, setOcrBusy] = useState(false);
   const nomorSuratRef = useRef<HTMLInputElement>(null);
   // Validated controls, so a failed submit can put the cursor on the first
   // field that actually needs attention instead of only colouring it.
   const { register, focusField } = useFieldRefs();
   const { toast } = useToast();
-
-  // OCR-reads the first lampiran (assumed to be page 1 of the letter) and
-  // prefills Nomor Surat / Tanggal Surat from it — an explicit, on-demand
-  // action since OCR is heavy on the client (see lib/ocr.ts).
-  async function handleAutoFillFromScan() {
-    const first = form.lampiran[0];
-    if (!first) {
-      toast('Upload lampiran terlebih dahulu.', 'error');
-      return;
-    }
-    setOcrBusy(true);
-    try {
-      const url = await getAttachmentUrl(first.path);
-      const res = await fetch(url);
-      const blob = await res.blob();
-      const file = new File([blob], first.name, { type: first.type });
-      const text = await extractTextFromAttachmentFile(file);
-      const parsed = parseSuratFields(text);
-      if (!parsed.nomorSurat && !parsed.tanggalISO) {
-        toast('Nomor surat/tanggal tidak terbaca dari lampiran. Isi manual ya.', 'error');
-      } else {
-        setForm((f) => ({
-          ...f,
-          nomorSurat: parsed.nomorSurat ?? f.nomorSurat,
-          tanggalSurat: parsed.tanggalISO ?? f.tanggalSurat,
-        }));
-        toast('Nomor surat/tanggal terisi otomatis — silakan periksa kembali.', 'success');
-      }
-    } catch (err) {
-      toast(getErrorMessage(err, 'Gagal membaca teks dari lampiran.'), 'error');
-    } finally {
-      setOcrBusy(false);
-    }
-  }
 
   const debouncedNomorSurat = useDebounce(form.nomorSurat, 400);
   const debouncedNomorAgenda = useDebounce(form.nomorAgenda, 400);
@@ -134,7 +93,6 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
         subDisposisi: editing.subDisposisi || ('' as SubDisposisi),
         isiDisposisi: editing.isiDisposisi,
         keterangan: editing.keterangan,
-        lampiran: editing.lampiran ?? [],
       });
     } else {
       (async () => {
@@ -191,17 +149,13 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
         subDisposisi: form.tujuanDisposisi === 'Kabag TU' ? (form.subDisposisi as SubDisposisi) : null,
         isiDisposisi: form.isiDisposisi.trim(),
         keterangan: form.keterangan.trim(),
-        lampiran: form.lampiran,
+        // Still required by the model; the field itself goes away in 3F.2.
+        lampiran: [],
       };
       if (editing) {
         await updateMasuk(editing.id, payload);
       } else {
-        const inserted = await insertMasukSorted(payload);
-        // insert_surat_masuk_sorted() doesn't take lampiran, so attachments
-        // picked before the row existed are attached right after.
-        if (form.lampiran.length > 0) {
-          await updateLampiran('surat_masuk', inserted.id, form.lampiran);
-        }
+        await insertMasukSorted(payload);
       }
 
       if (stay && !editing) {
@@ -367,7 +321,7 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
         </Field>
       </FormSection>
 
-      <FormSection title="Catatan & Lampiran">
+      <FormSection title="Catatan">
         <Field label="Keterangan">
           <Textarea
             value={form.keterangan}
@@ -376,37 +330,6 @@ export function SuratMasukForm({ editing, onSaved, onCancel }: Props) {
             rows={2}
           />
         </Field>
-
-        <Field label="Lampiran / Scan Surat Asli" asGroup>
-          <AttachmentField
-            folder="surat-masuk"
-            value={form.lampiran}
-            onChange={(next) => update('lampiran', next)}
-            disabled={busy}
-          />
-        </Field>
-
-        {/* OCR assist. Previously passed as the Field's `hint`, which put an
-            interactive control inside the text that `aria-describedby` points
-            at — read out as part of the field's description instead of being
-            reachable as an action. It is its own row now. */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-control border border-office-border bg-slate-50 px-3.5 py-3 dark:border-slate-700 dark:bg-slate-900/40">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            isLoading={ocrBusy}
-            disabled={busy || form.lampiran.length === 0}
-            onClick={handleAutoFillFromScan}
-          >
-            {!ocrBusy && <FileSearch size={14} aria-hidden="true" />}
-            {ocrBusy ? 'Membaca...' : 'Baca Otomatis dari Foto'}
-          </Button>
-          <p className="min-w-0 flex-1 text-xs text-office-subtext dark:text-slate-400">
-            Mengisi Nomor Surat &amp; Tanggal Surat dari lampiran pertama.
-            {form.lampiran.length === 0 && ' Upload lampiran dulu untuk memakainya.'}
-          </p>
-        </div>
       </FormSection>
 
       <FormActions>

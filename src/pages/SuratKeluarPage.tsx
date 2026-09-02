@@ -6,8 +6,6 @@ import { DataTable, type Column } from '@/components/ui/DataTable';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Select } from '@/components/ui/Form';
 import { IconButton } from '@/components/ui/IconButton';
-import { AttachmentField } from '@/components/ui/AttachmentField';
-import { LampiranCell } from '@/components/ui/LampiranCell';
 import { SuratKeluarStatusBadge } from '@/components/ui/StatusBadge';
 import { useToast } from '@/components/ui/Toast';
 import type { SuratKeluar } from '@/types';
@@ -105,12 +103,6 @@ export function SuratKeluarPage({ rows, onRefresh, canDelete = false, quickAddSi
       render: (r) => <SuratKeluarStatusBadge value={r.ditandatangani} />,
     },
     {
-      key: 'lampiran',
-      header: 'Lampiran',
-      width: '90px',
-      render: (r) => <LampiranCell lampiran={r.lampiran} />,
-    },
-    {
       key: 'actions',
       header: 'Aksi',
       width: '150px',
@@ -203,9 +195,14 @@ export function SuratKeluarPage({ rows, onRefresh, canDelete = false, quickAddSi
         // strip. No data model, filter or sort change: `ditandatangani` is
         // still its own sortable column rendering the same
         // <SuratKeluarStatusBadge>, just in a different slot on the card.
+        //
+        // `nomorSurat` sits beside the date in that strip because the strip is
+        // specified as two or three fields (see DataTable's mobileMetaKeys) and
+        // the date alone would leave it a single orphan line. It was already on
+        // the card, one tier lower, in the SUPPORTING list.
         mobileTitleKey="perihal"
         mobileSubtitleKey="pengirim"
-        mobileMetaKeys={['tanggalSurat', 'lampiran']}
+        mobileMetaKeys={['tanggalSurat', 'nomorSurat']}
         mobileStatusKey="ditandatangani"
         filters={
           // `Select` forwards className to the <select>, not the wrapper, so
@@ -302,10 +299,6 @@ function DetailContent({ s }: { s: SuratKeluar }) {
       <div>
         <p className="text-xs text-office-subtext dark:text-slate-400 mb-1">Keterangan</p>
         <p className="text-sm text-office-text dark:text-slate-200 whitespace-pre-wrap bg-slate-50 dark:bg-slate-900/40 rounded-lg p-3 border border-office-border dark:border-slate-700">{s.keterangan || '-'}</p>
-      </div>
-      <div>
-        <p className="text-xs text-office-subtext dark:text-slate-400 mb-1">Lampiran</p>
-        <AttachmentField folder="surat-keluar" value={s.lampiran} onChange={() => {}} readOnly />
       </div>
       <p className="text-xs text-office-subtext dark:text-slate-500 pt-2 border-t border-office-border dark:border-slate-700">
         Dibuat: {formatDateTime(s.createdAt)} · Diperbarui: {formatDateTime(s.updatedAt)}

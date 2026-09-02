@@ -9,7 +9,6 @@ import {
   Clock,
   BarChart3,
   PieChart,
-  Paperclip,
   AlertTriangle,
   CheckCircle2,
   CalendarClock,
@@ -21,7 +20,6 @@ import {
   isoToDisplay,
   isoToDisplayWithDay,
   isToday,
-  isThisMonth,
   todayISO,
   businessDaysSince,
   witaTodayISO,
@@ -129,22 +127,6 @@ export function Dashboard({ suratMasuk, suratKeluar, agendaPimpinan, onNavigate 
       .sort((a, b) => b.value - a.value);
   }, [suratMasuk]);
 
-  // % of this month's letters (masuk + keluar) that already have a scanned
-  // lampiran attached, vs. still missing one — a compliance signal so an
-  // admin can see at a glance whether staff are actually scanning surat in,
-  // not just recording them.
-  const attachmentCompliance = useMemo(() => {
-    const masukBulan = suratMasuk.filter((s) => isThisMonth(s.tanggalDiterima));
-    const keluarBulan = suratKeluar.filter((s) => isThisMonth(s.tanggalSurat));
-    const total = masukBulan.length + keluarBulan.length;
-    const withScan =
-      masukBulan.filter((s) => s.lampiran?.length > 0).length +
-      keluarBulan.filter((s) => s.lampiran?.length > 0).length;
-    const without = total - withScan;
-    const pct = total > 0 ? Math.round((withScan / total) * 100) : 0;
-    return { total, withScan, without, pct };
-  }, [suratMasuk, suratKeluar]);
-
   const recentMasuk = useMemo(
     () => [...suratMasuk].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5),
     [suratMasuk],
@@ -184,14 +166,6 @@ export function Dashboard({ suratMasuk, suratKeluar, agendaPimpinan, onNavigate 
   }, [agendaPimpinan, witaToday]);
 
   const attentionCount = (statusStats.overdue > 0 ? 1 : 0) + (stats.unsigned > 0 ? 1 : 0);
-
-  const compliancePct = attachmentCompliance.pct;
-  const complianceTone =
-    compliancePct >= 80
-      ? { bar: 'bg-emerald-500', text: 'text-emerald-700 dark:text-emerald-400' }
-      : compliancePct >= 50
-        ? { bar: 'bg-amber-500', text: 'text-amber-700 dark:text-amber-400' }
-        : { bar: 'bg-rose-500', text: 'text-rose-700 dark:text-rose-400' };
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -236,9 +210,9 @@ export function Dashboard({ suratMasuk, suratKeluar, agendaPimpinan, onNavigate 
       {/* ── B. ATTENTION ───────────────────────────────────────────────────
           First, because "what needs attention?" is the first question this
           page exists to answer. These two alerts used to sit at the very
-          bottom, below the hero, the stats, the charts and the compliance
-          panel. Nothing is invented: same two counts, same two destinations,
-          moved to the top and given the weight they were always due. */}
+          bottom, below the hero, the stats and the charts. Nothing is
+          invented: same two counts, same two destinations, moved to the top
+          and given the weight they were always due. */}
       <section aria-label="Perlu perhatian">
         {attentionCount === 0 ? (
           // No empty warning cards. One line is the whole message.
@@ -454,31 +428,6 @@ export function Dashboard({ suratMasuk, suratKeluar, agendaPimpinan, onNavigate 
             )}
           </Surface>
         </div>
-
-        {/* Attachment compliance, demoted from a full panel with a 30px
-            percentage to one supporting row. Same metric, same thresholds
-            (80 / 50), same attachment logic — it simply no longer shouts as
-            loudly as an overdue surat. */}
-        {attachmentCompliance.total > 0 && (
-          <div className="surface-subtle flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4">
-            <div className="flex min-w-0 flex-1 items-start gap-2.5">
-              <Paperclip size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-office-subtext dark:text-slate-400" />
-              <div className="min-w-0">
-                <p className="text-body-strong text-office-text dark:text-slate-100">Kepatuhan Lampiran Bulan Ini</p>
-                <p className="mt-0.5 text-label font-normal tracking-normal text-office-subtext dark:text-slate-400">
-                  {attachmentCompliance.withScan} dari {attachmentCompliance.total} surat sudah ada scan lampiran
-                  {attachmentCompliance.without > 0 ? ` · ${attachmentCompliance.without} belum` : ''}.
-                </p>
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-3 sm:w-52">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-700/60">
-                <div className={`h-full rounded-full ${complianceTone.bar}`} style={{ width: `${compliancePct}%` }} />
-              </div>
-              <span className={`shrink-0 text-body-strong tabular-nums ${complianceTone.text}`}>{compliancePct}%</span>
-            </div>
-          </div>
-        )}
       </section>
 
       {/* ── G. RECENT ACTIVITY ─────────────────────────────────────────────
