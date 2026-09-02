@@ -58,33 +58,45 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.20),_transparent_40%),linear-gradient(135deg,_#f8fcf9,_#eef6f0_50%,_#f5f8ff)] p-4 sm:p-8 dark:bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.20),_transparent_40%),linear-gradient(135deg,_#0f172a,_#111827_60%,_#0b1220)]">
+    // Padding is written per axis, not as `p-4 sm:p-8`: the bottom needs its own
+    // value on small screens. The footer below is absolutely positioned, so it
+    // does not reserve space, and once it wraps to two or three lines on a phone
+    // it landed on top of the card. pb-28 is that clearance, and it disappears
+    // at sm where the footer is one line again.
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.20),_transparent_40%),linear-gradient(135deg,_#f8fcf9,_#eef6f0_50%,_#f5f8ff)] px-4 pb-28 pt-6 sm:px-8 sm:py-8 dark:bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.20),_transparent_40%),linear-gradient(135deg,_#0f172a,_#111827_60%,_#0b1220)]">
       <div className="absolute left-[-5%] top-[-10%] h-56 w-56 rounded-full bg-emerald-300/30 blur-3xl" />
       <div className="absolute bottom-[-5%] right-[-5%] h-64 w-64 rounded-full bg-teal-300/25 blur-3xl" />
 
       {/* The original `.glass-card`, inlined — see the note above the component. */}
-      <div className="relative w-full max-w-5xl rounded-2xl border border-white/70 bg-white/70 p-3 shadow-[0_10px_30px_rgba(15,23,42,0.07)] backdrop-blur-xl dark:border-slate-700 dark:bg-slate-800/70">
+      <div className="relative w-full max-w-5xl rounded-2xl border border-white/70 bg-white/70 p-2 shadow-[0_10px_30px_rgba(15,23,42,0.07)] backdrop-blur-xl dark:border-slate-700 dark:bg-slate-800/70 sm:p-3">
         <div className="grid overflow-hidden rounded-xl lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="flex flex-col justify-center brand-gradient-hero p-8 text-white sm:p-10">
-            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur">
+          <div className="flex flex-col justify-center brand-gradient-hero p-6 text-white sm:p-10">
+            <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur sm:mb-6">
               <Logo size={44} />
             </div>
-            <h1 className="max-w-md text-3xl font-semibold leading-tight sm:text-4xl">{APP_SHORT}</h1>
+            {/* The ramp ends where the two-column grid begins, so the desktop
+                hero keeps its original 36px heading; the smaller steps below
+                only apply while the hero spans the full width of a phone or
+                tablet, where 36px broke APP_SHORT across four lines. */}
+            <h1 className="max-w-md break-words text-2xl font-semibold leading-tight sm:text-3xl lg:text-4xl">{APP_SHORT}</h1>
             <p className="mt-3 max-w-md text-sm leading-6 text-emerald-50/90 sm:text-base">
-              Platform Disposisi & Agenda Pimpinan.
+              Platform Disposisi &amp; Agenda Pimpinan.
             </p>
-            <div className="mt-8 rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
+            <div className="mt-6 rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur sm:mt-8">
               <div className="flex items-center gap-3">
-                <Users size={18} className="text-emerald-100" aria-hidden="true" />
-                <p className="text-sm text-emerald-50/90">Kelola Surat Masuk, Surat Keluar, dan Agenda Pimpinan dengan flexibel.</p>
+                <Users size={18} className="shrink-0 text-emerald-100" aria-hidden="true" />
+                <p className="min-w-0 text-sm text-emerald-50/90">Kelola Surat Masuk, Surat Keluar, dan Agenda Pimpinan dengan flexibel.</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white/85 p-6 sm:p-8 dark:bg-slate-900/70">
+          <div className="bg-white/85 p-5 sm:p-8 dark:bg-slate-900/70">
             <div className="mb-6 flex flex-col items-start gap-2">
-              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-emerald-600 dark:text-emerald-400">Akses sistem</p>
-              <h2 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">Masuk ke akun</h2>
+              {/* 0.24em of tracking on 14px is ~40px of pure letter-spacing
+                  across two words; at 320px that was the widest thing on the
+                  panel. Both the size and the tracking relax below sm. */}
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400 sm:text-sm sm:tracking-[0.24em]">Akses sistem</p>
+              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 sm:text-2xl">Masuk ke akun</h2>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -147,8 +159,15 @@ export function AuthScreen({ onAuthed }: AuthScreenProps) {
         </div>
       </div>
 
-      <div className="absolute bottom-4 flex flex-col items-center gap-1 text-center text-[11px] text-slate-500 dark:text-slate-400">
-        <p>{APP_TITLE}</p>
+      {/* Still absolutely positioned, per the presentation note above — but
+          pinned to both edges and capped instead of sizing itself. Left as
+          `absolute bottom-4` alone it took its width from its static position,
+          so on a phone the 76-character APP_TITLE either spilled past the
+          container — which is overflow-hidden, so the tail was simply cut off —
+          or collapsed into a narrow ragged column in the middle of the screen.
+          max-w-2xl is wide enough that the desktop rendering stays on one line. */}
+      <div className="absolute inset-x-0 bottom-4 mx-auto flex max-w-2xl flex-col items-center gap-1 px-6 text-center text-[11px] leading-4 text-slate-500 dark:text-slate-400 sm:px-4">
+        <p className="break-words">{APP_TITLE}</p>
         <p className="text-[10px] text-slate-400 dark:text-slate-500">Created by Luthfi Alfikri for Personal Use Only</p>
       </div>
     </div>

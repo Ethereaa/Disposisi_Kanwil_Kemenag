@@ -251,6 +251,14 @@ function Root() {
     setQuickAdd({ target, token: Date.now() });
   }
 
+  // The token above is a ONE-SHOT event, so the page that acts on it drops it
+  // straight away. Leaving it parked in state was enough to make the add form
+  // behave like a mode nobody could leave: the page subtree is remounted on
+  // navigation (`key={page}`) and again on every refresh() — including the
+  // refresh a save triggers — and each fresh mount replayed the stale token,
+  // reopening the form on top of the list the person was trying to reach.
+  const clearQuickAdd = useCallback(() => setQuickAdd(null), []);
+
   function handleAuthed(user?: AppUser) {
     setAuthed(true);
     if (user) {
@@ -357,7 +365,6 @@ function Root() {
         onNavigate={handleNavigate}
         open={sidebarOpen}
         onToggle={() => setSidebarOpen((o) => !o)}
-        email={user?.email || 'Pengguna'}
         username={user?.username || ''}
         onLogout={handleLogout}
         suratKeluarBadge={unsignedCount}
@@ -420,9 +427,9 @@ function Root() {
                   effectively nothing for anyone who has asked for that. */}
               <div key={page} className="animate-page-in">
                 {page === 'dashboard' && <Dashboard suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} onNavigate={handleNavigate} />}
-                {page === 'surat-masuk' && <SuratMasukPage rows={suratMasuk} onRefresh={refresh} canDelete={user?.role === 'admin'} quickAddSignal={quickAdd?.target === 'surat-masuk' ? quickAdd.token : undefined} />}
-                {page === 'surat-keluar' && <SuratKeluarPage rows={suratKeluar} onRefresh={refresh} canDelete={user?.role === 'admin'} quickAddSignal={quickAdd?.target === 'surat-keluar' ? quickAdd.token : undefined} />}
-                {page === 'agenda-pimpinan' && <AgendaPimpinanPage rows={agendaPimpinan} onRefresh={refresh} canDelete={user?.role === 'admin'} quickAddSignal={quickAdd?.target === 'agenda-pimpinan' ? quickAdd.token : undefined} />}
+                {page === 'surat-masuk' && <SuratMasukPage rows={suratMasuk} onRefresh={refresh} canDelete={user?.role === 'admin'} quickAddSignal={quickAdd?.target === 'surat-masuk' ? quickAdd.token : undefined} onQuickAddHandled={clearQuickAdd} />}
+                {page === 'surat-keluar' && <SuratKeluarPage rows={suratKeluar} onRefresh={refresh} canDelete={user?.role === 'admin'} quickAddSignal={quickAdd?.target === 'surat-keluar' ? quickAdd.token : undefined} onQuickAddHandled={clearQuickAdd} />}
+                {page === 'agenda-pimpinan' && <AgendaPimpinanPage rows={agendaPimpinan} onRefresh={refresh} canDelete={user?.role === 'admin'} quickAddSignal={quickAdd?.target === 'agenda-pimpinan' ? quickAdd.token : undefined} onQuickAddHandled={clearQuickAdd} />}
                 {page === 'export' && <ExportPage suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} />}
                 {page === 'backup' && <BackupPage suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} onRefresh={refresh} canRestore={user?.role === 'admin'} />}
                 {page === 'settings' && <SettingsPage theme={theme} onToggleTheme={toggleTheme} onUserUpdated={handleUserUpdated} suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} />}

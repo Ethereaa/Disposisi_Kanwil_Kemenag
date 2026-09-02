@@ -23,11 +23,13 @@ interface Props {
   canDelete?: boolean;
   /** Bumped by the global "+ Tambah Cepat" floating button to pop the add form open immediately, even if this page was already mounted. */
   quickAddSignal?: number;
+  /** Tells App the signal above has been acted on, so it can drop the token. Without this the token outlives the gesture, and because this page is remounted on every navigation and every refresh(), the add form would reopen itself — on the way back from the menu, and again right after a save. */
+  onQuickAddHandled?: () => void;
 }
 
 type View = 'list' | 'form' | 'detail';
 
-export function SuratMasukPage({ rows, onRefresh, canDelete = false, quickAddSignal }: Props) {
+export function SuratMasukPage({ rows, onRefresh, canDelete = false, quickAddSignal, onQuickAddHandled }: Props) {
   const [view, setView] = useState<View>('list');
   const [editing, setEditing] = useState<SuratMasuk | null>(null);
   const [detail, setDetail] = useState<SuratMasuk | null>(null);
@@ -40,10 +42,13 @@ export function SuratMasukPage({ rows, onRefresh, canDelete = false, quickAddSig
   const [overdueThreshold, setOverdueThreshold] = useState(3);
   const { toast } = useToast();
 
+  // Opening the add form is a response to a gesture, never to being mounted:
+  // the token is consumed here so the next mount starts on the list.
   useEffect(() => {
     if (quickAddSignal === undefined) return;
     setEditing(null);
     setView('form');
+    onQuickAddHandled?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quickAddSignal]);
 

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import {
   LayoutDashboard,
   Inbox,
@@ -11,6 +12,8 @@ import {
   X,
   Moon,
   Sun,
+  Sunrise,
+  Sunset,
 } from 'lucide-react';
 import { Logo } from './Logo';
 import { IconButton } from './ui/IconButton';
@@ -21,7 +24,7 @@ interface SidebarProps {
   onNavigate: (page: PageKey) => void;
   open: boolean;
   onToggle: () => void;
-  email: string;
+  /** Display name for the account card. No email address is passed in on purpose — see the note above the account zone. */
   username: string;
   onLogout: () => void;
   /** Count of surat keluar belum ditandatangani — shown as a red badge on the menu item so it's visible from any page, not just the Dashboard. */
@@ -38,7 +41,54 @@ const menu: { key: PageKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: 'settings', label: 'Settings', icon: SettingsIcon },
 ];
 
-export function Sidebar({ active, onNavigate, open, onToggle, email, username, onLogout, suratKeluarBadge = 0 }: SidebarProps) {
+// ── ACCOUNT GREETING ────────────────────────────────────────────────────────
+// Two constraints pull against each other: the caption has to feel alive (a
+// fixed string is not a greeting), and it must not change while someone is
+// looking at it — a line that re-rolls itself mid-glance reads as a glitch, not
+// as life. So the phrase is derived from two things that are both stable for
+// hours — the time-of-day slot and the calendar day — and then memoised for the
+// lifetime of the Sidebar, which mounts once per authenticated session. Steady
+// from login to logout; different at the next login on another day, or in
+// another part of the same day. A session left open overnight keeps the
+// greeting it opened with, and that is the intended side of the trade.
+const GREETINGS = {
+  pagi: ['Selamat pagi', 'Pagi yang baik', 'Semangat pagi'],
+  siang: ['Selamat siang', 'Siang yang produktif', 'Semangat siang'],
+  sore: ['Selamat sore', 'Sore yang produktif', 'Menutup hari dengan baik'],
+  malam: ['Selamat malam', 'Malam yang tenang', 'Terima kasih untuk hari ini'],
+} as const;
+
+type GreetingSlot = keyof typeof GREETINGS;
+
+const greetingIcon: Record<GreetingSlot, typeof LayoutDashboard> = {
+  pagi: Sunrise,
+  siang: Sun,
+  sore: Sunset,
+  malam: Moon,
+};
+
+function greetingSlot(hour: number): GreetingSlot {
+  if (hour >= 5 && hour < 11) return 'pagi';
+  if (hour >= 11 && hour < 15) return 'siang';
+  if (hour >= 15 && hour < 19) return 'sore';
+  return 'malam';
+}
+
+function pickGreeting(now: Date) {
+  const slot = greetingSlot(now.getHours());
+  const phrases = GREETINGS[slot];
+  // The local calendar day as a single integer, so one phrase holds for the
+  // whole day and moves on tomorrow. Local rather than UTC on purpose: a UTC
+  // day index would roll over at 08:00 WITA, in the middle of the morning.
+  const dayIndex = Math.floor((now.getTime() - now.getTimezoneOffset() * 60_000) / 86_400_000);
+  return { text: phrases[dayIndex % phrases.length], Icon: greetingIcon[slot] };
+}
+
+export function Sidebar({ active, onNavigate, open, onToggle, username, onLogout, suratKeluarBadge = 0 }: SidebarProps) {
+  // Empty deps is the whole point — see the note above GREETINGS.
+  const greeting = useMemo(() => pickGreeting(new Date()), []);
+  const GreetingIcon = greeting.Icon;
+  const displayName = username || 'Pengguna Kanwil';
   return (
     <>
       {/* z-[35] sits between the bottom nav / FAB (z-30) and the drawer panel
@@ -122,16 +172,34 @@ export function Sidebar({ active, onNavigate, open, onToggle, email, username, o
             instead of one long list that ends in a stray button. The theme
             toggle that used to sit here as a full-width secondary Button moved
             to the header command bar: it is an app-wide control, not an
-            account setting, and it was the loudest element in the sidebar. */}
+            account setting, and it was the loudest element in the sidebar.
+
+            The caption above the name is the greeting, NOT the email address.
+            An address is not something anyone needs read back to them on every
+            screen, and it was the one piece of PII parked permanently in the
+            chrome — on a shared office machine, permanently on someone else's
+            screen too. The card stays deliberately quiet otherwise: one tinted
+            surface, one brand-gradient avatar, and no second coloured accent to
+            compete with the active-menu rail. */}
         <div className="border-t border-white/10 p-3">
           <p className="px-2 pb-2 text-micro uppercase text-slate-400">Akun</p>
-          <div className="flex items-center gap-2.5 rounded-control bg-white/[0.06] p-2">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-office-primary text-body-strong text-white">
-              {(username || email.split('@')[0]).charAt(0).toUpperCase()}
+          <div className="flex items-center gap-2.5 rounded-control border border-white/10 bg-gradient-to-br from-white/[0.10] to-white/[0.04] p-2">
+            {/* The brand gradient's own endpoints, so the avatar matches the
+                primary button and the FAB. Both stops are dark enough to keep
+                the white initial legible — a lighter emerald top-left would
+                not be. */}
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-office-primary to-office-accent text-body-strong text-white ring-1 ring-white/25">
+              {displayName.charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-label text-white">{username || email.split('@')[0]}</p>
-              <p className="truncate text-micro font-normal tracking-normal text-slate-400">{username ? email : 'Pengguna Kanwil'}</p>
+              {/* Slate, not emerald: the sidebar surface shifts toward green
+                  down the column, which is the same reason the active rail is
+                  white. */}
+              <p className="flex items-center gap-1 text-micro font-normal tracking-normal text-slate-300">
+                <GreetingIcon size={12} className="shrink-0" aria-hidden="true" />
+                <span className="truncate">{greeting.text}</span>
+              </p>
+              <p className="truncate text-label text-white">{displayName}</p>
             </div>
             <button
               onClick={onLogout}
