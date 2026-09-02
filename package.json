@@ -16,13 +16,9 @@
     "@supabase/supabase-js": "^2.57.4",
     "docx": "^9.7.1",
     "file-saver": "^2.0.5",
-    "jspdf": "^2.5.2",
     "lucide-react": "^0.344.0",
-    "pdf-lib": "^1.17.1",
-    "pdfjs-dist": "^4.7.76",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "tesseract.js": "^5.1.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

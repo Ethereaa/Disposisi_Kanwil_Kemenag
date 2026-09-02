@@ -1,23 +1,3 @@
-// DEPRECATED — the attachment feature is being removed. No active record type
-// references this any more; it is kept only so the files still importing it
-// (components/ui/AttachmentField.tsx, components/ui/LampiranCell.tsx,
-// lib/attachments.ts) keep type-checking until they are deleted in 3F.3.
-//
-// Metadata for one scanned/uploaded file attached to a record. The file
-// itself lives in the `lampiran-surat` Supabase Storage bucket; only the
-// path + display info is kept here.
-export interface Attachment {
-  path: string;
-  name: string;
-  type: string;
-  size: number;
-  /** Small base64 data-URL preview (first page), generated at upload time
-   *  for photo-derived documents. Stored inline in the `lampiran` jsonb
-   *  column — no extra Storage object or signed URL needed just to show a
-   *  thumbnail in a list/table. Absent for files picked directly as PDF. */
-  thumbnail?: string;
-}
-
 export interface SuratMasuk {
   id: string;
   nomorUrut: number;
