@@ -85,6 +85,20 @@ const routeData: Record<PageKey, RouteData> = {
   settings: { snapshot: false, masuk: false, keluar: false, agenda: false },
 };
 
+// Whether a route has content of its own to wait for — the same question the
+// table above answers, plus Settings' ten-row activity list, which sits outside
+// that table (see the note above) but is still a read this route renders.
+//
+// Deliberately NOT a function of the global work counts. Those are two count
+// queries behind Sidebar badges that are on screen on every route, so they
+// belong to the chrome, not to any one route's content. Export and Backup
+// render no rows and load nothing, which is why they are the two routes that
+// return false and open without a skeleton at all.
+function routeNeedsBlockingLoad(page: PageKey): boolean {
+  const need = routeData[page];
+  return need.snapshot || need.masuk || need.keluar || need.agenda || page === 'settings';
+}
+
 // What an Export or Backup action pulls from the cloud for the one file it is
 // about to write. Structural on purpose: ExportPage and BackupPage declare the
 // same shape locally, so neither page has to import a type out of App.
@@ -198,10 +212,12 @@ function Root() {
         // Skeleton from the moment the route changes, not from when the load
         // effect gets its turn: each route loads its own data now, so without
         // this a back/forward step would commit one frame of the new route
-        // using whatever the previous one happened to leave in state. Guarded,
-        // because a popstate resolving to the same page starts no load and
-        // would otherwise leave the skeleton up for good.
-        if (pageRef.current !== route.page) setLoading(true);
+        // using whatever the previous one happened to leave in state. Only for
+        // routes that have content to wait for, though — Export and Backup have
+        // none, so a skeleton there would be one drawn purely for the sidebar
+        // badges. Guarded, because a popstate resolving to the same page starts
+        // no load and would otherwise leave the skeleton up for good.
+        if (pageRef.current !== route.page) setLoading(routeNeedsBlockingLoad(route.page));
         setPage(route.page);
       }
     };
@@ -416,8 +432,18 @@ function Root() {
   useEffect(() => {
     if (!authed) return;
     const need = routeData[page];
+    const blocksContent = routeNeedsBlockingLoad(page);
     let cancelled = false;
-    setLoading(true);
+    setLoading(blocksContent);
+    // The global work counts are still refreshed on every navigation, but they
+    // are no longer part of it. They used to be an entry in the Promise.all
+    // below, which made every route's skeleton wait on two count queries for
+    // badges that are already on screen — and gave Export and Backup a full-page
+    // skeleton for data neither of them renders. Fired here instead, unawaited:
+    // refreshWorkCounts() swallows its own failure and rejects on nothing, so
+    // there is no result for the content load to wait for and no error for it to
+    // absorb. The badges simply update whenever the counts arrive.
+    void refreshWorkCounts();
     (async () => {
       try {
         const [m, k, a, snap, activity] = await Promise.all([
@@ -426,7 +452,6 @@ function Root() {
           need.agenda ? getAllAgendaPimpinan() : null,
           need.snapshot ? getDashboardSnapshot() : null,
           page === 'settings' ? getRecentSettingsActivity() : null,
-          refreshWorkCounts(),
         ]);
         if (cancelled) return;
         if (m) setSuratMasuk(m);
@@ -537,10 +562,11 @@ function Root() {
   const handleNavigate = useCallback(
     (p: PageKey) => {
       // Skeleton from the moment navigation starts, for the same reason as in the
-      // popstate handler above. Guarded on an actual page change: navigating to
+      // popstate handler above, and — as there — only for a route that has
+      // content to wait for. Guarded on an actual page change: navigating to
       // the page already open (Quick Add does exactly that) starts no load, and
-      // an unguarded setLoading(true) would strand the skeleton there.
-      if (p !== page) setLoading(true);
+      // touching `loading` here would strand the skeleton there.
+      if (p !== page) setLoading(routeNeedsBlockingLoad(p));
       setPage(p);
       window.history.pushState({}, '', buildRoutePath(pagePathMap[p]));
       setSidebarOpen(false);
