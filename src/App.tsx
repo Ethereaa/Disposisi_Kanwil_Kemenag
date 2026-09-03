@@ -11,6 +11,8 @@ import { AgendaPreviewHome } from '@/pages/AgendaPreviewHome';
 import { getAllMasuk, getAllKeluar, getAllAgendaPimpinan, consumeTruncationWarnings } from '@/lib/db';
 import { getDashboardSnapshot, getGlobalWorkCounts } from '@/lib/dashboardData';
 import type { DashboardSnapshot, GlobalWorkCounts } from '@/lib/dashboardData';
+import { getRecentSettingsActivity } from '@/lib/settingsData';
+import type { SettingsActivityItem } from '@/lib/settingsData';
 import { supabase } from '@/lib/supabase';
 import { getTheme, setTheme as persistTheme, applyTheme, getCurrentUser, logout } from '@/lib/storage';
 import { getLocalMigrationData, migrateLocalDataToCloud, deleteOldLocalDatabase } from '@/lib/migrate';
@@ -63,8 +65,9 @@ const BASE_PATH = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '') || '/';
 // Pimpinan in full. Each list route loads its own table and nothing else.
 // Export and Backup load nothing: neither renders rows, so each now fetches
 // exactly what its file needs at the moment the action runs, and drops it again
-// (loadExportData / loadBackupData below). Settings is the last route still
-// taking all three full datasets as props — trimming it is 4C.5E.
+// (loadExportData / loadBackupData below). Settings loads nothing either — its
+// "Aktivitas Terbaru" panel is ten rows, and getRecentSettingsActivity() reads
+// exactly ten candidates per table instead of three whole datasets.
 interface RouteData {
   snapshot: boolean;
   masuk: boolean;
@@ -79,7 +82,7 @@ const routeData: Record<PageKey, RouteData> = {
   'agenda-pimpinan': { snapshot: false, masuk: false, keluar: false, agenda: true },
   export: { snapshot: false, masuk: false, keluar: false, agenda: false },
   backup: { snapshot: false, masuk: false, keluar: false, agenda: false },
-  settings: { snapshot: false, masuk: true, keluar: true, agenda: true },
+  settings: { snapshot: false, masuk: false, keluar: false, agenda: false },
 };
 
 // What an Export or Backup action pulls from the cloud for the one file it is
@@ -159,6 +162,7 @@ function Root() {
   const [suratKeluar, setSuratKeluar] = useState<SuratKeluar[]>([]);
   const [agendaPimpinan, setAgendaPimpinan] = useState<AgendaPimpinan[]>([]);
   const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null);
+  const [settingsActivity, setSettingsActivity] = useState<SettingsActivityItem[]>([]);
   const [workCounts, setWorkCounts] = useState<GlobalWorkCounts>(EMPTY_WORK_COUNTS);
   const [loading, setLoading] = useState(true);
   const [previewAgendaId, setPreviewAgendaId] = useState<string | null>(() => resolvePreviewRoute());
@@ -260,6 +264,19 @@ function Root() {
       setSnapshot(await getDashboardSnapshot());
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Gagal memuat ringkasan Dashboard.', 'error');
+    }
+  }, [toast]);
+
+  // Settings' "Aktivitas Terbaru" panel, and nothing else on that route: three
+  // narrow LIMIT 10 reads, kept in its own state rather than written back into
+  // the three full arrays, which Settings no longer holds. No setLoading(true)
+  // — a change somebody else made must not blank the page out from under
+  // whoever is mid-way through a username or password form.
+  const refreshSettingsActivity = useCallback(async () => {
+    try {
+      setSettingsActivity(await getRecentSettingsActivity());
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Gagal memuat aktivitas terbaru.', 'error');
     }
   }, [toast]);
 
@@ -377,6 +394,7 @@ function Root() {
     setSuratKeluar([]);
     setAgendaPimpinan([]);
     setSnapshot(null);
+    setSettingsActivity([]);
     setWorkCounts(EMPTY_WORK_COUNTS);
     // Back to the loading state, so the next session opens on a skeleton
     // rather than on this one's cleared arrays.
@@ -391,6 +409,10 @@ function Root() {
   // distinguishes "not fetched yet" from "fetched, and genuinely empty". Below,
   // `null` marks a dataset this route did not ask for; `[]` is a real result
   // and is stored as one.
+  //
+  // Settings' activity list sits outside the RouteData table on purpose: that
+  // table is about the three full datasets, and this route's whole point is
+  // that it asks for none of them.
   useEffect(() => {
     if (!authed) return;
     const need = routeData[page];
@@ -398,11 +420,12 @@ function Root() {
     setLoading(true);
     (async () => {
       try {
-        const [m, k, a, snap] = await Promise.all([
+        const [m, k, a, snap, activity] = await Promise.all([
           need.masuk ? getAllMasuk() : null,
           need.keluar ? getAllKeluar() : null,
           need.agenda ? getAllAgendaPimpinan() : null,
           need.snapshot ? getDashboardSnapshot() : null,
+          page === 'settings' ? getRecentSettingsActivity() : null,
           refreshWorkCounts(),
         ]);
         if (cancelled) return;
@@ -410,6 +433,7 @@ function Root() {
         if (k) setSuratKeluar(k);
         if (a) setAgendaPimpinan(a);
         if (snap) setSnapshot(snap);
+        if (activity) setSettingsActivity(activity);
         surfaceTruncationWarnings();
       } catch (err) {
         if (!cancelled) toast(err instanceof Error ? err.message : 'Gagal memuat data.', 'error');
@@ -424,9 +448,10 @@ function Root() {
 
   // Realtime sync, route-aware: a table change refreshes what the ACTIVE route
   // is actually showing. On the Dashboard that is the summary, not the three
-  // tables behind it; on a list route it is that route's own table. A change to
-  // a table no visible route holds refreshes nothing but the global counts,
-  // which are two count queries and are on screen (as Sidebar badges)
+  // tables behind it; on a list route it is that route's own table; on Settings
+  // it is the ten-row activity list, which every one of the three tables feeds.
+  // A change to a table no visible route holds refreshes nothing but the global
+  // counts, which are two count queries and are on screen (as Sidebar badges)
   // everywhere — realtime must never pull down a dataset the route never loaded.
   useEffect(() => {
     if (!authed) return;
@@ -436,6 +461,7 @@ function Root() {
       // Neither Sidebar figure counts Surat Masuk, so there is nothing else to
       // keep in step here.
       if (active === 'dashboard') refreshSnapshot();
+      else if (active === 'settings') refreshSettingsActivity();
       else if (routeData[active].masuk) refreshMasuk();
     };
 
@@ -445,6 +471,11 @@ function Root() {
         // The summary carries the Dashboard's own unsigned figure; the sidebar
         // badge does not come from it, so it is refreshed alongside.
         refreshSnapshot();
+        refreshWorkCounts();
+      } else if (active === 'settings') {
+        // Same split as the Dashboard: the activity list is its own read, and
+        // the unsigned badge is still on screen here, so it needs the counts.
+        refreshSettingsActivity();
         refreshWorkCounts();
       } else if (routeData[active].keluar) {
         refreshKeluar(); // refreshes the badge itself
@@ -457,6 +488,11 @@ function Root() {
       const active = pageRef.current;
       if (active === 'dashboard') {
         refreshSnapshot();
+        refreshWorkCounts();
+      } else if (active === 'settings') {
+        // The Agenda "hari ini" figure in the sidebar has the same claim on
+        // this route as the unsigned badge above.
+        refreshSettingsActivity();
         refreshWorkCounts();
       } else if (routeData[active].agenda) {
         refreshAgenda(); // refreshes the count itself
@@ -475,7 +511,7 @@ function Root() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [authed, refreshSnapshot, refreshMasuk, refreshKeluar, refreshAgenda, refreshWorkCounts]);
+  }, [authed, refreshSnapshot, refreshSettingsActivity, refreshMasuk, refreshKeluar, refreshAgenda, refreshWorkCounts]);
 
   function toggleTheme() {
     const next: Theme = theme === 'dark' ? 'light' : 'dark';
@@ -696,7 +732,7 @@ function Root() {
                 {page === 'agenda-pimpinan' && <AgendaPimpinanPage rows={agendaPimpinan} onRefresh={refreshAgenda} canDelete={user?.role === 'admin'} quickAddSignal={quickAdd?.target === 'agenda-pimpinan' ? quickAdd.token : undefined} onQuickAddHandled={clearQuickAdd} />}
                 {page === 'export' && <ExportPage loadData={loadExportData} />}
                 {page === 'backup' && <BackupPage loadData={loadBackupData} onRefresh={refreshAll} canRestore={user?.role === 'admin'} />}
-                {page === 'settings' && <SettingsPage theme={theme} onToggleTheme={toggleTheme} onUserUpdated={handleUserUpdated} suratMasuk={suratMasuk} suratKeluar={suratKeluar} agendaPimpinan={agendaPimpinan} />}
+                {page === 'settings' && <SettingsPage theme={theme} onToggleTheme={toggleTheme} onUserUpdated={handleUserUpdated} recentActivity={settingsActivity} />}
               </div>
             </Suspense>
           )}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Moon, Sun, Save, ShieldCheck, History, ShieldAlert, BellRing, BellOff, Settings as SettingsIcon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -17,23 +17,18 @@ import {
   subscribeToAgendaReminders,
   unsubscribeFromAgendaReminders,
 } from '@/lib/push';
-import type { Theme, AppUser, SuratMasuk, SuratKeluar, AgendaPimpinan } from '@/types';
+import type { SettingsActivityItem } from '@/lib/settingsData';
+import type { Theme, AppUser } from '@/types';
 
 interface Props {
   theme: Theme;
   onToggleTheme: () => void;
   onUserUpdated: () => void;
-  suratMasuk?: SuratMasuk[];
-  suratKeluar?: SuratKeluar[];
-  agendaPimpinan?: AgendaPimpinan[];
-}
-
-interface ActivityItem {
-  id: string;
-  label: string;
-  by: string;
-  at: string;
-  kind: 'masuk' | 'keluar' | 'agenda';
+  /** The ten most recent changes across the three tables, already merged and
+   *  ordered by App's route load (getRecentSettingsActivity). This page used to
+   *  receive all three datasets in full and build the list itself, which was
+   *  the only reason /settings loaded them at all. */
+  recentActivity: SettingsActivityItem[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -134,7 +129,7 @@ function SettingRow({
   );
 }
 
-export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk = [], suratKeluar = [], agendaPimpinan = [] }: Props) {
+export function SettingsPage({ theme, onToggleTheme, onUserUpdated, recentActivity }: Props) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [usernameEdit, setUsernameEdit] = useState('');
   const [editingUsername, setEditingUsername] = useState(false);
@@ -214,42 +209,12 @@ export function SettingsPage({ theme, onToggleTheme, onUserUpdated, suratMasuk =
       });
   }, []);
 
-  const recentActivity = useMemo<ActivityItem[]>(() => {
-    const items: ActivityItem[] = [
-      ...suratMasuk.map((s) => ({
-        id: `masuk-${s.id}`,
-        label: `Surat Masuk No. ${s.nomorUrut} — ${s.perihal || 'tanpa perihal'}`,
-        by: s.createdByEmail || 'Tidak diketahui',
-        at: s.updatedAt || s.createdAt,
-        kind: 'masuk' as const,
-      })),
-      ...suratKeluar.map((s) => ({
-        id: `keluar-${s.id}`,
-        label: `Surat Keluar No. ${s.nomorUrut} — ${s.perihal || 'tanpa perihal'}`,
-        by: s.createdByEmail || 'Tidak diketahui',
-        at: s.updatedAt || s.createdAt,
-        kind: 'keluar' as const,
-      })),
-      ...agendaPimpinan.map((a) => ({
-        id: `agenda-${a.id}`,
-        label: `Agenda No. ${a.nomorUrut} — ${a.namaKegiatan || 'tanpa nama kegiatan'}`,
-        by: a.createdByEmail || 'Tidak diketahui',
-        at: a.updatedAt || a.createdAt,
-        kind: 'agenda' as const,
-      })),
-    ];
-    return items
-      .filter((i) => i.at)
-      .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
-      .slice(0, 10);
-  }, [suratMasuk, suratKeluar, agendaPimpinan]);
-
-  const kindBadge: Record<ActivityItem['kind'], string> = {
+  const kindBadge: Record<SettingsActivityItem['kind'], string> = {
     masuk: 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300',
     keluar: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
     agenda: 'bg-violet-50 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300',
   };
-  const kindLabel: Record<ActivityItem['kind'], string> = {
+  const kindLabel: Record<SettingsActivityItem['kind'], string> = {
     masuk: 'Surat Masuk',
     keluar: 'Surat Keluar',
     agenda: 'Agenda',
