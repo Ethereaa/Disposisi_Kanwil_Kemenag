@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import {
   LayoutDashboard,
   Inbox,
@@ -74,7 +74,7 @@ const workCardDate = new Intl.DateTimeFormat('id-ID', {
   month: 'long',
 });
 
-export function Sidebar({ active, onNavigate, open, onToggle, username, onLogout, suratKeluarBadge = 0, agendaTodayCount = 0 }: SidebarProps) {
+function SidebarComponent({ active, onNavigate, open, onToggle, username, onLogout, suratKeluarBadge = 0, agendaTodayCount = 0 }: SidebarProps) {
   // Empty deps is the whole point — see the note above greetingFor.
   const now = useMemo(() => new Date(), []);
   const greeting = greetingFor(now.getHours());
@@ -235,6 +235,16 @@ export function Sidebar({ active, onNavigate, open, onToggle, username, onLogout
   );
 }
 
+// ── Shell isolation ─────────────────────────────────────────────────────────
+// memo with the default shallow prop comparison — no custom comparator, so
+// nothing here can silently swallow a real prop change. Root owns a dozen
+// independent pieces of state (three datasets, the Dashboard snapshot, the
+// Settings activity list, `loading`, migration flags), and this column depends
+// on none of them; paired with the stable callbacks in App.tsx that means the
+// chrome sits out every data-driven re-render and still repaints the instant
+// `active`, `open`, `username` or a badge count actually moves.
+export const Sidebar = memo(SidebarComponent);
+
 const bottomNavItems: { key: PageKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { key: 'surat-masuk', label: 'Surat Masuk', icon: Inbox },
@@ -261,7 +271,7 @@ const bottomNavTab = 'relative flex min-h-14 flex-1 flex-col items-center justif
 const bottomNavRail = 'absolute inset-x-4 top-0 h-0.5 rounded-b-full bg-office-primary dark:bg-emerald-400';
 
 /** Fixed bottom tab bar for small screens — the sidebar drawer remains reachable via the "Lainnya" tab, which opens it, so Export/Backup/Settings stay one tap away without needing their own slots. */
-export function BottomNav({ active, onNavigate, onMore, suratKeluarBadge = 0 }: BottomNavProps) {
+function BottomNavComponent({ active, onNavigate, onMore, suratKeluarBadge = 0 }: BottomNavProps) {
   const moreActive = active === 'export' || active === 'backup' || active === 'settings';
   return (
     <nav
@@ -301,6 +311,9 @@ export function BottomNav({ active, onNavigate, onMore, suratKeluarBadge = 0 }: 
   );
 }
 
+// Same deal as the Sidebar above: default shallow comparison, no comparator.
+export const BottomNav = memo(BottomNavComponent);
+
 interface HeaderProps {
   /**
    * Label of the current route, rendered as location context — deliberately
@@ -318,7 +331,7 @@ interface HeaderProps {
   onToggleTheme: () => void;
 }
 
-export function Header({ pageLabel, onMenuClick, theme, onToggleTheme }: HeaderProps) {
+function HeaderComponent({ pageLabel, onMenuClick, theme, onToggleTheme }: HeaderProps) {
   return (
     // pt-[env(safe-area-inset-top)] on the sticky bar itself: installed as a
     // PWA the app draws under the status bar, and without this the menu button
@@ -352,5 +365,10 @@ export function Header({ pageLabel, onMenuClick, theme, onToggleTheme }: HeaderP
     </header>
   );
 }
+
+// Four props, two of them stable callbacks: with shallow comparison this bar
+// only redraws when the route label or the theme changes, which is exactly when
+// it has something new to say.
+export const Header = memo(HeaderComponent);
 
 export { APP_TITLE, APP_SHORT };

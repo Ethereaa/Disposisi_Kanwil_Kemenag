@@ -513,32 +513,52 @@ function Root() {
     };
   }, [authed, refreshSnapshot, refreshSettingsActivity, refreshMasuk, refreshKeluar, refreshAgenda, refreshWorkCounts]);
 
-  function toggleTheme() {
+  // ── Shell callbacks ───────────────────────────────────────────────────────
+  // Everything below is handed to a memoised chrome component (Sidebar, Header,
+  // BottomNav, QuickAddFab), so each one is wrapped in useCallback. The stable
+  // identity IS the mechanism: Root re-renders on any of a dozen unrelated data
+  // states, and a handler rebuilt on each of those renders would fail the memo's
+  // shallow compare and repaint the chrome anyway. Deps are the minimum that
+  // keeps behaviour byte-identical — `theme` and `page` are read, so they are
+  // listed; the setters and module-scope helpers are already stable.
+  const toggleTheme = useCallback(() => {
     const next: Theme = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
     persistTheme(next);
     applyTheme(next);
-  }
+  }, [theme]);
 
-  function handleNavigate(p: PageKey) {
-    // Skeleton from the moment navigation starts, for the same reason as in the
-    // popstate handler above. Guarded on an actual page change: navigating to
-    // the page already open (Quick Add does exactly that) starts no load, and
-    // an unguarded setLoading(true) would strand the skeleton there.
-    if (p !== page) setLoading(true);
-    setPage(p);
-    window.history.pushState({}, '', buildRoutePath(pagePathMap[p]));
-    setSidebarOpen(false);
-  }
+  // The drawer's two chrome entry points, previously inline arrows in the JSX —
+  // the one thing that would have kept Sidebar/Header/BottomNav re-rendering
+  // regardless of the memo.
+  const toggleSidebar = useCallback(() => setSidebarOpen((open) => !open), []);
+  const openSidebar = useCallback(() => setSidebarOpen(true), []);
+
+  const handleNavigate = useCallback(
+    (p: PageKey) => {
+      // Skeleton from the moment navigation starts, for the same reason as in the
+      // popstate handler above. Guarded on an actual page change: navigating to
+      // the page already open (Quick Add does exactly that) starts no load, and
+      // an unguarded setLoading(true) would strand the skeleton there.
+      if (p !== page) setLoading(true);
+      setPage(p);
+      window.history.pushState({}, '', buildRoutePath(pagePathMap[p]));
+      setSidebarOpen(false);
+    },
+    [page],
+  );
 
   // "+ Tambah Cepat" floating button: jump to the right page (even if a
   // different one is currently open) and signal it to pop its own "add"
   // form modal straight away, so entering a new surat/agenda never
   // requires navigating there first.
-  function handleQuickAdd(target: QuickAddTarget) {
-    handleNavigate(target);
-    setQuickAdd({ target, token: Date.now() });
-  }
+  const handleQuickAdd = useCallback(
+    (target: QuickAddTarget) => {
+      handleNavigate(target);
+      setQuickAdd({ target, token: Date.now() });
+    },
+    [handleNavigate],
+  );
 
   // The token above is a ONE-SHOT event, so the page that acts on it drops it
   // straight away. Leaving it parked in state was enough to make the add form
@@ -567,17 +587,17 @@ function Root() {
     setPage(targetRoute.type === 'page' ? targetRoute.page : 'dashboard');
   }
 
-  async function handleLogout() {
+  const handleLogout = useCallback(async () => {
     await logout();
     setUser(null);
     setAuthed(false);
     setPage('dashboard');
     window.history.replaceState({}, '', buildRoutePath('/login'));
-  }
+  }, []);
 
-  function handleUserUpdated() {
+  const handleUserUpdated = useCallback(() => {
     getCurrentUser().then(setUser);
-  }
+  }, []);
 
   async function handleMigrate() {
     setMigrating(true);
@@ -659,7 +679,7 @@ function Root() {
         active={page}
         onNavigate={handleNavigate}
         open={sidebarOpen}
-        onToggle={() => setSidebarOpen((o) => !o)}
+        onToggle={toggleSidebar}
         username={user?.username || ''}
         onLogout={handleLogout}
         suratKeluarBadge={workCounts.unsignedKeluar}
@@ -669,14 +689,14 @@ function Root() {
       <BottomNav
         active={page}
         onNavigate={handleNavigate}
-        onMore={() => setSidebarOpen(true)}
+        onMore={openSidebar}
         suratKeluarBadge={workCounts.unsignedKeluar}
       />
 
       <div className="flex-1 min-w-0 flex flex-col">
         <Header
           pageLabel={pageLabel[page]}
-          onMenuClick={() => setSidebarOpen(true)}
+          onMenuClick={openSidebar}
           theme={theme}
           onToggleTheme={toggleTheme}
         />

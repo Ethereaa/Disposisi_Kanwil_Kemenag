@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { Plus, Inbox, Send, Briefcase, X } from 'lucide-react';
 import type { PageKey } from '@/types';
 
@@ -18,7 +18,7 @@ const options: { key: QuickAddTarget; label: string; icon: typeof Inbox; color: 
 // jump straight into "add" for Surat Masuk / Surat Keluar / Agenda
 // Pimpinan without navigating to that page first — the most frequent
 // action in the app, so it should never be more than 2 taps away.
-export function QuickAddFab({ onSelect }: QuickAddFabProps) {
+function QuickAddFabComponent({ onSelect }: QuickAddFabProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -86,3 +86,9 @@ export function QuickAddFab({ onSelect }: QuickAddFabProps) {
     </div>
   );
 }
+
+// One prop, and it is a callback. With a stable `onSelect` from App.tsx and the
+// default shallow comparison (no custom comparator) the FAB keeps its own local
+// `open` state entirely to itself: Root re-rendering behind it can no longer
+// collapse or repaint the menu somebody has just opened.
+export const QuickAddFab = memo(QuickAddFabComponent);
