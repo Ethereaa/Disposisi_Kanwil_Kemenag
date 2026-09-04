@@ -667,6 +667,8 @@ export async function bulkInsertMasuk(items: SuratMasuk[]): Promise<void> {
   }));
   const { error } = await supabase.from('surat_masuk').insert(rows);
   if (error) throw error;
+  // Restore canonical ordering: highest Nomor Agenda first.
+  await resequenceSuratMasukByNomorAgenda();
 }
 
 export async function bulkInsertAgendaPimpinan(items: AgendaPimpinan[]): Promise<void> {
@@ -685,6 +687,8 @@ export async function bulkInsertAgendaPimpinan(items: AgendaPimpinan[]): Promise
   }));
   const { error } = await supabase.from('agenda_pimpinan').insert(rows);
   if (error) throw error;
+  // Restore canonical ordering: latest event date first, NULL dates last.
+  await resequenceAgendaPimpinan();
 }
 
 export async function bulkInsertKeluar(items: SuratKeluar[]): Promise<void> {
@@ -703,6 +707,8 @@ export async function bulkInsertKeluar(items: SuratKeluar[]): Promise<void> {
   }));
   const { error } = await supabase.from('surat_keluar').insert(rows);
   if (error) throw error;
+  // Restore canonical ordering: latest Tanggal Surat first.
+  await resequenceSuratKeluarByTanggal();
 }
 
 export const suratMasukStore: SuratTable = 'surat_masuk';
