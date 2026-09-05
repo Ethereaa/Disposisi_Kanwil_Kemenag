@@ -426,26 +426,31 @@ export async function insertMasukSorted(
   return mapMasuk(data as MasukRow);
 }
 
+// Applies a full edit and re-ranks every row by Nomor Agenda (highest
+// nomor_agenda = nomor_urut 1) in ONE atomic request, via the
+// update_surat_masuk_sorted() database function. The previous shape — a
+// direct UPDATE followed by a separate resequence call — left a window
+// where the row held its new Nomor Agenda while nomor_urut still reflected
+// the old one, and a failure between the two requests made that state
+// permanent. The RPC does both under a per-table advisory lock instead.
+//
+// updated_at is deliberately not set here: the RPC owns it for this edit,
+// so a full edit and a status-only change can't disagree about the clock.
 export async function updateMasuk(id: string, record: Omit<SuratMasuk, 'id' | 'createdAt' | 'updatedAt' | 'nomorUrut' | 'statusDisposisi' | 'statusUpdatedAt'>): Promise<void> {
-  const { error } = await supabase
-    .from('surat_masuk')
-    .update({
-      nomor_surat: record.nomorSurat,
-      nomor_agenda: record.nomorAgenda,
-      tanggal_surat: record.tanggalSurat,
-      tanggal_diterima: record.tanggalDiterima,
-      pengirim: record.pengirim,
-      perihal: record.perihal,
-      tujuan_disposisi: record.tujuanDisposisi,
-      sub_disposisi: record.subDisposisi ?? null,
-      isi_disposisi: record.isiDisposisi,
-      keterangan: record.keterangan,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', id);
+  const { error } = await supabase.rpc('update_surat_masuk_sorted', {
+    p_id: id,
+    p_nomor_surat: record.nomorSurat,
+    p_nomor_agenda: record.nomorAgenda,
+    p_tanggal_surat: record.tanggalSurat,
+    p_tanggal_diterima: record.tanggalDiterima,
+    p_pengirim: record.pengirim,
+    p_perihal: record.perihal,
+    p_tujuan_disposisi: record.tujuanDisposisi,
+    p_sub_disposisi: record.subDisposisi ?? null,
+    p_isi_disposisi: record.isiDisposisi,
+    p_keterangan: record.keterangan,
+  });
   if (error) throw error;
-  // Nomor Agenda may have changed, so re-rank every row by it.
-  await resequenceSuratMasukByNomorAgenda();
 }
 
 // Changes only the disposisi workflow status (Baru/Diproses/Selesai) for a
@@ -509,22 +514,21 @@ export async function insertKeluarSorted(
   return mapKeluar(data as KeluarRow);
 }
 
+// Applies a full edit and re-ranks every row by Tanggal Surat (latest date
+// = nomor_urut 1) in ONE atomic request, via the
+// update_surat_keluar_sorted() database function — same reasoning as
+// updateMasuk() above. updated_at is owned by the RPC.
 export async function updateKeluar(id: string, record: Omit<SuratKeluar, 'id' | 'createdAt' | 'updatedAt' | 'nomorUrut'>): Promise<void> {
-  const { error } = await supabase
-    .from('surat_keluar')
-    .update({
-      nomor_surat: record.nomorSurat,
-      tanggal_surat: record.tanggalSurat,
-      pengirim: record.pengirim,
-      perihal: record.perihal,
-      ditandatangani: record.ditandatangani,
-      keterangan: record.keterangan,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', id);
+  const { error } = await supabase.rpc('update_surat_keluar_sorted', {
+    p_id: id,
+    p_nomor_surat: record.nomorSurat,
+    p_tanggal_surat: record.tanggalSurat,
+    p_pengirim: record.pengirim,
+    p_perihal: record.perihal,
+    p_ditandatangani: record.ditandatangani,
+    p_keterangan: record.keterangan,
+  });
   if (error) throw error;
-  // Tanggal Surat may have changed, so re-rank every row by it.
-  await resequenceSuratKeluarByTanggal();
 }
 
 export async function insertAgendaPimpinan(record: Omit<AgendaPimpinan, 'id' | 'createdAt' | 'updatedAt'>): Promise<AgendaPimpinan> {
@@ -571,31 +575,41 @@ export async function insertAgendaPimpinanSorted(
   return mapAgenda(data as AgendaRow);
 }
 
+// Applies a full edit and re-ranks every row by event date (newest
+// tanggal_kegiatan = nomor_urut 1) in ONE atomic request, via the
+// update_agenda_pimpinan_sorted() database function — same reasoning as
+// updateMasuk() above. updated_at stays owned by agenda_pimpinan's scoped
+// trigger, so it is not set here either.
 export async function updateAgendaPimpinan(id: string, record: Omit<AgendaPimpinan, 'id' | 'createdAt' | 'updatedAt' | 'nomorUrut'>): Promise<void> {
-  const { error } = await supabase
-    .from('agenda_pimpinan')
-    .update({
-      tanggal_kegiatan: record.tanggalKegiatan,
-      waktu_kegiatan: record.waktuKegiatan,
-      nama_kegiatan: record.namaKegiatan,
-      tempat_kegiatan: record.tempatKegiatan,
-      keterangan: record.keterangan,
-      disposisi_pegawai: record.disposisiPegawai,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', id);
+  const { error } = await supabase.rpc('update_agenda_pimpinan_sorted', {
+    p_id: id,
+    p_tanggal_kegiatan: record.tanggalKegiatan,
+    p_waktu_kegiatan: record.waktuKegiatan,
+    p_nama_kegiatan: record.namaKegiatan,
+    p_tempat_kegiatan: record.tempatKegiatan,
+    p_keterangan: record.keterangan,
+    p_disposisi_pegawai: record.disposisiPegawai,
+  });
   if (error) throw error;
-  // The date may have changed, so re-rank every row by event date.
-  await resequenceAgendaPimpinan();
 }
 
+// Deletes one surat row and closes the gap it leaves in nomor_urut in ONE
+// atomic request. The table argument picks the matching RPC rather than
+// hitting the table directly, so callers cannot forget the resequence step
+// (and cannot observe the gap in between) — the RPC resequences under the
+// same per-table advisory lock the sorted inserts and updates use.
+const DELETE_SURAT_RPC: Record<SuratTable, string> = {
+  surat_masuk: 'delete_surat_masuk_sorted',
+  surat_keluar: 'delete_surat_keluar_sorted',
+};
+
 export async function deleteRow(table: SuratTable, id: string): Promise<void> {
-  const { error } = await supabase.from(table).delete().eq('id', id);
+  const { error } = await supabase.rpc(DELETE_SURAT_RPC[table], { p_id: id });
   if (error) throw error;
 }
 
 export async function deleteAgendaPimpinan(id: string): Promise<void> {
-  const { error } = await supabase.from('agenda_pimpinan').delete().eq('id', id);
+  const { error } = await supabase.rpc('delete_agenda_pimpinan_sorted', { p_id: id });
   if (error) throw error;
 }
 

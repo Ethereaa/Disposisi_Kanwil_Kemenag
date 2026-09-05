@@ -10,7 +10,7 @@ import { SuratKeluarStatusBadge } from '@/components/ui/StatusBadge';
 import { useToast } from '@/components/ui/Toast';
 import type { SuratKeluar } from '@/types';
 import { isoToDisplay, formatDateTime, isWithinRange } from '@/lib/date';
-import { deleteRow, resequenceSuratKeluarByTanggal } from '@/lib/db';
+import { deleteRow } from '@/lib/db';
 import { getErrorMessage } from '@/lib/error';
 import { SuratKeluarForm } from './SuratKeluarForm';
 import { DateRangeFilter } from '@/components/ui/DateRangeFilter';
@@ -154,7 +154,6 @@ export function SuratKeluarPage({ rows, onRefresh, canDelete = false, quickAddSi
     setRemovedIds((prev) => new Set(prev).add(id));
     try {
       await deleteRow('surat_keluar', id);
-      await resequenceSuratKeluarByTanggal();
       toast('Data berhasil dihapus.', 'success');
       onRefresh();
     } catch (err) {

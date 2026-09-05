@@ -7,7 +7,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { IconButton } from '@/components/ui/IconButton';
 import { useToast } from '@/components/ui/Toast';
 import { isoToDisplayWithDay, formatDateTime } from '@/lib/date';
-import { deleteAgendaPimpinan, resequenceAgendaPimpinan } from '@/lib/db';
+import { deleteAgendaPimpinan } from '@/lib/db';
 import { getErrorMessage } from '@/lib/error';
 import type { AgendaPimpinan } from '@/types';
 import { AgendaPimpinanForm } from './AgendaPimpinanForm';
@@ -161,7 +161,6 @@ export function AgendaPimpinanPage({ rows, onRefresh, canDelete = false, quickAd
     setRemovedIds((prev) => new Set(prev).add(id));
     try {
       await deleteAgendaPimpinan(id);
-      await resequenceAgendaPimpinan();
       toast('Agenda berhasil dihapus.', 'success');
       onRefresh();
     } catch (err) {

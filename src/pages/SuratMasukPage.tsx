@@ -11,7 +11,7 @@ import { useToast } from '@/components/ui/Toast';
 import type { SuratMasuk, StatusDisposisi } from '@/types';
 import { TUJUAN_DISPOSISI, STATUS_DISPOSISI, STATUS_DISPOSISI_LABEL } from '@/types';
 import { isoToDisplay, formatDateTime, isWithinRange, businessDaysSince } from '@/lib/date';
-import { deleteRow, resequenceSuratMasukByNomorAgenda, updateStatusDisposisi, getOverdueThresholdDays } from '@/lib/db';
+import { deleteRow, updateStatusDisposisi, getOverdueThresholdDays } from '@/lib/db';
 import { getErrorMessage } from '@/lib/error';
 import { SuratMasukForm } from './SuratMasukForm';
 import { DateRangeFilter } from '@/components/ui/DateRangeFilter';
@@ -243,7 +243,6 @@ export function SuratMasukPage({ rows, onRefresh, canDelete = false, quickAddSig
     setRemovedIds((prev) => new Set(prev).add(id));
     try {
       await deleteRow('surat_masuk', id);
-      await resequenceSuratMasukByNomorAgenda();
       toast('Data berhasil dihapus.', 'success');
       onRefresh();
     } catch (err) {
